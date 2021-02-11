@@ -1,6 +1,6 @@
 # "Describe Your Espresso" DE1app plugin
 
-"Describe Your Espresso" (DYE) is a plugin for the [Decent Espresso machine](https://decentespresso.com/) [DE1 app](https://github.com/decentespresso/de1app](https://github.com/decentespresso/de1app).
+"Describe Your Espresso" (DYE) is a plugin for the [Decent Espresso machine](https://decentespresso.com/) [DE1 app](https://github.com/decentespresso/de1app).
 
 It improves the default shot logging functionality, allowing users to edit, modify and use shot metadata such as beans, grinder, EY & TDS or espresso description, for any shot in the history.
 
