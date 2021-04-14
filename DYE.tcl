@@ -45,6 +45,7 @@
 package require de1_logging 1.0
 
 set ::skindebug 1 
+plugins enable DYE
 
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
@@ -85,9 +86,6 @@ proc ::plugins::DYE::main {} {
 	msg "Starting the 'Describe Your Espresso' plugin"
 	check_versions
 		
-	foreach ns {DE FSH CFG} { ::plugins::DYE::${ns}::setup_ui }
-	# MENU
-	
 	set skin $::settings(skin)
 	set skin_src_fn "[plugin_directory]/DYE/setup_${skin}.tcl"
 	if { [file exists $skin_src_fn] } { source $skin_src_fn }
@@ -95,7 +93,7 @@ proc ::plugins::DYE::main {} {
 	if { [namespace which -command "::plugins::DYE::setup_ui_$::settings(skin)"] ne "" } {
 		::plugins::DYE::setup_ui_$::settings(skin)
 	}
-
+	dui page add {DYE} -namespace true
 	
 	# Update the describe settings when the a shot is started 
 	trace add execution ::reset_gui_starting_espresso enter ::plugins::DYE::reset_gui_starting_espresso_enter_hook
@@ -120,24 +118,25 @@ proc ::plugins::DYE::main {} {
 
 # Paint settings screen
 proc ::plugins::DYE::preload {} {
-	if { [plugins available DGUI] && [plugins available SDB] } {
-		plugins preload DGUI
+	if { [plugins available SDB] } {
 		plugins preload SDB
-
-		::plugins::DGUI::set_symbols filter "\uf0b0" people "\uf500" plug "\uf1e6" cup "\uf0f4" \
-			file_upload "\uf574" file_import "\uf56f" file_contract "\uf56c" cloud_download_alt "\uf381" \
-			plus "\uf067" pencil "\uf303" paintbrush "\uf5a9" db "\uf1c0" sync "\uf021" \
-			circle "\uf111" circle_right "\uf138" circle_left "\uf137" circle_up "\uf331" circle_down "\uf32d" \
-			circle_times "\uf057" circle_check "\uf058" \
-			bars "\uf0c9" window_close "\uf410" \
-			forward "\uf04e" fast_forward "\uf050" backward "\uf04a" fast_backward "\uf049" search "\uf002"
-		
-		check_settings
-		plugins save_settings DYE
-
-		::plugins::DYE::CFG::setup_ui
-		return "::plugins::DYE::CFG"
 	}
+	
+	# Because DUI calls the page setup commands automatically we need to initialize stuff here
+	dui add image_dirs "[homedir]/[plugin_directory]/DYE/"
+		
+	dui symbol set {filter "\uf0b0" people "\uf500" plug "\uf1e6" cup "\uf0f4" 
+		file_upload "\uf574" file_import "\uf56f" file_contract "\uf56c" cloud_download_alt "\uf381" 
+		plus "\uf067" pencil "\uf303" paintbrush "\uf5a9" db "\uf1c0" sync "\uf021" 
+		circle "\uf111" circle_right "\uf138" circle_left "\uf137" circle_up "\uf331" circle_down "\uf32d" 
+		circle_times "\uf057" circle_check "\uf058" bars "\uf0c9" window_close "\uf410" 
+		forward "\uf04e" fast_forward "\uf050" backward "\uf04a" fast_backward "\uf049" search "\uf002" }
+	
+	check_settings
+	plugins save_settings DYE
+
+	#dui page add DYE_settings -namespace true	
+	#return DYE_settings
 }
 
 proc ::plugins::DYE::msg { {flag ""} args } {
@@ -148,7 +147,7 @@ proc ::plugins::DYE::msg { {flag ""} args } {
 	}
 }
 
-# Verify the minimum required versions of DE1 app & skin are used, and that reuired plugins are availabe and installed,
+# Verify the minimum required versions of DE1 app & skin are used, and that required plugins are availabe and installed,
 #	otherwise prevents startup.
 proc ::plugins::DYE::check_versions {} {
 	if { [package vcompare [package version de1app] $::plugins::DYE::min_de1app_version] < 0 } {
@@ -171,12 +170,6 @@ $::settings(skin) skin v[subst \$::plugins::DYE::min_$::settings(skin)_version] 
 	
 	# Check plugin dependencies, and ensure they're loaded in the correct order.
 	set depends_msg "" 		
-	if { [plugins available DGUI] } {
-		plugins load DGUI
-	} else {		
-		append depends_msg [translate "Please install 'Describe GUI' plugin for 'Describe Your Espresso' to work"]
-	}
-	
 	if { [plugins available SDB] } {
 		plugins load SDB
 	} else {
@@ -198,7 +191,7 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(shot_desc_font_color) $::plugins::DYE::default_shot_desc_font_color
 	ifexists settings(describe_from_sleep) 1
 	ifexists settings(date_format) "%d/%m/%Y"
-	ifexists settings(describe_icon) $::plugins::DGUI::symbols(cup)
+	ifexists settings(describe_icon) [dui symbol get cup]
 	ifexists settings(propagate_previous_shot_desc) 1
 	ifexists settings(backup_modified_shot_files) 0
 	ifexists settings(use_stars_to_rate_enjoyment) 1
@@ -226,13 +219,13 @@ proc ::plugins::DYE::check_settings {} {
 		}
 	}
 	
-	ifexists settings(visualizer_url) "visualizer.coffee"
-	ifexists settings(visualizer_endpoint) "api/shots/upload"
-	if { ![info exists settings(visualizer_username)] } { set settings(visualizer_username) {} }
-	if { ![info exists settings(visualizer_password)] } { set settings(visualizer_password) {} }
-	if { ![info exists settings(last_visualizer_result)] } { set settings(last_visualizer_result) {} }
-	ifexists settings(auto_upload_to_visualizer) 0
-	ifexists settings(min_seconds_visualizer_auto_upload) 6
+#	ifexists settings(visualizer_url) "visualizer.coffee"
+#	ifexists settings(visualizer_endpoint) "api/shots/upload"
+#	if { ![info exists settings(visualizer_username)] } { set settings(visualizer_username) {} }
+#	if { ![info exists settings(visualizer_password)] } { set settings(visualizer_password) {} }
+#	if { ![info exists settings(last_visualizer_result)] } { set settings(last_visualizer_result) {} }
+#	ifexists settings(auto_upload_to_visualizer) 0
+#	ifexists settings(min_seconds_visualizer_auto_upload) 6
 
 	set settings(version) $::plugins::DYE::version
 
@@ -572,9 +565,58 @@ proc ::plugins::DYE::plugin_directory_graphics {} {
 	return $dir
 }
 
+proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button yes} {cancel_button yes} {buttons_loc right} } {
+	if { $title ne "" } {
+		dui add text $page 1280 60 -text $title -tags page_title -style page_title 
+	} elseif { $titlevar ne "" } {
+		dui add variable $page 1280 60 -textvariable $titlevar -tags page_title -style page_title
+	}
+
+	set done_button [string is true $done_button]
+	set cancel_button [string is true $cancel_button]
+	set button_width [dui aspect get dbutton bwidth 390]
+	
+	if { $buttons_loc eq "center" } {
+		if { $done_button && $cancel_button } {
+			set x_cancel [expr {1280-$button_width-75}]
+			set x_done [expr {1280+75}]
+		} elseif { $done_button } {
+			set x_done [expr {1280-$button_width/2}]
+		} elseif { $cancel_button } {
+			set x_cancel [expr {1280-$button_width/2}]
+		}
+	} elseif { $buttons_loc eq "left" } {
+		if { $done_button && $cancel_button } {
+			set x_cancel 100
+			set x_done 400
+		} elseif { $done_button } {
+			set x_done 100
+		} elseif { $cancel_button } {
+			set x_cancel 100
+		}
+	} else {
+		if { $done_button && $cancel_button } {
+			set x_cancel 1900
+			set x_done 2200
+		} elseif { $done_button } {
+			set x_done 2200
+		} elseif { $cancel_button } {
+			set x_cancel 2200
+		}
+	}
+
+	set y 1425	
+	if { $cancel_button } {
+		dui add dbutton $page $x_cancel $y -label [translate Cancel] -tags page_cancel -style dsx_done
+	}
+	if { $done_button } {
+		dui add dbutton $page $x_done $y -label [translate Ok] -tags page_done -style dsx_done
+	}
+}
+
 ### "DESCRIBE YOUR ESPRESSO" PAGE #####################################################################################
 
-namespace eval ::plugins::DYE::DE {
+namespace eval ::dui::pages::DYE {
 	variable widgets
 	array set widgets {}
 	
@@ -583,7 +625,6 @@ namespace eval ::plugins::DYE::DE {
 	# right of the history viewer). Values are actually saved only when tapping the "Done" button.
 	variable data
 	array set data {
-		page_name "::plugins::DYE::DE"
 		page_painted 0
 		previous_page {}
 		page_title {translate {Describe your espresso}}
@@ -623,11 +664,179 @@ namespace eval ::plugins::DYE::DE {
 	array set src_data {}
 }
 
+proc ::dui::pages::DYE::setup {} {
+	variable data
+	variable widgets
+	set page [namespace tail [namespace current]]
+	set skin $::settings(skin)	
+	
+	::plugins::DYE::page_skeleton $page "" page_title yes yes right
+	
+	# LEFT COLUMN 
+	set x_left_label 100; set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
+	
+	set y 40
+	dui add symbol $page $x_left_label $y -symbol backward -tags move_backward -style dye_main_nav_button -command true
+	
+	dui add symbol $page [expr {$x_left_label+140}] $y -symbol search -tags search_shot -style dye_main_nav_button \
+		-command yes
+	
+	dui add symbol $page [expr {$x_left_label+280}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
+		-command yes
+	
+	dui add symbol $page [expr {$x_left_label+420}] $y fast_forward -tags move_to_next -style dye_main_nav_button \
+		-command yes
+	
+	# BEANS DATA
+	dui add image $page $x_left_label 150 "bean_${skin}.png" -tags beans_img
+	dui add text $page $x_left_field 250 -text [translate "Beans"] -tags beans_header -style section_header \
+		-command beans_select
+	
+	dui add symbol $page [expr {$x_left_field+300}] 245 -tags beans_select -symbol sort_down -font_size 24 -command yes
+
+	# Beans roaster / brand 
+	set y 350
+	dui add dcombobox $page $x_left_field $y -tags bean_brand -width $width_left_field \
+		-label [translate [::plugins::SDB::field_lookup bean_brand name]] -label_pos [list $x_left_label $y] \
+		-values {[::plugins::SDB::available_categories bean_brand]} 
+	
+	# Beans type/name
+	incr y 100
+	dui add dcombobox $page $x_left_field $y -tags bean_type -width $width_left_field \
+		-label [translate [::plugins::SDB::field_lookup bean_type name]] -label_pos [list $x_left_label $y] \
+		-values {[::plugins::SDB::available_categories bean_type]} 
+
+	# Roast date
+	incr y 100
+	dui add entry $page $x_left_field $y -tags roast_date -width $width_left_field \
+		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_pos [list $x_left_label $y] \
+
+	# Roast level
+	incr y 100
+	dui add dcombobox $page $x_left_field $y -tags roast_level -width $width_left_field \
+		-label [translate [::plugins::SDB::field_lookup roast_level name]] -label_pos [list $x_left_label $y] \
+		-values {[::plugins::SDB::available_categories roast_level]}
+
+	# Bean notes
+	incr y 100
+	dui add multiline_entry $page $x_left_field $y -tags bean_notes -width $width_left_field -height 3 \
+		-label [translate [::plugins::SDB::field_lookup bean_notes name]] -label_pos [list $x_left_label $y]
+	
+	# EQUIPMENT
+	set y 925
+
+	dui add image $page $x_left_label $y "niche_${skin}.png" -tags equipment_img
+	dui add text $page $x_left_field [expr {$y+130}] -text [translate "Equipment"] -style section_header
+		
+	# Other equipment (EXPERIMENTAL)
+#	if { [info exists ::debugging] && $::debugging == 1 } {
+#		dui add dbutton $page $x_left_label [expr {$y+50}] [expr {$x_left_field+400}] [expr {$y+200}] \
+#			-command { say "" $::settings(sound_button_in); ::plugins::DYE::SEQ::load_page } \			
+#	}
+	
+	# Grinder model
+	incr y 240
+	dui add dcombobox $page $x_left_field $y -tags grinder_model -width $width_left_field \
+		-label [translate [::plugins::SDB::field_lookup grinder_model name]] -label_pos [list $x_left_label $y] \
+		-values {[::plugins::SDB::available_categories grinder_model]} -callback_cmd select_grinder_model_callback
+	
+	# Grinder setting
+	incr y 100
+	dui add dcombobox $page $x_left_field $y -tags grinder_setting -width $width_left_field \
+		-label [translate [::plugins::SDB::field_lookup grinder_setting name]] -label_pos [list $x_left_label $y] \
+		-command grinder_setting_select
+	
+	# EXTRACTION
+	set x_right_label 1280; set x_right_field 1525
+	dui add image $page $x_right_label 150 "espresso_${skin}.png" -tags extraction_img
+	dui add text $page 1550 250 -text [translate "Extraction"] -style section_header
+
+	# Calc EY from TDS button
+	dui add dbutton $page 2000 125 -tags calc_ey_from_tds -style dsx_settings -label [translate "Calc EY from TDS"] \
+		-label_pos {0.5 0.38} -label1variable {$::plugins::DYE::settings(calc_ey_from_tds)} -label1_pos {0.5 0.7} \
+		-command calc_ey_from_tds_click
+	
+	# Grinder Dose weight
+	set y 350
+	dui add entry $page $x_right_field $y -tags grinder_dose_weight -width 8 -label_pos [list $x_right_label $y] \
+		-label [translate [::plugins::SDB::field_lookup grinder_dose_weight name]] -data_type numeric
+	bind $widgets(grinder_dose_weight) <FocusOut> ::dui::pages::DYE::calc_ey_from_tds
+	
+	# Drink weight
+	set offset 525
+	dui add entry $page [expr {$x_right_field+$offset}] $y -tags drink_weight -width 8 \
+		-label [translate [::plugins::SDB::field_lookup drink_weight name]] \
+		-label_pos [list [expr {$x_right_label+$offset}] $y] -data_type numeric	
+	bind $widgets(drink_weight) <FocusOut> ::dui::pages::DYE::calc_ey_from_tds
+	
+	# Total Dissolved Solids
+	set x_hclicker_field 2050
+	incr y 100	
+#	dui add dclicker $page $x_hclicker_field $y -tags drink_tds -width 5 \
+#		-label [translate [::plugins::SDB::field_lookup drink_tds name]] -label_pos [list $x_right_label $y] \
+#		-clicker_cmd %NS::calc_ey_from_tds
+#	bind $widgets(drink_tds) <FocusOut> ::dui::pages::DYE::calc_ey_from_tds
+
+	# Extraction Yield
+	incr y 100
+#	dui add dclicker $page $x_hclicker_field $y -tags drink_ey -width 5 \
+#		-label [translate [::plugins::SDB::field_lookup drink_ey name]] -label_pos [list $x_right_label $y] 
+	
+	# Enjoyment entry with horizontal clicker
+	incr y 100
+#	dui add dclicker $page $x_hclicker_field $y -tags espresso_enjoyment -width 5 \
+#		-label [translate [::plugins::SDB::field_lookup espresso_enjoyment name]] -label_pos [list $x_right_label $y]
+#	bind $widgets(espresso_enjoyment) <KeyPress> { if {[string is entier %K] != 1} break }
+	
+	# Enjoyment stars rating (on top of the enjoyment text entry + arrows, then dinamically one or the other is hidden
+	#	when the page is shown, depending on the settings)
+	dui add drater $page [expr {$x_hclicker_field-250}] $y -tags espresso_enjoyment_rater -width 610 \
+		-variable espresso_enjoyment
+	
+	# Espresso notes
+	incr y 100
+	dui add multiline_entry $page $x_right_field $y -tags espresso_notes -width 45 -height 5 \
+		-label [translate [::plugins::SDB::field_lookup espresso_notes name]] -label_pos [list $x_right_label $y]
+
+	# PEOPLE
+	set y 1030
+	dui add image $page $x_right_label $y "people_${skin}.png" -tags people_img
+	dui add text $page $x_right_field [expr {$y+140}] -text [translate "People"] -style section_header
+		
+	# Barista (my_name)
+	incr y 240
+	dui add dcombobox $page $x_right_field $y -tags my_name -width 15 \
+		-label [translate [::plugins::SDB::field_lookup my_name name]] -label_pos [list $x_right_label $y] \
+		-values {[::plugins::SDB::available_categories my_name]}
+	
+	# Drinker name
+	dui add dcombobox $page [expr {$x_right_field+600}] $y -tags drinker_name -width 15 \
+		-label [translate [::plugins::SDB::field_lookup drinker_name name]] -label_pos [list [expr {$x_right_label+700}] $y] \
+		-values {[::plugins::SDB::available_categories drinker_name]}
+	
+	# BOTTOM BUTTONS	
+	# Clear shot data (only clears "propagated" fields)
+	set x 100; set y 1385
+	dui add dbutton $page $x $y -tags clear_shot_data -style dsx_settings -symbol eraser -label [translate "Clear shot\rdata"]	
+
+	# Recover "propagated" fields from a previous shot
+	set x [expr {$x+[dui aspect get dbutton bwidth -style dsx_settings -default 400]+75}]
+	set data(read_from_label) [translate $data(read_from_last_text)]
+	dui add dbutton $page $x $y -tags read_from -style dsx_settings -symbol file_import -labelvariable read_from_label
+
+	# Upload to Miha's Visualizer button
+	set x [expr {$x+[dui aspect get dbutton bwidth -style dsx_settings -default 400]+75}]
+	set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
+	dui add dbutton $page $x $y -tags upload_to_visualizer -style dsx_settings -symbol file_upload \
+		-labelvariable upload_to_visualizer_label
+	
+}
+
 # 'which_shot' can be either a clock value matching a past shot clock, or any of 'current', 'next', 'DSx_past' or 
 #	'DSx_past2'.
-proc ::plugins::DYE::DE::load_page { which_shot } {
-	variable data
-	set ns [namespace current]
+proc ::dui::pages::DYE::load { page_to_hide page_to_show which_shot } {
+	variable data	
+	set data(previous_page) $page_to_hide
 	
 	if { [info exists ::settings(espresso_clock)] && $::settings(espresso_clock) ne "" && $::settings(espresso_clock) > 0} {
 		set current_clock $::settings(espresso_clock)
@@ -687,65 +896,54 @@ proc ::plugins::DYE::DE::load_page { which_shot } {
 		info_page [translate "The requested shot description for '$which_shot' is not available"] [translate Ok]
 		return
 	}
-	
-	::plugins::DGUI::set_previous_page $ns
-msg "DE, previous_page=$data(previous_page)"
-	set ::current_espresso_page "off"
-	page_to_show_when_off $ns
-	
-	if { ![ifexists data(page_painted) 0] } {
-		::plugins::DGUI::relocate_dropdown_arrows ::plugins::DYE::DE::widgets "bean_brand bean_type roast_level \
-			grinder_model grinder_setting my_name drinker_name"
-		set data(page_painted) 1
-	}
 }
 
 # This is added to the page context actions, so automatically executed every time (after) the page is shown.
-proc ::plugins::DYE::DE::show_page {} {
+proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 	variable widgets
 	variable data
-	set ns [namespace current]
 
-	::plugins::DGUI::enable_or_disable_widgets [expr {$data(describe_which_shot) ne "next"}] \
-		"move_forward* move_to_next*" $ns
+	dui item enable_or_disable [expr {$data(describe_which_shot) ne "next"}] $page_to_show "move_forward* move_to_next*"
 	if { $data(describe_which_shot) ne "next" } {
 		set previous_shot [::plugins::SDB::previous_shot $data(clock)]
-		::plugins::DGUI::enable_or_disable_widgets [expr {$previous_shot ne ""}] "move_backward*" $ns
+		dui item enable_or_disable [expr {$previous_shot ne ""}] $page_to_show "move_backward*"
 	}
 	
-	if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
-		::plugins::DGUI::hide_widgets "espresso_enjoyment espresso_enjoyment_clicker*" $ns
-		for { set i 1 } { $i <= 5 } { incr i } {
-			.can itemconfig $widgets(espresso_enjoyment_rating$i) -state normal
-			.can itemconfig $widgets(espresso_enjoyment_rating_half$i) -state hidden
-		}
-		::plugins::DGUI::show_widgets "espresso_enjoyment_rating_button" $ns
-	} else {
-		::plugins::DGUI::show_widgets "espresso_enjoyment espresso_enjoyment_clicker*" $ns
-		
-		for { set i 1 } { $i <= 5 } { incr i } {
-			.can itemconfig $widgets(espresso_enjoyment_rating$i) -state hidden
-			.can itemconfig $widgets(espresso_enjoyment_rating_half$i) -state hidden
-		}
-		::plugins::DGUI::hide_widgets "espresso_enjoyment_rating_button" $ns
-	}
+#	if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
+#		dui item hide $page_to_show "espresso_enjoyment espresso_enjoyment_rater*" $ns
+#		for { set i 1 } { $i <= 5 } { incr i } {
+#			.can itemconfig $widgets(espresso_enjoyment_rating$i) -state normal
+#			.can itemconfig $widgets(espresso_enjoyment_rating_half$i) -state hidden
+#		}
+#		::plugins::DGUI::show_widgets "espresso_enjoyment_rating_button" $ns
+#	} else {
+#		::plugins::DGUI::show_widgets "espresso_enjoyment espresso_enjoyment_clicker*" $ns
+#		
+#		for { set i 1 } { $i <= 5 } { incr i } {
+#			.can itemconfig $widgets(espresso_enjoyment_rating$i) -state hidden
+#			.can itemconfig $widgets(espresso_enjoyment_rating_half$i) -state hidden
+#		}
+#		::plugins::DGUI::hide_widgets "espresso_enjoyment_rating_button" $ns
+#	}
 
 	if { $data(describe_which_shot) eq "next" } {
-		::plugins::DGUI::disable_widgets "grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment* \
-			espresso_enjoyment_rating*" $ns
+		dui item disable $page_to_show "grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment* \
+			espresso_enjoyment_rater*"
 	} else {
-		::plugins::DGUI::enable_widgets "grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment*" $ns
+		dui item enable $page_to_show "grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment*"
 		if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
-			::plugins::DGUI::enable_widgets "espresso_enjoyment_rating*" $ns
-			::plugins::DGUI::draw_rating $ns espresso_enjoyment 5
+			dui item enable $page_to_show "espresso_enjoyment_rater*"
+			#::plugins::DGUI::draw_rating $ns espresso_enjoyment 5
 		}
 	}
 	
-	::plugins::DYE::DE::grinder_model_change
-	::plugins::DYE::DE::update_visualizer_button 0
+	dui::item::relocate_text_wrt $page_to_show beans_select beans_header e 25 -8 w
+	
+	grinder_model_change
+	update_visualizer_button 0
 }
 	
-proc ::plugins::DYE::DE::unload_page {} {
+proc ::dui::pages::DYE::unload_page {} {
 	variable data
 
 	if { $data(previous_page) eq "sleep" } {
@@ -753,172 +951,13 @@ proc ::plugins::DYE::DE::unload_page {} {
 		set ::current_espresso_page "off"
 		start_sleep				
 	} elseif { $data(previous_page) ne "" } {
-		page_to_show_when_off $data(previous_page)
+		dui page load $data(previous_page)
 	} else {
-		page_to_show_when_off off
+		dui page load off
 	}	
-}
-	
-proc ::plugins::DYE::DE::setup_ui {} {
-	variable data
-	variable widgets
-	set page [namespace current]
-	set skin $::settings(skin)
-	set img_dir [::plugins::DYE::plugin_directory_graphics]
-	
-	::plugins::DGUI::add_page $page -buttons_loc right 
-	
-	# LEFT COLUMN 
-	set x_left_label 100; set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
-	
-	set y 35
-	::plugins::DGUI::add_symbol $page $x_left_label $y backward -size small -has_button 1 \
-		-button_cmd ::plugins::DYE::DE::move_backward -widget_name move_backward
-	
-	::plugins::DGUI::add_symbol $page [expr {$x_left_label+140}] $y search -size small -has_button 1 \
-		-button_cmd ::plugins::DYE::DE::search_shot -widget_name search_shot
-	
-	::plugins::DGUI::add_symbol $page [expr {$x_left_label+280}] $y forward -size small -has_button 1 \
-		-button_cmd ::plugins::DYE::DE::move_forward -widget_name move_forward
-	
-	::plugins::DGUI::add_symbol $page [expr {$x_left_label+420}] $y fast_forward -size small -has_button 1 \
-		-button_cmd ::plugins::DYE::DE::move_to_next -widget_name move_to_next
-	
-	# BEANS DATA
-	add_de1_image $page $x_left_label 150 "$img_dir/bean_${skin}.png"
-	::plugins::DGUI::add_text $page $x_left_field 250 [translate "Beans"] -font_size $::plugins::DGUI::section_font_size 
-	
-	set x 570; set y 245
-	::plugins::DGUI::add_symbol $page $x [expr {$y-4}] sort_down -size small
-	add_de1_button $page ::plugins::DYE::DE::beans_select [expr {$x-200}] $y [expr {$x+60}] [expr {$y+75}]
+}	
 
-	# Beans roaster / brand 
-	set y 350
-	::plugins::DGUI::add_select_entry $page bean_brand $x_left_label $y $x_left_field $y $width_left_field \
-		-items [::plugins::SDB::available_categories bean_brand] 
-	
-	# Beans type/name
-	incr y 100
-	::plugins::DGUI::add_select_entry $page bean_type $x_left_label $y $x_left_field $y $width_left_field \
-		-items [::plugins::SDB::available_categories bean_type]
-
-	# Roast date
-	incr y 100
-	::plugins::DGUI::add_entry $page roast_date $x_left_label $y $x_left_field $y $width_left_field
-
-	# Roast level
-	incr y 100
-	::plugins::DGUI::add_select_entry $page roast_level $x_left_label $y $x_left_field $y $width_left_field \
-		-items [::plugins::SDB::available_categories roast_level]
-
-	# Bean notes
-	incr y 100
-	::plugins::DGUI::add_multiline_entry $page bean_notes $x_left_label $y $x_left_field $y $width_left_field 3
-	
-	# EQUIPMENT
-	set y 925
-
-	add_de1_image $page $x_left_label $y "$img_dir/niche_${skin}.png"
-	::plugins::DGUI::add_text $page $x_left_field [expr {$y+130}] [translate "Equipment"] \
-		-font_size $::plugins::DGUI::section_font_size
-		
-	# Other equipment (EXPERIMENTAL)
-	if { [info exists ::debugging] && $::debugging == 1 } {
-		add_de1_button $page { say "" $::settings(sound_button_in); ::plugins::DYE::SEQ::load_page } \
-			$x_left_label [expr {$y+50}] [expr {$x_left_field+400}] [expr {$y+200}]
-	}
-	
-	# Grinder model
-	incr y 240
-	::plugins::DGUI::add_select_entry $page grinder_model $x_left_label $y $x_left_field $y $width_left_field \
-		-items [::plugins::SDB::available_categories grinder_model] \
-		-callback_cmd ::plugins::DYE::DE::select_grinder_model_callback
-	
-	# Grinder setting
-	incr y 100
-	::plugins::DGUI::add_select_entry $page grinder_setting $x_left_label $y $x_left_field $y $width_left_field \
-		-select_cmd ::plugins::DYE::DE::grinder_setting_select 
-	
-	# EXTRACTION
-	set x_right_label 1280; set x_right_field 1525
-	add_de1_image $page $x_right_label 150 "$img_dir/espresso_${skin}.png"
-	::plugins::DGUI::add_text $page 1550 250 [translate "Extraction"] -font_size $::plugins::DGUI::section_font_size
-
-	# Calc EY from TDS button
-	::plugins::DGUI::add_button2 $page calc_ey_from_tds 2000 125 [translate "Calc EY from TDS"] \
-		{$::plugins::DYE::settings(calc_ey_from_tds)} "" ::plugins::DYE::DE::calc_ey_from_tds_click
-	
-	# Grinder Dose weight
-	set y 350
-	::plugins::DGUI::add_entry $page grinder_dose_weight $x_right_label $y $x_right_field $y 8
-	bind $widgets(grinder_dose_weight) <FocusOut> ::plugins::DYE::DE::calc_ey_from_tds
-	
-	# Drink weight
-	set offset 525
-	::plugins::DGUI::add_entry $page drink_weight [expr {$x_right_label+$offset}] $y \
-		[expr {$x_right_field+$offset}] $y 8
-	bind $widgets(drink_weight) <FocusOut> ::plugins::DYE::DE::calc_ey_from_tds
-	
-	# Total Dissolved Solids
-	set x_hclicker_field 2050
-	incr y 100	
-	::plugins::DGUI::add_entry $page drink_tds $x_right_label $y $x_hclicker_field $y 5 -clicker {} \
-		-clicker_cmd ::plugins::DYE::DE::calc_ey_from_tds
-	bind $widgets(drink_tds) <FocusOut> ::plugins::DYE::DE::calc_ey_from_tds
-
-	# Extraction Yield
-	incr y 100
-	::plugins::DGUI::add_entry $page drink_ey $x_right_label $y $x_hclicker_field $y 5 -clicker {}
-	
-	# Enjoyment entry with horizontal clicker
-	incr y 100
-	::plugins::DGUI::add_entry $page espresso_enjoyment $x_right_label $y $x_hclicker_field $y 5 -clicker {}
-	bind $widgets(espresso_enjoyment) <KeyPress> { if {[string is entier %K] != 1} break }
-	
-	# Enjoyment stars rating (on top of the enjoyment text entry + arrows, then dinamically one or the other is hidden
-	#	when the page is shown, depending on the settings)
-	::plugins::DGUI::add_rating $page espresso_enjoyment -1 -1 [expr {$x_hclicker_field-250}] $y 610
-	
-	# Espresso notes
-	incr y 100
-	::plugins::DGUI::add_multiline_entry $page espresso_notes $x_right_label $y $x_right_field $y 45 5
-
-	# PEOPLE
-	set y 1030
-	add_de1_image $page $x_right_label $y "$img_dir/people_${skin}.png"
-	::plugins::DGUI::add_text $page $x_right_field [expr {$y+140}] [translate "People"] \
-		-font_size $::plugins::DGUI::section_font_size
-		
-	# Barista (my_name)
-	incr y 240
-	::plugins::DGUI::add_select_entry $page my_name $x_right_label $y $x_right_field $y 15 \
-		-items [::plugins::SDB::available_categories my_name]
-	
-	# Drinker name
-	::plugins::DGUI::add_select_entry $page drinker_name [expr {$x_right_label+700}] $y [expr {$x_right_field+600}] $y 15 \
-		-items [::plugins::SDB::available_categories drinker_name]
-
-	# BOTTOM BUTTONS	
-	# Clear shot data (only clears "propagated" fields)
-	set x 100; set y 1385
-	::plugins::DGUI::add_button2 $page clear_shot_data $x $y [translate "Clear shot\rdata"] "" eraser \
-		::plugins::DYE::DE::clear_shot_data_click	
-
-	# Recover "propagated" fields from a previous shot
-	set x [expr {$x+$::plugins::DGUI::button2_width+75}]
-	set data(read_from_label) [translate $data(read_from_last_text)]
-	::plugins::DGUI::add_button2 $page read_from $x $y "" "" file_import ::plugins::DYE::DE::read_from_click
-
-	# Upload to Miha's Visualizer button
-	set x [expr {$x+$::plugins::DGUI::button2_width+75}]
-	set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
-	::plugins::DGUI::add_button2 $page upload_to_visualizer $x $y "" "" file_upload \
-		::plugins::DYE::DE::upload_to_visualizer_click
-	
-	::add_de1_action $page ${page}::show_page
-}
-
-proc ::plugins::DYE::DE::move_backward {} {
+proc ::dui::pages::DYE::move_backward {} {
 	variable data
 	if { [ask_to_save_if_needed] eq "cancel" } return
 	
@@ -935,7 +974,7 @@ proc ::plugins::DYE::DE::move_backward {} {
 	}
 }
 
-proc ::plugins::DYE::DE::move_forward {} {
+proc ::dui::pages::DYE::move_forward {} {
 	variable data
 	if { $data(describe_which_shot) eq "next" } return
 	if { [ask_to_save_if_needed] eq "cancel" } return
@@ -953,7 +992,7 @@ proc ::plugins::DYE::DE::move_forward {} {
 	}
 }
 
-proc ::plugins::DYE::DE::move_to_next {} {
+proc ::dui::pages::DYE::move_to_next {} {
 	variable data
 	if { $data(describe_which_shot) eq "next" } return	
 	if { [ask_to_save_if_needed] eq "cancel" } return
@@ -963,27 +1002,29 @@ proc ::plugins::DYE::DE::move_to_next {} {
 	show_page
 }
 
-proc ::plugins::DYE::DE::search_shot {} {
+proc ::dui::pages::DYE::search_shot {} {
 	variable data
 }
 
 
-proc ::plugins::DYE::DE::beans_select {} {
+proc ::dui::pages::DYE::beans_select {} {
 	variable data
 	say "" $::settings(sound_button_in)
 	
 	set selected [string trim "$data(bean_brand) $data(bean_type) $data(roast_date)"]
 	regsub -all " +" $selected " " selected
 
-	::plugins::DGUI::IS::load_page bean_desc "" "[::plugins::SDB::available_categories bean_desc]" \
-		-callback_cmd ::plugins::DYE::DE::select_beans_callback -selected $selected
+	dui page load dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
+		-page_title "Select the beans batch" -selected $selected -callback_cmd [namespace current]::select_beans_callback
+#	::plugins::DGUI::IS::load_page bean_desc "" "[::plugins::SDB::available_categories bean_desc]" \
+#		-callback_cmd ::dui::pages::DYE::select_beans_callback -selected $selected
 }
 
 # Callback procedure returning control from the item_selection page to the describe_espresso page, to select the 
 # full beans definition item from the list of previously entered values. 
-proc ::plugins::DYE::DE::select_beans_callback { clock bean_desc item_type } {
+proc ::dui::pages::DYE::select_beans_callback { clock bean_desc item_type } {
 	variable data
-	page_to_show_when_off [namespace current]
+	dui page show [namespace tail [namespace current]]
 		
 	if { $bean_desc ne "" } {
 		set db ::plugins::SDB::get_db
@@ -1001,47 +1042,51 @@ proc ::plugins::DYE::DE::select_beans_callback { clock bean_desc item_type } {
 # Callback procedure returning control from the item_selection page to the describe_espresso page when a grinder
 #	model is selected from the list. We need a callback proc, unlike with other fields, because we need to invoke
 #	'grinder_model_change'.
-proc ::plugins::DYE::DE::select_grinder_model_callback { id value type } {
+proc ::dui::pages::DYE::select_grinder_model_callback { id value type } {
 	variable data
-	page_to_show_when_off [namespace current]
+	dui page show [namespace tail [namespace current]]
 	
 	if { $value ne "" } {
 		set data($type) $value
-		if { $type eq "grinder_model" } ::plugins::DYE::DE::grinder_model_change
+		if { $type eq "grinder_model" } {
+			grinder_model_change
+		}
 	}
 }
 
-proc ::plugins::DYE::DE::grinder_setting_select {} {
+proc ::dui::pages::DYE::grinder_setting_select {} {
 	variable data
 	say "" $::settings(sound_button_in)
 	if { $data(grinder_model) eq "" } return
-	
-	::plugins::DGUI::IS::load_page grinder_setting ::plugins::DYE::DE::data(grinder_setting) \
+
+	dui page load dui_item_selector ::dui::pages::DYE::data(grinder_setting) \
 		[::plugins::SDB::available_categories grinder_setting \
-		-filter " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"]
+		-filter " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"] \
+		-page_title [translate "Select the grinder setting"] -selected $data(grinder_setting) 
+	
+#	::plugins::DGUI::IS::load_page grinder_setting ::dui::pages::DYE::data(grinder_setting) \
+#		[::plugins::SDB::available_categories grinder_setting \
+#		-filter " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"]
 }
 
-proc ::plugins::DYE::DE::grinder_model_change {} {
+proc ::dui::pages::DYE::grinder_model_change {} {
 	variable data
-	if { $data(grinder_model) eq "" } {
-		::plugins::DGUI::disable_widgets grinder_setting_dropdown* ::plugins::DYE::DE
-	} else {
-		::plugins::DGUI::enable_widgets grinder_setting_dropdown* ::plugins::DYE::DE
-	}
+	dui item enable_or_disable [expr {$data(grinder_model) eq ""}] [namespace tail [namespace current]] grinder_setting_dropdown*
 }
 
-proc ::plugins::DYE::DE::clear_shot_data_click {} {
+proc ::dui::pages::DYE::clear_shot_data {} {
+	variable data
 	say "clear" $::settings(sound_button_in)
 	foreach f $::plugins::DYE::propagated_fields {
-		set ::plugins::DYE::DE::data($f) {}
+		set data($f) {}
 	}
-	set ::plugins::DYE::DE::data(espresso_notes) {}
+	set data(espresso_notes) {}
 #	if { $data(describe_which_shot) eq "next" } {
 #		set ::plugins::DYE::settings(next_modified) 1
 #	}
 }
 
-proc ::plugins::DYE::DE::read_from_click {} {
+proc ::dui::pages::DYE::read_from {} {
 	variable data
 	say "read" $::settings(sound_button_in)
 
@@ -1059,8 +1104,11 @@ proc ::plugins::DYE::DE::read_from_click {} {
 	
 	if { $data(read_from_status) eq "prev" } {
 		array set shots [::plugins::SDB::shots "clock shot_desc" 1 "$filter AND ([join $sql_conditions { OR }])" 500]
-		::plugins::DGUI::IS::load_page shot "" $shots(shot_desc) -item_ids $shots(clock) \
-			-callback_cmd ::plugins::DYE::DE::select_shot_callback 
+		dui page show DYE_item_selector {} $shots(shot_desc) -item_ids $shots(clock) \
+			-page_title [translate "Select the shot to read the data from"] \
+			-callback_cmd [namespace current]::select_shot_callback
+#		::plugins::DGUI::IS::load_page shot "" $shots(shot_desc) -item_ids $shots(clock) \
+#			-callback_cmd ::dui::pages::DYE::select_shot_callback 
 		set data(read_from_status) "last"
 	} else {
 		array set last_shot [::plugins::SDB::shots "$::plugins::DYE::propagated_fields" 1 \
@@ -1080,9 +1128,9 @@ proc ::plugins::DYE::DE::read_from_click {} {
 
 # Callback procedure returning control from the item_selection page to the describe_espresso page, to select a 
 # source shot to be used for next shot propagation values. 
-proc ::plugins::DYE::DE::select_shot_callback { shot_clock shot_desc item_type } {
+proc ::dui::pages::DYE::select_shot_callback { shot_clock shot_desc item_type } {
 	variable data
-	page_to_show_when_off [namespace current]
+	dui page show [namespace tail [namespace current]]
 	
 	if { $shot_clock ne "" } {
 		array set shot [::plugins::SDB::shots "$::plugins::DYE::propagated_fields" 1 "clock=$shot_clock" 1]
@@ -1093,9 +1141,9 @@ proc ::plugins::DYE::DE::select_shot_callback { shot_clock shot_desc item_type }
 }
 
 # Opens the last shot, the shot on the left of the history viewer, or the shot on the right of the history
-# 	viewer, and writes all relevant DYE fields to the ::plugins::DYE::DE page variables.
+# 	viewer, and writes all relevant DYE fields to the ::dui::pages::DYE page variables.
 # Returns 1 if successful, 0 otherwise.
-proc ::plugins::DYE::DE::load_description {} {
+proc ::dui::pages::DYE::load_description {} {
 	variable widgets
 	variable data
 	variable src_data
@@ -1227,7 +1275,7 @@ proc ::plugins::DYE::DE::load_description {} {
 		
 		set data(shot_file) [::plugins::SDB::get_shot_file_path $::settings(espresso_clock)]
 		#"[homedir]/history/[clock format $::settings(espresso_clock) -format $::plugins::DYE::filename_clock_format].shot"
-		set data(page_title) "Describe last espresso: [::plugins::DYE::DE::last_shot_date]"
+		set data(page_title) "Describe last espresso: [::dui::pages::DYE::last_shot_date]"
 		
 		foreach f $::plugins::DYE::desc_text_fields {
 			if { [info exists ::settings($f)] } {
@@ -1258,7 +1306,7 @@ proc ::plugins::DYE::DE::load_description {} {
 # Saves the local variables from the Describe Espresso page into the target variables depending on which
 #	description we're editing (last shot, left on the history viewer, or right in the history viewer),
 #	and saves the modified data in the correct history .shot file.
-proc ::plugins::DYE::DE::save_description {} {
+proc ::dui::pages::DYE::save_description {} {
 	variable data
 	variable src_data
 	set needs_saving 0
@@ -1463,7 +1511,7 @@ proc ::plugins::DYE::DE::save_description {} {
 
 # A clone of DSx last_shot_date, but uses settings(espresso_clock) if DSx_settings(live_graph_time) is not
 # available (e.g. if DSx_settings.tdb were manually removed). Also will allow future skin-independence.
-proc ::plugins::DYE::DE::last_shot_date {} {
+proc ::dui::pages::DYE::last_shot_date {} {
 	if { [info exists ::DSx_settings(live_graph_time)] } {
 		return [::last_shot_date]
 	} elseif { [info exists ::settings(espresso_clock)] } {
@@ -1491,7 +1539,7 @@ proc ::plugins::DYE::DE::last_shot_date {} {
 }
 
 # Adapted from Damian's DSx last_shot_date. 
-proc ::plugins::DYE::DE::formatted_shot_date {} {
+proc ::dui::pages::DYE::formatted_shot_date {} {
 	variable data
 	set shot_clock $data(clock)
 	if { $shot_clock eq "" || $shot_clock <= 0 } {
@@ -1518,7 +1566,7 @@ proc ::plugins::DYE::DE::formatted_shot_date {} {
 }
 
 # Return 1 if some data has changed in the form.
-proc ::plugins::DYE::DE::needs_saving { } {
+proc ::dui::pages::DYE::needs_saving { } {
 	variable data
 	variable src_data
 	
@@ -1535,19 +1583,19 @@ proc ::plugins::DYE::DE::needs_saving { } {
 	return 0
 }
 
-proc ::plugins::DYE::DE::calc_ey_from_tds_click {} {
+proc ::dui::pages::DYE::calc_ey_from_tds_click {} {
 	say "" $::settings(sound_button_in)
 	if { $::plugins::DYE::settings(calc_ey_from_tds) eq "on" } {
 		set ::plugins::DYE::settings(calc_ey_from_tds) off
 	} else { 
 		set ::plugins::DYE::settings(calc_ey_from_tds) on 
-		::plugins::DYE::DE::calc_ey_from_tds
+		::dui::pages::DYE::calc_ey_from_tds
 	}		
 }
 
 # Calculates the Extraction Yield % to be shown in the Describe Espresso page from the user-entered
 # Total Dissolved Solids %, the dose and the drink weight. Uses standard formula.
-proc ::plugins::DYE::DE::calc_ey_from_tds  {} {
+proc ::dui::pages::DYE::calc_ey_from_tds  {} {
 	variable data 
 	
 	if { $::plugins::DYE::settings(calc_ey_from_tds) eq "on" } {		
@@ -1560,14 +1608,14 @@ proc ::plugins::DYE::DE::calc_ey_from_tds  {} {
 	}
 }
 
-proc ::plugins::DYE::DE::upload_to_visualizer_click {} {
+proc ::dui::pages::DYE::upload_to_visualizer {} {
 	variable data
 	variable widgets
 
-#	if { $::plugins::DYE::DE::data(repository_links) ne {} } {
+#	if { $::dui::pages::DYE::data(repository_links) ne {} } {
 #		say [translate "browsing"] $::settings(sound_button_in)
-#		if { [llength $::plugins::DYE::DE::data(repository_links)] > 1 } {
-#			web_browser [lindex $::plugins::DYE::DE::data(repository_links) 1]
+#		if { [llength $::dui::pages::DYE::data(repository_links)] > 1 } {
+#			web_browser [lindex $::dui::pages::DYE::data(repository_links) 1]
 #		}
 #		return
 #	}
@@ -1576,29 +1624,29 @@ proc ::plugins::DYE::DE::upload_to_visualizer_click {} {
 	if { $::android == 1 && [borg networkinfo] eq "none" } {
 		set data(upload_to_visualizer_label) [translate "Failed\rNo wifi"]
 #		set ::plugins::DYE::settings(last_visualizer_result) "[translate {Upload failed}]: [translate {No wifi}]" 
-		.can itemconfig $widgets(upload_to_visualizer_label) -fill ::plugins::DGUI::remark_color
+		.can itemconfig $widgets(upload_to_visualizer-lbl) -fill ::plugins::DGUI::remark_color
 		update
-		after 3000 { ::plugins::DYE::DE::update_visualizer_button }
+		after 3000 { ::dui::pages::DYE::update_visualizer_button }
 		say "" $::settings(sound_button_out)
 		return
 	}
 	
 	# Ensure latest values are in the shot file in case they have changed
-	if { [::plugins::DYE::DE::needs_saving] } {
+	if { [::dui::pages::DYE::needs_saving] } {
 		set answer [ask_to_save_if_needed]
 		if { $answer eq "cancel" } return
 	}
 		
 	set data(upload_to_visualizer_label) [translate "Uploading..."]
-	.can itemconfig $widgets(upload_to_visualizer_label) -fill $::plugins::DGUI::remark_color
+	.can itemconfig $widgets(upload_to_visualizer-lbl) -fill $::plugins::DGUI::remark_color
 	update
 	
-	set repo_link [::plugins::DYE::upload_to_visualizer_and_save $::plugins::DYE::DE::data(clock)]
+	set repo_link [::plugins::DYE::upload_to_visualizer_and_save $::dui::pages::DYE::data(clock)]
 	
 	if { $repo_link eq "" } {
 		set data(upload_to_visualizer_label) [translate "Upload\rfailed"]
 		update
-		after 3000 ::plugins::DYE::DE::update_visualizer_button
+		after 3000 ::dui::pages::DYE::update_visualizer_button
 	} else {
 		set data(upload_to_visualizer_label) [translate "Upload\rsuccessful"]
 		if { $data(repository_links) eq "" } { 
@@ -1608,15 +1656,15 @@ proc ::plugins::DYE::DE::upload_to_visualizer_click {} {
 		}
 		
 		update
-		after 3000 ::plugins::DYE::DE::update_visualizer_button
+		after 3000 ::dui::pages::DYE::update_visualizer_button
 	}
 	say "" $::settings(sound_button_out)
 }
 
-proc ::plugins::DYE::DE::update_visualizer_button { {check_context 1} } {
+proc ::dui::pages::DYE::update_visualizer_button { {check_context 1} } {
 	variable data
 	variable widgets
-	set page [namespace current]
+	set page [namespace tail [namespace current]]
 	if { $check_context == 1 && $::de1(current_context) ne $page } {
 		msg "WARNING: WRONG context in update_visualizer_button='$::de1(current_context)'"	
 		return
@@ -1625,36 +1673,36 @@ proc ::plugins::DYE::DE::update_visualizer_button { {check_context 1} } {
 	if { $data(describe_which_shot) ne "next" && [plugins enabled visualizer_upload] &&
 			$::plugins::visualizer_upload::settings(visualizer_username) ne "" && 
 			$::plugins::visualizer_upload::settings(visualizer_password) ne "" } {
-		.can itemconfig $widgets(upload_to_visualizer_label) -fill $::plugins::DGUI::button_font_fill
-		::plugins::DGUI::show_widgets "upload_to_visualizer*" $page
+		dui item config $widgets(upload_to_visualizer-lbl) -fill [dui aspect get dbutton_label fill]
+		dui item show $page "upload_to_visualizer*"
 #		foreach wn {_symbol _label _img ""} {
 #			.can itemconfig $widgets(upload_to_visualizer$wn) -state normal
 #		}
 		if { $data(repository_links) eq {} } {
-			#.can itemconfig $::plugins::DYE::DE::widgets(upload_to_visualizer_symbol) -text $::plugins::DGUI::symbols(file_upload)
+			#.can itemconfig $::dui::pages::DYE::widgets(upload_to_visualizer_symbol) -text $::plugins::DGUI::symbols(file_upload)
 			set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
 		} else {
 			set data(upload_to_visualizer_label) [translate "Re-upload to\rVisualizer"]
 		}
 #		else {
-#			.can itemconfig $::plugins::DYE::DE::widgets(upload_to_visualizer_symbol) -text $::plugins::DGUI::symbols(file_contract)
-#			set ::plugins::DYE::DE::data(upload_to_visualizer_label) [translate "See in\rVisualizer"]
+#			.can itemconfig $::dui::pages::DYE::widgets(upload_to_visualizer_symbol) -text $::plugins::DGUI::symbols(file_contract)
+#			set ::dui::pages::DYE::data(upload_to_visualizer_label) [translate "See in\rVisualizer"]
 #		}
 	} else {
-		::plugins::DGUI::hide_widgets "upload_to_visualizer*" $page
+		dui item hide $page "upload_to_visualizer*"
 #		foreach wn {_symbol _label _img ""} {
 #			.can itemconfig $widgets(upload_to_visualizer$wn) -state hidden
 #		}		
 	}
 }
 
-proc ::plugins::DYE::DE::ask_to_save_if_needed {} {
+proc ::dui::pages::DYE::ask_to_save_if_needed {} {
 	if { [needs_saving] == 1 } {
 		set answer [tk_messageBox -message "[translate {You have unsaved changes to the shot description.}]\r\
 			[translate {Do you want to save your changes first?}]" \
 			-type yesnocancel -icon question]
 		if { $answer eq "yes" } { 
-			::plugins::DYE::DE::save_description
+			save_description
 		} 
 		return $answer 
 	} else {
@@ -1662,7 +1710,7 @@ proc ::plugins::DYE::DE::ask_to_save_if_needed {} {
 	}
 }
 
-proc ::plugins::DYE::DE::page_cancel {} {
+proc ::dui::pages::DYE::page_cancel {} {
 	set answer [ask_to_save_if_needed]
 	if { $answer eq "cancel" } return
 	
@@ -1670,962 +1718,975 @@ proc ::plugins::DYE::DE::page_cancel {} {
 	unload_page
 }
 
-proc ::plugins::DYE::DE::page_done {} {
+proc ::dui::pages::DYE::page_done {} {
 	say [translate {done}] $::settings(sound_button_in)
-	# BEWARE: If we don't fully qualify this call, call [info args $pname] in stacktrace, as invoked from 
+	# BEWARE: If we don't fully qualify this call, code [info args $pname] in stacktrace, as invoked from 
 	#	save_settings, fails.
-	::plugins::DYE::DE::save_description
+	::dui::pages::DYE::save_description
 	unload_page
 }
 
 ### "FILTER SHOT HISTORY" PAGE #########################################################################################
 
-namespace eval ::plugins::DYE::FSH {
-	variable widgets
-	array set widgets {}
-	
-	variable data
-	array set data {
-		page_name "::plugins::DYE::FSH"
-		page_painted 0
-		page_title "Filter Shot History"
-		category1 {profile_tile}
-		categories1_label {}
-		category2 {beans}
-		categories2_label {}
-		left_filter_status {off}
-		right_filter_status {off}
-		left_filter_shots {}
-		right_filter_shots {}
-		matched_shots {}
-		n_matched_shots_text {}
-		date_from {}
-		date_to {}
-		ey_from {}
-		ey_to {}
-		ey_max 0
-		tds_from {}
-		tds_to {}
-		tds_max 0
-		enjoyment_from {}
-		enjoyment_to {}
-		enjoyment_max 0
-		order_by_date "Date"
-		order_by_tds "TDS"
-		order_by_ey "EY"
-		order_by_enjoyment "Enjoyment"
-	}
-}
-
-# Prepare the DYE_filter_shot_history page.
-proc ::plugins::DYE::FSH::load_page { {category1 profile_title} {category2 bean_desc} } {
-	variable widgets
-	variable data
-	set ns [namespace current]
-	
-	set data(category1) $category1
-	set data(category2) $category2
-	set_order_by date
-
-	page_to_show_when_off $ns
-	
-	if { ![ifexists data(page_painted) 0] } {
-		::plugins::DGUI::ensure_size $widgets(categories1) -width 500 -height 560
-		::plugins::DGUI::ensure_size $widgets(categories2) -width 500 -height 560
-		::plugins::DGUI::ensure_size $widgets(shots) -width 2375 -height 350
-		::plugins::DGUI::set_scrollbars_dims $ns "categories1 categories2 shots"
-		::plugins::DGUI::relocate_text_wrt $widgets(reset_categories1) $widgets(categories1_scrollbar) ne 0 -12 se \
-			$widgets(reset_categories1_button)
-		::plugins::DGUI::relocate_text_wrt $widgets(reset_categories2) $widgets(categories2_scrollbar) ne 0 -12 se \
-			$widgets(reset_categories2_button)
-		set data(page_painted) 1
-	}
-}
-
-proc ::plugins::DYE::FSH::show_page {} {
-	variable data
-	variable widgets
-	set page [namespace current]
-	category1_change $data(category1)
-	category2_change $data(category2)
-	
-	if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
-		.can itemconfig $widgets(enjoyment_from) -state hidden
-		.can itemconfig $widgets(enjoyment_to_label) -state hidden
-		.can itemconfig $widgets(enjoyment_to) -state hidden
-		for { set i 1 } { $i <= 5 } { incr i } {
-			.can itemconfig $widgets(enjoyment_from_rating$i) -state normal
-			.can itemconfig $widgets(enjoyment_from_rating_half$i) -state normal
-			.can itemconfig $widgets(enjoyment_to_rating$i) -state normal
-			.can itemconfig $widgets(enjoyment_to_rating_half$i) -state normal
-		}
-		.can itemconfig $widgets(enjoyment_to_rating_label) -state normal
-		.can itemconfig $widgets(enjoyment_from_rating_button) -state normal
-		.can itemconfig $widgets(enjoyment_to_rating_button) -state normal
-		
-		::plugins::DGUI::draw_rating $page espresso_enjoyment -widget_name enjoyment_from
-		::plugins::DGUI::draw_rating $page espresso_enjoyment -widget_name enjoyment_to
-	} else {
-		.can itemconfig $widgets(enjoyment_from) -state normal
-		.can itemconfig $widgets(enjoyment_to_label) -state normal
-		.can itemconfig $widgets(enjoyment_to) -state normal
-		for { set i 1 } { $i <= 5 } { incr i } {
-			.can itemconfig $widgets(enjoyment_from_rating$i) -state hidden
-			.can itemconfig $widgets(enjoyment_from_rating_half$i) -state hidden
-			.can itemconfig $widgets(enjoyment_to_rating$i) -state hidden
-			.can itemconfig $widgets(enjoyment_to_rating_half$i) -state hidden
-		}
-		.can itemconfig $widgets(enjoyment_to_rating_label) -state hidden
-		.can itemconfig $widgets(enjoyment_from_rating_button) -state hidden
-		.can itemconfig $widgets(enjoyment_to_rating_button) -state hidden	
-	}	
-}
-
-# Setup the "Search Shot History" page User Interface.
-proc ::plugins::DYE::FSH::setup_ui {} {
-	variable widgets
-	variable data
-	set page [namespace current]
-	
-	# -title [translate "Filter Shot History"] 
-	::plugins::DGUI::add_page $page -cancel_button 0 -buttons_loc center
-	
-	# Categories1 listbox
-	set x_left 60; set y 120
-	::plugins::DGUI::add_listbox $page categories1 $x_left $y $x_left [expr {$y+80}] 25 10 \
-		-label_font_size $::plugins::DGUI::section_font_size -selectmode multiple
-	
-	::plugins::DGUI::add_symbol $page [expr {$x_left+300}] [expr {$y+0}] sort_down -size small \
-		-widget_name categories1_label_dropdown
-	set "${page}::widgets(categories1_label_dropdown_button)" [::add_de1_button $page \
-		::plugins::DYE::FSH::category1_dropdown_click [expr {$x_left}] $y [expr {$x_left+420}] [expr {$y+68}] ]
-	
-	# Reset categories1
-	::plugins::DGUI::add_text $page [expr {$x_left+340}] [expr {$y+15}] "\[ [translate "Reset"] \]" \
-		-widget_name reset_categories1 -fill $::plugins::DGUI::remark_color -has_button 1 \
-		-button_cmd ::plugins::DYE::FSH::reset_categories1_click -button_width 150
-	
-	# Categories2 listbox
-	set x_left2 700
-	::plugins::DGUI::add_listbox $page categories2 700 $y $x_left2 [expr {$y+80}] 25 10 \
-		-label_font_size $::plugins::DGUI::section_font_size -selectmode multiple
-
-	::plugins::DGUI::add_symbol $page [expr {$x_left2+300}] [expr {$y+0}] sort_down -size small \
-		-widget_name categories2_label_dropdown	
-	set "${page}::widgets(categories2_label_dropdown_button)" [::add_de1_button $page \
-		::plugins::DYE::FSH::category2_dropdown_click [expr {$x_left2}] $y [expr {$x_left2+420}] [expr {$y+68}] ]
-	
-	# Reset categories2
-	::plugins::DGUI::add_text $page [expr {$x_left2+340}] [expr {$y+15}] "\[ [translate "Reset"] \]" \
-		-widget_name reset_categories2 -fill $::plugins::DGUI::remark_color -has_button 1 \
-		-button_cmd ::plugins::DYE::FSH::reset_categories2_click -button_width 150
-	
-	# Date period from
-	set x_right_label 1450; set x_right_widget 1725; set y 200
-	::plugins::DGUI::add_entry $page date_from $x_right_label $y $x_right_widget $y 11 -label [translate "Date from"] \
-		-data_type date
-	bind $widgets(date_from) <FocusOut> ::plugins::DYE::FSH::date_from_leave	
-	# Date period to	
-	::plugins::DGUI::add_entry $page date_to 1975 $y 2025 $y 11 -label [translate "to"] -data_type date
-	bind $widgets(date_to) <FocusOut> ::plugins::DYE::FSH::date_to_leave
-	
-	# TDS from
-	::plugins::DGUI::add_entry $page drink_tds $x_right_label [incr y 100] $x_right_widget $y 6 \
-		-label [translate "TDS % from"] -widget_name tds_from
-	# TDS to
-	::plugins::DGUI::add_entry $page drink_tds 1875 $y 1925 $y 6 -label [translate "to"] -widget_name tds_to
-	
-	# EY from
-	::plugins::DGUI::add_entry $page drink_ey $x_right_label [incr y 100] $x_right_widget $y 6 \
-		-label [translate "EY % from"] -widget_name ey_from	
-	# EY to
-	::plugins::DGUI::add_entry $page drink_ey 1875 $y 1925 $y 6 -label [translate "to"] -widget_name ey_to
-		
-	# Enjoyment from
-	::plugins::DGUI::add_entry $page espresso_enjoyment 1450 500 1725 500 6 -widget_name "enjoyment_from" \
-		-label [translate "Enjoyment from"]	
-	# Enjoyment to
-	::plugins::DGUI::add_entry $page espresso_enjoyment 1875 500 1925 500 6 -widget_name "enjoyment_to" \
-		-label [translate "to"]
-	
-	# Enjoyment stars rating from/to
-	::plugins::DGUI::add_rating $page espresso_enjoyment -1 -1 1725 500 600 -widget_name "enjoyment_from"
-	::plugins::DGUI::add_rating $page espresso_enjoyment 1650 575 1725 575 600 -widget_name "enjoyment_to" -label "to"
-
-	# Order by
-	::plugins::DGUI::add_text $page $x_right_label 690 [translate "Order by"] \
-		-font [::plugins::DGUI::get_font $::plugins::DGUI::font 9]
-
-	set x $x_right_widget; set y 720
-	::plugins::DGUI::add_variable $page $x $y {$::plugins::DYE::FSH::data(order_by_date)} -anchor center -justify center \
-		-has_button 1 -button_width 140 -button_cmd { say "" $::settings(sound_button_in); ::plugins::DYE::FSH::set_order_by date } 
-	::plugins::DGUI::add_variable $page [incr x 175] $y {$::plugins::DYE::FSH::data(order_by_tds)} -anchor center -justify center \
-		-has_button 1 -button_width 100 -button_cmd { say "" $::settings(sound_button_in); ::plugins::DYE::FSH::set_order_by tds } 
-	::plugins::DGUI::add_variable $page [incr x 150] $y {$::plugins::DYE::FSH::data(order_by_ey)} -anchor center -justify center \
-		-has_button 1 -button_width 100 -button_cmd { say "" $::settings(sound_button_in); ::plugins::DYE::FSH::set_order_by ey } 
-	::plugins::DGUI::add_variable $page [incr x 200] $y {$::plugins::DYE::FSH::data(order_by_enjoyment)} -anchor center -justify center \
-		-has_button 1 -button_width 130 -button_cmd { say "" $::settings(sound_button_in); ::plugins::DYE::FSH::set_order_by enjoyment } 
-	
-	# Reset button
-	set y 825
-	::plugins::DGUI::add_button1 $page reset $x_left $y [translate Reset] ::plugins::DYE::FSH::reset_click
-
-	# Search button
-	::plugins::DGUI::add_button1 $page search 2200 $y [translate Search] ::plugins::DYE::FSH::search_shot_history
-
-	# Number of search matches
-	set data(n_matched_shots_text) [translate "No shots"]
-	::plugins::DGUI::add_variable $page 2150 900 {$::plugins::DYE::FSH::data(n_matched_shots_text)} \
-		-font_size $::plugins::DGUI::section_font_size -anchor "ne" -justify "right" -width [rescale_x_skin 800]
-	
-	# Search results showing matching shots
-	::plugins::DGUI::add_listbox $page shots -1 -1 $x_left 975 115 7 
-	
-	# Button "Apply to left history"
-	set y 1375
-	::plugins::DGUI::add_button2 $page apply_to_left_side $x_left $y "[translate {Apply to}]\n[translate {left side}]" \
-		{$::plugins::DYE::FSH::data(left_filter_status)} filter ::plugins::DYE::FSH::apply_to_left_side_click
-	
-	# Button "Apply to right history"
-	::plugins::DGUI::add_button2 $page apply_to_right_side 2050 $y "[translate {Apply to}]\n[translate {right side}]" \
-		{$::plugins::DYE::FSH::data(right_filter_status)} filter ::plugins::DYE::FSH::apply_to_right_side_click
-	
-	::add_de1_action $page ${page}::show_page
-}
-
-proc ::plugins::DYE::FSH::category1_dropdown_click { } {
-	variable data
-	#set cats [::plugins::DGUI::field_names category]
-	set cats {}
-	foreach cat [array names ::plugins::DGUI::data_dictionary ] {
-		lassign [::plugins::DGUI::field_lookup $cat "data_type name"] data_type cat_name
-		if { $data_type eq "category" && $cat ne $data(category2) } {
-			lappend cats "[list $cat "$cat_name"]" 
-		}
-	}
-
-	set item_ids {}
-	set items {}	
-	set cats [lsort -dictionary -index 1 $cats]
-	foreach cat $cats {
-		lappend item_ids [lindex $cat 0]
-		lappend items [lindex $cat 1]
-	}
-	
-	say "select" $::settings(sound_button_in)
-	::plugins::DGUI::IS::load_page categories ::plugins::DYE::FSH::data(categories1_label) $items \
-		-item_ids $item_ids -page_title [translate "Select a category"] \
-		-callback_cmd ::plugins::DYE::FSH::select_category1_callback  
-}
-
-proc ::plugins::DYE::FSH::category1_change { new_category } {
-	variable data
-	variable widgets
-#	if { $data(category1) eq $new_category } return
-		
-	set data(category1) {}
-	if { $new_category ne "" } {
-		lassign [::plugins::DGUI::field_lookup $new_category "name data_type"] cat_name data_type
-		if { $cat_name eq "" } {
-			msg "DYE: ERROR on FSH::load_page, category1='$new_category' not found"
-			return
-		}
-		if { $data_type ne "category" } {
-			msg "DYE: ERROR on FSH::load_page, field '$new_category' is not a category"
-			return
-		}
-		set data(category1) $new_category
-		set data(categories1_label) [translate $cat_name]
-		update
-	}
-	
-	after 300 ::plugins::DGUI::relocate_text_wrt $widgets(categories1_label_dropdown) $widgets(categories1_label) e 12 -6 w
-	fill_categories1_listbox
-}
-
-proc ::plugins::DYE::FSH::fill_categories1_listbox {} {
-	variable data
-	variable widgets
-
-	$widgets(categories1) delete 0 end
-	if { $data(category1) ne "" } {
-		set cat_values [::plugins::SDB::available_categories $data(category1)]
-		$widgets(categories1) insert 0 {*}$cat_values
-	}
-}
-
-proc ::plugins::DYE::FSH::reset_categories1_click {} {
-	variable widgets
-	say [translate {reset}] $::settings(sound_button_in)
-	$widgets(categories1) selection clear 0 end
-}
-
-proc ::plugins::DYE::FSH::select_category1_callback { category category_name type } {
-	variable data
-	set data(category1) $category
-	page_to_show_when_off [namespace current]	
-#	category1_change $category
-}
-
-proc ::plugins::DYE::FSH::category2_dropdown_click { } {
-	variable data
-	#set cats [::plugins::DGUI::field_names category]
-	set cats {}
-	foreach cat [array names ::plugins::DGUI::data_dictionary ] {
-		lassign [::plugins::DGUI::field_lookup $cat "data_type name"] data_type cat_name
-		if { $data_type eq "category" && $cat ne $data(category1) } {
-			lappend cats "[list $cat "$cat_name"]" 
-		}
-	}
-
-	set item_ids {}
-	set items {}	
-	set cats [lsort -dictionary -index 1 $cats]
-	foreach cat $cats {
-		lappend item_ids [lindex $cat 0]
-		lappend items [lindex $cat 1]
-	}
-	
-	say "select" $::settings(sound_button_in)
-	::plugins::DGUI::IS::load_page categories ::plugins::DYE::FSH::data(categories2_label) $items \
-		-item_ids $item_ids -page_title [translate "Select a category"] \
-		-callback_cmd ::plugins::DYE::FSH::select_category2_callback  
-}
-	
-proc ::plugins::DYE::FSH::category2_change { new_category } {
-	variable data
-	variable widgets
-#	if { $data(category2) eq $new_category } return
-		
-	set data(category2) {}
-	if { $new_category ne "" } {
-		lassign [::plugins::DGUI::field_lookup $new_category "name data_type"] cat_name data_type
-		if { $cat_name eq "" } {
-			msg "DYE: ERROR on FSH::load_page, category2='$new_category' not found"
-			return
-		}
-		if { $data_type ne "category" } {
-			msg "DYE: ERROR on FSH::load_page, field '$new_category' is not a category"
-			return			
-		}
-		set data(category2) $new_category
-		set data(categories2_label) [translate $cat_name]
-		update
-	}
-
-	after 300 ::plugins::DGUI::relocate_text_wrt $widgets(categories2_label_dropdown) $widgets(categories2_label) e 12 -6 w	
-	fill_categories2_listbox	
-}
-
-proc ::plugins::DYE::FSH::fill_categories2_listbox {} {
-	variable widgets
-	variable data
-	
-	$widgets(categories2) delete 0 end
-	if { $data(category2) ne "" } {
-		set cat_values [::plugins::SDB::available_categories $data(category2)]
-		$widgets(categories2) insert 0 {*}$cat_values
-	}
-}
-
-proc ::plugins::DYE::FSH::reset_categories2_click {} {
-	variable widgets
-	say [translate {reset}] $::settings(sound_button_in)
-	$widgets(categories2) selection clear 0 end
-}
-
-proc ::plugins::DYE::FSH::select_category2_callback { category category_name type } {
-	variable data
-	set data(category2) $category		
-	page_to_show_when_off [namespace current]
-#	category2_change $category	
-}
-
-proc ::plugins::DYE::FSH::date_from_leave {} {
-	variable widgets
-	variable data
-	if { $data(date_from) eq ""} {
-		$widgets(date_from) configure -bg $::plugins::DGUI::bg_color
-	} elseif { [regexp {^([0-9][0-9]*/)*([0-9][0-9]*/)*[0-9]{4}$} $data(date_from)] == 0 } {
-		$widgets(date_from) configure -bg $::plugins::DGUI::remark_color
-	} else {
-		$widgets(date_from)  configure -bg $::plugins::DGUI::bg_color
-		
-		if { [regexp {^[0-9]{4}$} $data(date_from)] == 1 } {
-			set data(date_from) "1/1/$data(date_from)" 
-		} elseif { [regexp {^[0-9][0-9]*/[0-9]{4}$} $data(date_from)] == 1 } {
-			set data(date_from) "1/$data(date_from)"
-		}	
-#				set ::DYE_debug_text "Entered '$::plugins::DYE::FSH::data(date_from)'"
-#				if { [catch {clock scan $::plugins::DYE::FSH::data(date_from) -format $::plugins::DYE::settings{date_format} -timezone :UTC}] } {
-#					%W configure -bg $::DSx_settings(orange)
-#				} else {
-#					%W configure -bg $::DSx_settings(bg_colour)
-#				}			
-	}
-	hide_android_keyboard	
-}
-
-proc ::plugins::DYE::FSH::date_to_leave {} {
-	variable widgets
-	variable data
-	if { $data(date_to) eq ""} {
-		$widgets(date_to) configure -bg $::plugins::DGUI::bg_color			
-	} elseif { [regexp {^([0-9][0-9]*/)*([0-9][0-9]*/)*[0-9]{4}$} $::plugins::DYE::FSH::data(date_to)] == 0 } {
-		$widgets(date_to) configure -bg $::plugins::DGUI::remark_color
-	} else {
-		$widgets(date_to) configure -bg $::plugins::DGUI::bg_color
-		
-		if { $::plugins::DYE::settings(date_format) eq "%d/%m/%Y" } {
-			if { [regexp {^[0-9]{4}$} $data(date_to)] == 1 } {
-				set data(date_to) "31/12/$data(date_to)" 
-			} elseif { [regexp {^[0-9][0-9]*/[0-9]{4}$} $data(date_from)] == 1 } {
-				set data(date_to) "31/$data(date_to)"
-			}
-		} elseif { $::plugins::DYE::settings(date_format) eq "%m/%d/%Y" }  {
-			if { [regexp {^[0-9]{4}$} $data(date_to)] == 1 } {
-				set data(date_to) "12/31/$data(date_to)" 
-			}					
-		}
-			
-	}
-	hide_android_keyboard 
-}
-
-proc ::plugins::DYE::FSH::set_order_by { field } {
-	variable data
-	set data(order_by_date) "[translate Date]"
-	set data(order_by_tds) "[translate TDS]"
-	set data(order_by_ey) "[translate EY]"
-	set data(order_by_enjoyment) "[translate Enjoyment]"
-	
-	set data(order_by_$field) "\[ $data(order_by_$field) \]"	
-}
-
-proc ::plugins::DYE::FSH::reset_click {} {
-	variable data
-	variable widgets	
-	say [translate {reset}] $::settings(sound_button_in)
-	set page [namespace current]
-	
-	$widgets(categories1) selection clear 0 end
-	$widgets(categories2) selection clear 0 end
-	set data(date_from) {}
-	set data(date_to) {}
-	set data(tds_from) {}
-	set data(tds_to) {}
-	set data(ey_from) {}
-	set data(ey_to) {}
-	set data(enjoyment_from) {}	
-	set data(enjoyment_to) {}
-	if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
-		::plugins::DGUI::draw_rating $page "" -widget_name enjoyment_from
-		::plugins::DGUI::draw_rating $page "" -widget_name enjoyment_to
-	}
-	set_order_by date	
-	$widgets(shots) delete 0 end
-	set data(matched_shots) {}
-	set data(n_matched_shots_text) "[translate {No matching shots}]"
-}
-
-# Runs the specified search in the shot history and show the results in the shots listbox.
-# ::DSx_filtered_past_shot_files
-proc ::plugins::DYE::FSH::search_shot_history {} {
-	variable widgets
-	variable data
-	say [translate {search}] $::settings(sound_button_in)
-	
-	# Build the SQL SELECT statement
-	set where_conds {}
-	
-	set c1_values [::plugins::DGUI::listbox_get_selection $widgets(categories1)]
-	if { $c1_values ne "" } {
-		lappend where_conds "$data(category1) IN ([::plugins::SDB::strings2sql $c1_values])"
-	}
-#	set c1_widget $widgets(categories1)
-#	if {[$c1_widget curselection] ne ""} {
-#		set c1_values {}
-#		foreach idx [$c1_widget curselection] {
-#			lappend c1_values [$c1_widget get $idx]
+#namespace eval ::dui::pages::DYE_fsh {
+#	variable widgets
+#	array set widgets {}
+#	
+#	variable data
+#	array set data {
+#		page_painted 0
+#		page_title "Filter Shot History"
+#		category1 {profile_tile}
+#		categories1_label {}
+#		category2 {beans}
+#		categories2_label {}
+#		left_filter_status {off}
+#		right_filter_status {off}
+#		left_filter_shots {}
+#		right_filter_shots {}
+#		matched_shots {}
+#		n_matched_shots_text {}
+#		date_from {}
+#		date_to {}
+#		ey_from {}
+#		ey_to {}
+#		ey_max 0
+#		tds_from {}
+#		tds_to {}
+#		tds_max 0
+#		enjoyment_from {}
+#		enjoyment_to {}
+#		enjoyment_max 0
+#		order_by_date "Date"
+#		order_by_tds "TDS"
+#		order_by_ey "EY"
+#		order_by_enjoyment "Enjoyment"
+#	}
+#}
+#
+## Setup the "Search Shot History" page User Interface.
+#proc ::dui::pages::DYE_fsh::setup {} {
+#	variable widgets
+#	variable data
+#	set page [namespace tail [namespace current]]
+#	
+#	# -title [translate "Filter Shot History"] 
+#	dui page add $page -namespace true 
+#	#-cancel_button 0 -buttons_loc center
+#	
+#	# Categories1 listbox
+#	set x_left 60; set y 120
+#	dui add listbox $page $x_left [expr {$y+80}] -tags categories1 -style section_header -width 25 -height 10 \
+#		-labelvariable categories1_label -label_pos [list $x_left $y] -selectmode multiple
+#	
+#	dui add symbol $page [expr {$x_left+300}] [expr {$y+0}] -symbol sort_down -tags categories1_label_dropdown \
+#		-aspect_type dcombobox_ddarrow -command true
+##	set "${page}::widgets(categories1_label_dropdown_button)" [::add_de1_button $page \
+##		::dui::pages::DYE_fsh::category1_dropdown_click [expr {$x_left}] $y [expr {$x_left+420}] [expr {$y+68}] ]
+#	
+#	# Reset categories1
+#	dui add text $page [expr {$x_left+340}] [expr {$y+15}] -text "\[ [translate "Reset"] \]" -tags reset_categories1 \
+#		-style remark -command true
+#	
+#	# Categories2 listbox
+#	set x_left2 700
+#	dui add listbox $page $x_left2 [expr {$y+80}] -tags categories2 -width 25 -height 10 \
+#		-labelvariable categories2_label -label_pos [list 700 $y] -label_style section_header -selectmode multiple
+#
+#	dui add symbol $page [expr {$x_left2+300}] [expr {$y+0}] -symbol sort_down -tags categories2_label_dropdown \
+#		-aspect_type dcombobox_ddarrow -command true
+#			
+##	set "${page}::widgets(categories2_label_dropdown_button)" [::add_de1_button $page \
+##		::dui::pages::DYE_fsh::categories2_label_dropdwon [expr {$x_left2}] $y [expr {$x_left2+420}] [expr {$y+68}] ]
+#	
+#	# Reset categories2
+#	dui add text $page [expr {$x_left2+340}] [expr {$y+15}] -text "\[ [translate "Reset"] \]" -tags reset_categories2 \
+#		-style remark -command true
+#	
+#	# Date period from
+#	set x_right_label 1450; set x_right_widget 1725; set y 200
+#	dui add entry $page $x_right_widget $y -tags date_from -width 11 -data_type date \
+#		-label [translate "Date from"] -label_pos [list $x_right_label $y] 
+#	bind $widgets(date_from) <FocusOut> ::dui::pages::DYE_fsh::date_from_leave
+#	
+#	# Date period to	
+#	dui add entry $page 2025 $y -tags date_to -width 11 -data_type date -label [translate "to"] -label_pos [list 1975 $y] 
+#	bind $widgets(date_to) <FocusOut> ::dui::pages::DYE_fsh::date_to_leave
+#	
+#	# TDS from
+#	incr y 100
+#	dui add entry $page $x_right_widget $y -tags tds_from -width 6 -data_type numeric \
+#		-label [translate "TDS % from"] -label_pos [list $x_right_label $y]
+#	# TDS to
+#	dui add entry $page 1925 $y -tags tds_to -width 6 -data_type numeric \
+#		-label [translate "to"] -label_pos [list 1875 $y]
+#	
+#	# EY from
+#	incr y 100
+#	dui add entry $page $x_right_widget $y -tags ey_from -width 6 -data_type numeric \	
+#		-label [translate "EY % from"] -label_pos [list $x_right_label $y]
+#	# EY to
+#	dui add entry $page 1925 $y -tags ey_to -width 6 -data_type numeric \	
+#		-label [translate "to"] -label_pos [list 1875 $y]
+#		
+#	# Enjoyment from
+#	dui add entry $page 1725 500 -tags enjoyment_from -width 6 -data_type numeric \ 
+#		-label [translate "Enjoyment from"]	-label_pos {1450 500} 
+#	# Enjoyment to
+#	dui add entry $page 1925 500 -tags enjoyment_to -width 6 -data_type numeric \
+#		-label [translate "to"]	-label_pos {1875 500} 
+#	
+#	# Enjoyment stars rating from/to
+#	dui add drater $page 1725 500 -tags enjoyment_from_rater -width 600 -variable enjoyment_from -min 0 -max 100 \
+#		-small_increment 1 -big_increment 10 -default 50
+#	dui add drater $page 1725 575 -tags enjoyment_to_rater -width 600 -variable enjoyment_to -min 0 -max 100 \
+#		-small_increment 1 -big_increment 10 -default 50 -label [translate "to"] -label_pos {1650 575}
+#	
+#	# Order by
+#	dui add text $page $x_right_label 690 -tags order_by_label -text [translate "Order by"] -font_size 9
+#
+#	set x $x_right_widget; set y 720
+#	dui add variable $page $x $y -tags order_by_date -anchor center -justify center -command [list %NS::set_order_by date]
+#	dui add variable $page [incr x 175] $y -tags order_by_tds -anchor center -justify center -command [list %NS::set_order_by tds]
+#	dui add variable $page [incr x 150] $y -tags order_by_ey -anchor center -justify center -command [list %NS::set_order_by ey]
+#	dui add variable $page [incr x 200] $y -tags order_by_enjoyment -anchor center -justify center \
+#		-command [list %NS::set_order_by enjoyment]
+#	
+##	::plugins::DGUI::add_variable $page $x $y {$::dui::pages::DYE_fsh::data(order_by_date)} -anchor center -justify center \
+##		-has_button 1 -button_width 140 -button_cmd { say "" $::settings(sound_button_in); ::dui::pages::DYE_fsh::set_order_by date } 
+##	::plugins::DGUI::add_variable $page [incr x 175] $y {$::dui::pages::DYE_fsh::data(order_by_tds)} -anchor center -justify center \
+##		-has_button 1 -button_width 100 -button_cmd { say "" $::settings(sound_button_in); ::dui::pages::DYE_fsh::set_order_by tds } 
+##	::plugins::DGUI::add_variable $page [incr x 150] $y {$::dui::pages::DYE_fsh::data(order_by_ey)} -anchor center -justify center \
+##		-has_button 1 -button_width 100 -button_cmd {
+##			say "" $::settings(sound_button_in); ::dui::pages::DYE_fsh::set_order_by ey } 
+##	::plugins::DGUI::add_variable $page [incr x 200] $y {$::dui::pages::DYE_fsh::data(order_by_enjoyment)} -anchor center -justify center \
+##		-has_button 1 -button_width 130 -button_cmd { say "" $::settings(sound_button_in); ::dui::pages::DYE_fsh::set_order_by enjoyment } 
+#	
+#	# Reset button
+#	set y 825
+#	dui add dbutton $page $x_left $y -tags reset -label [translate Reset] -style dsx1
+#
+#	# Search button
+#	dui add dbutton $page 2200 $y -tags search -label [translate Search] -style dsx1
+#
+#	# Number of search matches
+#	set data(n_matched_shots_text) [translate "No shots"]
+#	dui add variable $page 2150 900 -textvariable n_matched_shots_text -style section_header \
+#		-anchor "ne" -justify "right" -width 800
+#	
+#	# Search results showing matching shots
+#	dui add listbox $page $x_left 975 -tags shots -canvas_width 2000 -canvas_height 300 
+#	
+#	# Button "Apply to left history"
+#	set y 1375
+#	dui add dbutton $page $x_left $y -tags apply_to_left_side -symbol filter -style dsx_settings \
+#		-label "[translate {Apply to}]\n[translate {left side}]" -statevariable left_filter_status \
+#		
+#	# Button "Apply to right history"
+#	dui add dbutton $page 2050 $y -tags apply_to_right_side -symbol filter -style dsx_settings \
+#		-label "[translate {Apply to}]\n[translate {right side}]" -statevariable right_filter_status \
+#		
+#}
+#
+## Prepare the DYE_filter_shot_history page.
+#proc ::dui::pages::DYE_fsh::load { page_to_hide page_to_show {category1 profile_title} {category2 bean_desc} } {
+#	variable widgets
+#	variable data
+#	set ns [namespace current]
+#	
+#	set data(category1) $category1
+#	set data(category2) $category2
+#	set_order_by date
+#
+#	page_to_show_when_off $ns
+#	
+#	if { ![ifexists data(page_painted) 0] } {
+#		::plugins::DGUI::ensure_size $widgets(categories1) -width 500 -height 560
+#		::plugins::DGUI::ensure_size $widgets(categories2) -width 500 -height 560
+#		::plugins::DGUI::ensure_size $widgets(shots) -width 2375 -height 350
+#		::plugins::DGUI::set_scrollbars_dims $ns "categories1 categories2 shots"
+#		::plugins::DGUI::relocate_text_wrt $widgets(reset_categories1) $widgets(categories1_scrollbar) ne 0 -12 se \
+#			$widgets(reset_categories1_button)
+#		::plugins::DGUI::relocate_text_wrt $widgets(reset_categories2) $widgets(categories2_scrollbar) ne 0 -12 se \
+#			$widgets(reset_categories2_button)
+#		set data(page_painted) 1
+#	}
+#}
+#
+#proc ::dui::pages::DYE_fsh::show { page_to_hide page_to_show } {
+#	variable data
+#	variable widgets
+#	set page [namespace current]
+#	category1_change $data(category1)
+#	category2_change $data(category2)
+#	
+#	if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
+#		.can itemconfig $widgets(enjoyment_from) -state hidden
+#		.can itemconfig $widgets(enjoyment_to_label) -state hidden
+#		.can itemconfig $widgets(enjoyment_to) -state hidden
+#		for { set i 1 } { $i <= 5 } { incr i } {
+#			.can itemconfig $widgets(enjoyment_from_rating$i) -state normal
+#			.can itemconfig $widgets(enjoyment_from_rating_half$i) -state normal
+#			.can itemconfig $widgets(enjoyment_to_rating$i) -state normal
+#			.can itemconfig $widgets(enjoyment_to_rating_half$i) -state normal
 #		}
+#		.can itemconfig $widgets(enjoyment_to_rating_label) -state normal
+#		.can itemconfig $widgets(enjoyment_from_rating_button) -state normal
+#		.can itemconfig $widgets(enjoyment_to_rating_button) -state normal
+#		
+#		::plugins::DGUI::draw_rating $page espresso_enjoyment -widget_name enjoyment_from
+#		::plugins::DGUI::draw_rating $page espresso_enjoyment -widget_name enjoyment_to
+#	} else {
+#		.can itemconfig $widgets(enjoyment_from) -state normal
+#		.can itemconfig $widgets(enjoyment_to_label) -state normal
+#		.can itemconfig $widgets(enjoyment_to) -state normal
+#		for { set i 1 } { $i <= 5 } { incr i } {
+#			.can itemconfig $widgets(enjoyment_from_rating$i) -state hidden
+#			.can itemconfig $widgets(enjoyment_from_rating_half$i) -state hidden
+#			.can itemconfig $widgets(enjoyment_to_rating$i) -state hidden
+#			.can itemconfig $widgets(enjoyment_to_rating_half$i) -state hidden
+#		}
+#		.can itemconfig $widgets(enjoyment_to_rating_label) -state hidden
+#		.can itemconfig $widgets(enjoyment_from_rating_button) -state hidden
+#		.can itemconfig $widgets(enjoyment_to_rating_button) -state hidden	
+#	}	
+#}
+#
+#proc ::dui::pages::DYE_fsh::categories1_label_dropdown { } {
+#	variable data
+#	#set cats [::plugins::DGUI::field_names category]
+#	set cats {}
+#	foreach cat [array names ::plugins::DGUI::data_dictionary ] {
+#		lassign [::plugins::DGUI::field_lookup $cat "data_type name"] data_type cat_name
+#		if { $data_type eq "category" && $cat ne $data(category2) } {
+#			lappend cats "[list $cat "$cat_name"]" 
+#		}
+#	}
+#
+#	set item_ids {}
+#	set items {}	
+#	set cats [lsort -dictionary -index 1 $cats]
+#	foreach cat $cats {
+#		lappend item_ids [lindex $cat 0]
+#		lappend items [lindex $cat 1]
+#	}
+#	
+#	say "select" $::settings(sound_button_in)
+#	::plugins::DGUI::IS::load_page categories ::dui::pages::DYE_fsh::data(categories1_label) $items \
+#		-item_ids $item_ids -page_title [translate "Select a category"] \
+#		-callback_cmd ::dui::pages::DYE_fsh::select_category1_callback  
+#}
+#
+#proc ::dui::pages::DYE_fsh::category1_change { new_category } {
+#	variable data
+#	variable widgets
+##	if { $data(category1) eq $new_category } return
+#		
+#	set data(category1) {}
+#	if { $new_category ne "" } {
+#		lassign [::plugins::DGUI::field_lookup $new_category "name data_type"] cat_name data_type
+#		if { $cat_name eq "" } {
+#			msg "DYE: ERROR on FSH::load_page, category1='$new_category' not found"
+#			return
+#		}
+#		if { $data_type ne "category" } {
+#			msg "DYE: ERROR on FSH::load_page, field '$new_category' is not a category"
+#			return
+#		}
+#		set data(category1) $new_category
+#		set data(categories1_label) [translate $cat_name]
+#		update
+#	}
+#	
+#	after 300 ::plugins::DGUI::relocate_text_wrt $widgets(categories1_label_dropdown) $widgets(categories1_label) e 12 -6 w
+#	fill_categories1_listbox
+#}
+#
+#proc ::dui::pages::DYE_fsh::fill_categories1_listbox {} {
+#	variable data
+#	variable widgets
+#
+#	$widgets(categories1) delete 0 end
+#	if { $data(category1) ne "" } {
+#		set cat_values [::plugins::SDB::available_categories $data(category1)]
+#		$widgets(categories1) insert 0 {*}$cat_values
+#	}
+#}
+#
+#proc ::dui::pages::DYE_fsh::reset_categories1 {} {
+#	variable widgets
+#	say [translate {reset}] $::settings(sound_button_in)
+#	$widgets(categories1) selection clear 0 end
+#}
+#
+#proc ::dui::pages::DYE_fsh::select_category1_callback { category category_name type } {
+#	variable data
+#	set data(category1) $category
+#	page_to_show_when_off [namespace current]	
+##	category1_change $category
+#}
+#
+#proc ::dui::pages::DYE_fsh::categories2_label_dropdwon { } {
+#	variable data
+#	#set cats [::plugins::DGUI::field_names category]
+#	set cats {}
+#	foreach cat [array names ::plugins::DGUI::data_dictionary ] {
+#		lassign [::plugins::DGUI::field_lookup $cat "data_type name"] data_type cat_name
+#		if { $data_type eq "category" && $cat ne $data(category1) } {
+#			lappend cats "[list $cat "$cat_name"]" 
+#		}
+#	}
+#
+#	set item_ids {}
+#	set items {}	
+#	set cats [lsort -dictionary -index 1 $cats]
+#	foreach cat $cats {
+#		lappend item_ids [lindex $cat 0]
+#		lappend items [lindex $cat 1]
+#	}
+#	
+#	say "select" $::settings(sound_button_in)
+#	::plugins::DGUI::IS::load_page categories ::dui::pages::DYE_fsh::data(categories2_label) $items \
+#		-item_ids $item_ids -page_title [translate "Select a category"] \
+#		-callback_cmd ::dui::pages::DYE_fsh::select_category2_callback  
+#}
+#	
+#proc ::dui::pages::DYE_fsh::category2_change { new_category } {
+#	variable data
+#	variable widgets
+##	if { $data(category2) eq $new_category } return
+#		
+#	set data(category2) {}
+#	if { $new_category ne "" } {
+#		lassign [::plugins::DGUI::field_lookup $new_category "name data_type"] cat_name data_type
+#		if { $cat_name eq "" } {
+#			msg "DYE: ERROR on FSH::load_page, category2='$new_category' not found"
+#			return
+#		}
+#		if { $data_type ne "category" } {
+#			msg "DYE: ERROR on FSH::load_page, field '$new_category' is not a category"
+#			return			
+#		}
+#		set data(category2) $new_category
+#		set data(categories2_label) [translate $cat_name]
+#		update
+#	}
+#
+#	after 300 ::plugins::DGUI::relocate_text_wrt $widgets(categories2_label_dropdown) $widgets(categories2_label) e 12 -6 w	
+#	fill_categories2_listbox	
+#}
+#
+#proc ::dui::pages::DYE_fsh::fill_categories2_listbox {} {
+#	variable widgets
+#	variable data
+#	
+#	$widgets(categories2) delete 0 end
+#	if { $data(category2) ne "" } {
+#		set cat_values [::plugins::SDB::available_categories $data(category2)]
+#		$widgets(categories2) insert 0 {*}$cat_values
+#	}
+#}
+#
+#proc ::dui::pages::DYE_fsh::reset_categories2 {} {
+#	variable widgets
+#	say [translate {reset}] $::settings(sound_button_in)
+#	$widgets(categories2) selection clear 0 end
+#}
+#
+#proc ::dui::pages::DYE_fsh::select_category2_callback { category category_name type } {
+#	variable data
+#	set data(category2) $category		
+#	page_to_show_when_off [namespace current]
+##	category2_change $category	
+#}
+#
+#proc ::dui::pages::DYE_fsh::date_from_leave {} {
+#	variable widgets
+#	variable data
+#	if { $data(date_from) eq ""} {
+#		$widgets(date_from) configure -bg $::plugins::DGUI::bg_color
+#	} elseif { [regexp {^([0-9][0-9]*/)*([0-9][0-9]*/)*[0-9]{4}$} $data(date_from)] == 0 } {
+#		$widgets(date_from) configure -bg $::plugins::DGUI::remark_color
+#	} else {
+#		$widgets(date_from)  configure -bg $::plugins::DGUI::bg_color
+#		
+#		if { [regexp {^[0-9]{4}$} $data(date_from)] == 1 } {
+#			set data(date_from) "1/1/$data(date_from)" 
+#		} elseif { [regexp {^[0-9][0-9]*/[0-9]{4}$} $data(date_from)] == 1 } {
+#			set data(date_from) "1/$data(date_from)"
+#		}	
+##				set ::DYE_debug_text "Entered '$::dui::pages::DYE_fsh::data(date_from)'"
+##				if { [catch {clock scan $::dui::pages::DYE_fsh::data(date_from) -format $::plugins::DYE::settings{date_format} -timezone :UTC}] } {
+##					%W configure -bg $::DSx_settings(orange)
+##				} else {
+##					%W configure -bg $::DSx_settings(bg_colour)
+##				}			
+#	}
+#	hide_android_keyboard	
+#}
+#
+#proc ::dui::pages::DYE_fsh::date_to_leave {} {
+#	variable widgets
+#	variable data
+#	if { $data(date_to) eq ""} {
+#		$widgets(date_to) configure -bg $::plugins::DGUI::bg_color			
+#	} elseif { [regexp {^([0-9][0-9]*/)*([0-9][0-9]*/)*[0-9]{4}$} $::dui::pages::DYE_fsh::data(date_to)] == 0 } {
+#		$widgets(date_to) configure -bg $::plugins::DGUI::remark_color
+#	} else {
+#		$widgets(date_to) configure -bg $::plugins::DGUI::bg_color
+#		
+#		if { $::plugins::DYE::settings(date_format) eq "%d/%m/%Y" } {
+#			if { [regexp {^[0-9]{4}$} $data(date_to)] == 1 } {
+#				set data(date_to) "31/12/$data(date_to)" 
+#			} elseif { [regexp {^[0-9][0-9]*/[0-9]{4}$} $data(date_from)] == 1 } {
+#				set data(date_to) "31/$data(date_to)"
+#			}
+#		} elseif { $::plugins::DYE::settings(date_format) eq "%m/%d/%Y" }  {
+#			if { [regexp {^[0-9]{4}$} $data(date_to)] == 1 } {
+#				set data(date_to) "12/31/$data(date_to)" 
+#			}					
+#		}
+#			
+#	}
+#	hide_android_keyboard 
+#}
+#
+#proc ::dui::pages::DYE_fsh::set_order_by { field } {
+#	variable data
+#	say "" $::settings(sound_button_in)
+#	
+#	set data(order_by_date) "[translate Date]"
+#	set data(order_by_tds) "[translate TDS]"
+#	set data(order_by_ey) "[translate EY]"
+#	set data(order_by_enjoyment) "[translate Enjoyment]"
+#	
+#	set data(order_by_$field) "\[ $data(order_by_$field) \]"	
+#}
+#
+#proc ::dui::pages::DYE_fsh::reset {} {
+#	variable data
+#	variable widgets	
+#	say [translate {reset}] $::settings(sound_button_in)
+#	set page [namespace current]
+#	
+#	$widgets(categories1) selection clear 0 end
+#	$widgets(categories2) selection clear 0 end
+#	set data(date_from) {}
+#	set data(date_to) {}
+#	set data(tds_from) {}
+#	set data(tds_to) {}
+#	set data(ey_from) {}
+#	set data(ey_to) {}
+#	set data(enjoyment_from) {}	
+#	set data(enjoyment_to) {}
+#	if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
+#		::plugins::DGUI::draw_rating $page "" -widget_name enjoyment_from
+#		::plugins::DGUI::draw_rating $page "" -widget_name enjoyment_to
+#	}
+#	set_order_by date	
+#	$widgets(shots) delete 0 end
+#	set data(matched_shots) {}
+#	set data(n_matched_shots_text) "[translate {No matching shots}]"
+#}
+#
+## Runs the specified search in the shot history and show the results in the shots listbox.
+## ::DSx_filtered_past_shot_files
+#proc ::dui::pages::DYE_fsh::search {} {
+#	variable widgets
+#	variable data
+#	say [translate {search}] $::settings(sound_button_in)
+#	
+#	# Build the SQL SELECT statement
+#	set where_conds {}
+#	
+#	set c1_values [::plugins::DGUI::listbox_get_selection $widgets(categories1)]
+#	if { $c1_values ne "" } {
 #		lappend where_conds "$data(category1) IN ([::plugins::SDB::strings2sql $c1_values])"
 #	}
-
-	set c2_values [::plugins::DGUI::listbox_get_selection $widgets(categories2)]
-	if { $c2_values ne "" } {
-		lappend where_conds "$data(category2) IN ([::plugins::SDB::strings2sql $c2_values])"
-	}
-#	set c2_widget $widgets(categories2)
-#	if {[$c2_widget curselection] ne ""} {
-#		set c2_values {}
-#		foreach idx [$c2_widget curselection] {
-#			lappend c2_values [$c2_widget get $idx]
-#		}
-#		lappend where_conds "bean_desc IN ([::plugins::SDB::strings2sql $beans])"
+##	set c1_widget $widgets(categories1)
+##	if {[$c1_widget curselection] ne ""} {
+##		set c1_values {}
+##		foreach idx [$c1_widget curselection] {
+##			lappend c1_values [$c1_widget get $idx]
+##		}
+##		lappend where_conds "$data(category1) IN ([::plugins::SDB::strings2sql $c1_values])"
+##	}
+#
+#	set c2_values [::plugins::DGUI::listbox_get_selection $widgets(categories2)]
+#	if { $c2_values ne "" } {
+#		lappend where_conds "$data(category2) IN ([::plugins::SDB::strings2sql $c2_values])"
 #	}
-	
-	if { $data(date_from) ne "" } {
-		set from_clock [clock scan "$data(date_from) 00:00:00" -format "$::plugins::DYE::settings(date_format) %H:%M:%S"]
-		lappend where_conds "clock>=$from_clock"
-	}	
-	if { $data(date_to) ne "" } {
-		set to_clock [clock scan "$data(date_to) 23:59:59" -format "$::plugins::DYE::settings(date_format) %H:%M:%S"]
-		lappend where_conds "clock<=$to_clock"
-	}
-
-	if { $data(tds_from) ne "" } {
-		lappend where_conds "LENGTH(drink_tds)>0 AND drink_tds>=$data(tds_from)"
-	}	
-	if { $data(tds_to) ne "" } {
-		lappend where_conds "LENGTH(drink_tds)>0 AND drink_tds<=$data(tds_to)"
-	}
-	
-	if { $data(ey_from) ne "" } {
-		lappend where_conds "LENGTH(drink_ey)>0 AND drink_ey>=$data(ey_from)"
-	}	
-	if { $data(ey_to) ne "" } {
-		lappend where_conds "LENGTH(drink_ey)>0 AND drink_ey<=$data(ey_to)"
-	}
-
-	if { $data(enjoyment_from) ne "" } {
-		lappend where_conds "LENGTH(espresso_enjoyment)>0 AND espresso_enjoyment>=$data(enjoyment_from)"
-	}	
-	if { $data(enjoyment_to) ne "" && $data(enjoyment_to) > 0 } {
-		lappend where_conds "LENGTH(espresso_enjoyment)>0 AND espresso_enjoyment<=$data(enjoyment_to)"
-	}
-	
-	set sql "SELECT filename, shot_desc FROM V_shot WHERE removed=0 "
-	if {[llength $where_conds] > 0} { 
-		append sql "AND [join $where_conds " AND "] "
-	}
-	
-	if { [string first "\[" $data(order_by_enjoyment)] >= 0 } {
-		append sql {ORDER BY espresso_enjoyment DESC, clock DESC}
-	} elseif { [string first "\[" $data(order_by_ey)] >= 0 } {
-		append sql {ORDER BY drink_ey DESC, clock DESC}
-	} elseif { [string first "\[" $data(order_by_tds)] >= 0 } {
-		append sql {ORDER BY drink_tds DESC, clock DESC}
-	} else {
-		append sql {ORDER BY clock DESC}
-	}
-		
-	# Run the search
-	set data(matched_shots) {}
-	set cnt 0
-	$widgets(shots) delete 0 end	
-	
-	set db ::plugins::SDB::get_db
-	msg "DYE: $sql"
-	db eval "$sql" {
-		lappend data(matched_shots) $filename "$filename.shot"
-		$widgets(shots) insert $cnt $shot_desc
-		
-		# TODO Move this line to the select for left side button.
-		if { $cnt == 0 } { set ::DSx_settings(DSx_past_espresso_name) $filename }
-			
-		incr cnt
-	}
-	
-	set data(n_matched_shots) $cnt
-	if { $cnt == 0 } {
-		set data(n_matched_shots_text) "[translate {No matching shots}]"
-	} elseif { $cnt == 1 } {
-		set data(n_matched_shots_text) "$cnt [translate {matching shot}]"
-	} else {		
-		set data(n_matched_shots_text) "$cnt [translate {matching shots}]"
-	}
-}
-
-proc ::plugins::DYE::FSH::apply_to_left_side_click {} {
-	variable data
-	say [translate {filter}] $::settings(sound_button_in)
-	if {$data(left_filter_status) eq "off"} {
-		if {[llength $data(matched_shots)] > 0} {
-			# Ensure the files still exist on disk, otherwise don't include them
-			set ::DSx_filtered_past_shot_files {} 
-			for { set i 0 } { $i < [llength $data(matched_shots)] } { incr i 2 } {
-				set fn [lindex $data(matched_shots) $i]
-				if { [file exists "[homedir]/history/${fn}.shot"] } {
-					lappend ::DSx_filtered_past_shot_files $fn
-					lappend ::DSx_filtered_past_shot_files "${fn}.shot"
-				} elseif { [file exists "[homedir]/history_archive/${fn}.shot"] } {
-					lappend ::DSx_filtered_past_shot_files $fn
-					lappend ::DSx_filtered_past_shot_files "${fn}.shot"
-				}
-			}				
-			#set ::DSx_filtered_past_shot_files $data(matched_shots)
-			set data(left_filter_status) "on"
-		}
-	} else {
-		set data(left_filter_status) "off"
-		unset -nocomplain ::DSx_filtered_past_shot_files
-	}	
-}
-
-proc ::plugins::DYE::FSH::apply_to_right_side_click {} {
-	variable data
-	say [translate {filter}] $::settings(sound_button_in)
-	
-	if {$data(right_filter_status) eq "off"} {
-		if {[llength $data(matched_shots)] > 0} {
-			# Ensure the files still exist on disk, otherwise don't include them
-			set ::DSx_filtered_past_shot_files2 {} 
-			for { set i 0 } { $i < [llength $data(matched_shots)] } { incr i 2 } {
-				set fn [lindex $data(matched_shots) $i]
-				if { [file exists "[homedir]/history/${fn}.shot"] } {
-					lappend ::DSx_filtered_past_shot_files2 $fn
-					lappend ::DSx_filtered_past_shot_files2 "${fn}.shot"
-				} elseif { [file exists "[homedir]/history_archive/${fn}.shot"] } {
-					lappend ::DSx_filtered_past_shot_files2 $fn
-					lappend ::DSx_filtered_past_shot_files2 "${fn}.shot"
-				}
-			}				
-			#set ::DSx_filtered_past_shot_files2 $data(matched_shots)
-			set data(right_filter_status) "on"
-		}
-	} else {
-		set data(right_filter_status) "off"
-		unset -nocomplain ::DSx_filtered_past_shot_files
-	}
-}
-
-proc ::plugins::DYE::FSH::page_done {} {
-	say [translate {save}] $::settings(sound_button_in)
-	page_to_show_when_off DSx_past
-	
-	if {$::plugins::DYE::FSH::data(left_filter_status) eq "on"} {
-		fill_DSx_past_shots_listbox
-	}
-	if {$::plugins::DYE::FSH::data(right_filter_status) eq "on"} {
-		fill_DSx_past2_shots_listbox
-	}
-}
-
-	
-### "SHORTCUTS MENU" PAGE #############################################################################################
-### STILL EXPERIMENTAL, USED ONLY WHILE DEBUGGING 
-
-namespace eval ::plugins::DYE::MENU {
-	# State variables for the "DYE_menu" page. Not persisted. 
-	variable widgets
-	array set widgets {}
-	# affected_shots_slider 1
-	
-	variable data
-	array set data {
-		page_name "::plugins::DYE::MENU"
-		previous_page {}
-		page_title {}
-		previous_page {}
-	}
-}
-
-# Prepare and launch the DYE_modify_category page.
-proc ::plugins::DYE::MENU::load_page { } {	
-	variable data
-	variable widgets
-	set ns [namespace current]
-	
-	::plugins::DGUI::set_previous_page $ns
-	page_to_show_when_off $ns	
-		
-	hide_android_keyboard
-}
-
-proc ::plugins::DYE::MENU::setup_ui {} {
-	variable data
-	variable widgets
-	set page [namespace current]
-
-	add_de1_image $page 0 0 "[skin_directory_graphics]/background/bg2.jpg"
-
-	::plugins::DGUI::add_text $page 650 100 [translate "Menu"] -widget_name page_title \
-		-font_size $::plugins::DGUI::header_font_size -fill $::plugins::DGUI::page_title_color -anchor "center" 
-
-	# Close menu
-	::plugins::DGUI::add_symbol $page 1200	60 window_close -widget_name close_page -has_button 1 \
-		-button_cmd ::plugins::DYE::MENU::page_done
-
-	# DYE shortcuts
-	set x 100; set y 200
-	
-	::plugins::DGUI::add_text $page $x $y [translate "Edit equipment types"] -widget_name edit_equipment -has_button 1 \
-		-button_width 400 -button_cmd {say "" $::settings(sound_button_in); ::plugins::DYE::MODC::load_page equipment_type}
-
-	::plugins::DGUI::add_text $page $x [incr y 80] [translate "Filter shot history"] -widget_name fsh -has_button 1 \
-		-button_width 400 -button_cmd {say "" $::settings(sound_button_in); ::plugins::DYE::FSH::load_page}
-
-	::plugins::DGUI::add_text $page $x [incr y 80] [translate "Numbers editor"] -widget_name edit_number -has_button 1 \
-		-button_width 400 -button_cmd {say "" $::settings(sound_button_in); ::plugins::DYE::NUME::load_page drink_tds }
-	
-	set x 800; set y 200
-	
-	::plugins::DGUI::add_text $page $x $y [translate "DYE settings"] -widget_name edit_equipment -has_button 1 \
-		-button_width 400 -button_cmd {say "" $::settings(sound_button_in); ::plugins::DYE::CFG::load_page}
-	
-}
-
-proc ::plugins::DYE::MENU::page_done {} {
-	variable data
-	page_to_show_when_off $data(previous_page)
-}
-
-### "CONFIGURATION SETTINGS" PAGE ######################################################################################
-
-namespace eval ::plugins::DYE::CFG {
-	variable widgets
-	array set widgets {}
-	
-	variable data
-	array set data {
-		page_name "::plugins::DYE::CFG"
-		db_status_msg {}
-		update_plugin_state {-}
-		latest_plugin_version {}
-		latest_plugin_url {}
-		latest_plugin_desc {}
-		update_plugin_msg {}
-		plugin_has_been_updated 0
-	}
-}
-
-# Normally not used as this is not invoked directly but by the DSx settings pages carousel, but still kept for 
-# consistency or for launching the page from a menu.
-proc ::plugins::DYE::CFG::load_page {} {
-	page_to_show_when_off [namespace current]
-}
-
-# Added to context actions, so invoked automatically whenever the page is loaded
-proc ::plugins::DYE::CFG::show_page {} {
-	update_plugin_state	
-}
-
-# Setup the "DYE_configuration" page User Interface.
-proc ::plugins::DYE::CFG::setup_ui {} {
-	variable widgets
-	set page [namespace current]
-
-	# HEADERS
-	::plugins::DGUI::add_page $page -add_bg_img 0 -title "Describe Your Espresso Settings" \
-		-cancel_button 0 -buttons_loc center
-		
-	set y 180
-	::plugins::DGUI::add_text $page 600 $y [translate "General options"] -font_size $::plugins::DGUI::section_font_size \
-		-anchor "center" -justify "center" 	
-#	::plugins::DGUI::add_text $page 1900 $y [translate "Database"] -font_size $::plugins::DGUI::section_font_size \
-#		-anchor "center" -justify "center"	
-	
-	# LEFT SIDE
-	set x_label 100; incr y 70
-	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(show_shot_desc_on_home) $x_label $y \
-		::plugins::DYE::CFG::show_shot_desc_on_home_change -use_page_var 0 \
-		-widget_name show_shot_desc_on_home \
-		-label [translate "Show next & last shot description summaries on DSx home page"]
-		
-	incr y 80
-	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(propagate_previous_shot_desc) $x_label $y \
-		::plugins::DYE::CFG::propagate_previous_shot_desc_change -use_page_var 0 \
-		-widget_name propagate_previous_shot_desc \
-		-label [translate "Propagate Beans, Equipment & People from last to next shot"]
-
-	incr y 80
-	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(describe_from_sleep) $x_label $y \
-		::plugins::DYE::CFG::describe_from_sleep_change -use_page_var 0 \
-		-widget_name describe_from_sleep \
-		-label [translate "Icon on screensaver to describe last shot without waking up DE1"]
-
-	incr y 80
-	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(backup_modified_shot_files) $x_label $y \
-		::plugins::DYE::CFG::backup_modified_shot_files_change -use_page_var 0 \
-		-widget_name backup_modified_shot_files \
-		-label [translate "Backup past shot files when they are modified (.bak)"]
-	
-	incr y 80
-	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(use_stars_to_rate_enjoyment) $x_label $y \
-		{plugins save_settings DYE} -use_page_var 0 \
-		-widget_name use_stars_to_rate_enjoyment \
-		-label [translate "Use 1-5 stars rating to evaluate enjoyment"]
-			
-	incr y 125
-	::plugins::DGUI::add_button2 $page shot_desc_font_color $x_label $y [translate "Shots\rsummaries\rcolor"] \
-		"" paintbrush ::plugins::DYE::CFG::shot_desc_font_color_change -symbol_fill $::plugins::DYE::settings(shot_desc_font_color)
-	incr y [expr {$::plugins::DGUI::button2_height+35}]
-	::plugins::DGUI::add_text $page [expr {$x_label+$::plugins::DGUI::button2_width/2}] $y "\[ [translate {Use default color}] \]" \
-		-anchor center -justify center -fill $::plugins::DYE::default_shot_desc_font_color
-	::add_de1_button $page ::plugins::DYE::CFG::set_default_shot_desc_font_color $x_label [expr {$y-20}] \
-		[expr {$x_label+$::plugins::DGUI::button2_width}] [expr {$y+50}]
-	
-	::add_de1_action $page ::plugins::DYE::CFG::show_page	
-}
-
-proc ::plugins::DYE::CFG::show_shot_desc_on_home_change {} {	
-	::plugins::DYE::define_last_shot_desc
-	::plugins::DYE::define_next_shot_desc
-	plugins save_settings DYE
-}
-
-proc ::plugins::DYE::CFG::propagate_previous_shot_desc_change {} {
-	if { $::plugins::DYE::settings(propagate_previous_shot_desc) == 1 } {
-		if { $::plugins::DYE::settings(next_modified) == 0 } {
-			foreach field_name $::plugins::DYE::propagated_fields {
-				set ::plugins::DYE::settings(next_$field_name) $::settings($field_name)
-			}
-			set ::plugins::DYE::settings(next_espresso_notes) {}
-		}
-	} else {
-		if { $::plugins::DYE::settings(next_modified) == 0 } {
-			foreach field_name "$::plugins::DYE::propagated_fields next_espresso_notes" {
-				set ::plugins::DYE::settings(next_$field_name) {}
-			}			
-		}
-	}
-	
-	::plugins::DYE::define_next_shot_desc
-	plugins save_settings DYE
-}
-	
-proc ::plugins::DYE::CFG::describe_from_sleep_change {} {
-	if { [info exists ::plugins::DYE::widgets(describe_from_sleep_symbol)] } {
-		if { $::plugins::DYE::settings(describe_from_sleep) == 1 } {
-			.can itemconfig $::plugins::DYE::widgets(describe_from_sleep_symbol) \
-				-text $::plugins::DYE::settings(describe_icon)
-			.can coords $::plugins::DYE::widgets(describe_from_sleep_button) [rescale_x_skin 230] [rescale_y_skin 0] \
-				[rescale_x_skin 460] [rescale_y_skin 230]
-		} else {
-			.can itemconfig $::plugins::DYE::widgets(describe_from_sleep_symbol) -text ""
-			.can coords $::plugins::DYE::widgets(describe_from_sleep_button) 0 0 0 0
-		}
-	}
-	plugins save_settings DYE
-}
-	
-proc ::plugins::DYE::CFG::backup_modified_shot_files_change {} {	
-	plugins save_settings DYE
-}
-
-proc ::plugins::DYE::CFG::shot_desc_font_color_change {} {
-	say "" $::settings(sound_button_in)	
-	set colour [tk_chooseColor -initialcolor $::plugins::DYE::settings(shot_desc_font_color) \
-		-title [translate "Set shot summary descriptions color"]]
-	if {$colour != {}} {
-		if { $::settings(skin) eq "DSx" } {
-			foreach fn "DSx_home_next_shot_desc DSx_home_last_shot_desc DSx_past_shot_desc DSx_past_shot_desc2 \
-					DSx_past_zoomed_shot_desc DSx_past_zoomed_shot_desc2" {
-				.can itemconfigure $::plugins::DGUI::widgets($fn) -fill $colour
-			}
-			.can itemconfigure $::plugins::DYE::CFG::widgets(shot_desc_font_color_symbol) -fill $colour
-		}
-	
-		set ::plugins::DYE::settings(shot_desc_font_color) $colour
-		plugins save_settings DYE
-	}	
-}
-
-proc ::plugins::DYE::CFG::set_default_shot_desc_font_color {} {
-	say "" $::settings(sound_button_in)
-	set colour $::plugins::DYE::default_shot_desc_font_color
-	
-	if { $::settings(skin) eq "DSx" } {
-		foreach fn "DSx_home_next_shot_desc DSx_home_last_shot_desc DSx_past_shot_desc DSx_past_shot_desc2 \
-				DSx_past_zoomed_shot_desc DSx_past_zoomed_shot_desc2" {
-			.can itemconfigure $::plugins::DGUI::widgets($fn) -fill $colour
-		}
-		.can itemconfigure $::plugins::DYE::CFG::widgets(shot_desc_font_color_symbol) -fill $colour
-	}
-
-	set ::plugins::DYE::settings(shot_desc_font_color) $colour
-	plugins save_settings DYE
-}
-
-proc ::plugins::DYE::CFG::show_or_hide_visualizer_pwd {} {
-	variable widgets
-	
-	if { [$widgets(visualizer_password) cget -show] eq "*" } {
-		$widgets(visualizer_password) configure -show ""
-	} else {
-		$widgets(visualizer_password) configure -show "*"
-	}
-}
-
-proc ::plugins::DYE::CFG::update_plugin_state {} {
-	variable data
-	variable widgets
-	
-	::plugins::DGUI::enable_or_disable_widgets [expr !$data(plugin_has_been_updated)] update_plugin* [namespace current]
-	if { $data(plugin_has_been_updated) == 1 } return
-	
-	.can itemconfig $widgets(update_plugin_state) -fill $::plugins::DGUI::font_color
-	set data(update_plugin_msg) ""
-	
-	if { [ifexists ::plugins::DYE::settings(github_latest_url) "" ] eq "" } {
-		set data(update_plugin_state) [translate "No update URL"]
-	} elseif { $::android == 1 && [borg networkinfo] eq "none" } {
-		set data(update_plugin_state) [translate "No wifi"]		
-	} else {
-		lassign [::plugins::DYE::github_latest_release $::plugins::DYE::settings(github_latest_url)] \
-			data(latest_plugin_version) data(latest_plugin_url) data(latest_plugin_desc)
-		
-#msg "DYE PLUGIN UPDATE - Comparing [lindex [package versions describe_your_espresso] 0] and $data(latest_plugin_version)"		
-		if { $data(latest_plugin_version) == -1 } {
-			set data(update_plugin_state) [translate "Error"]
-			set data(update_plugin_msg) $data(latest_plugin_desc)
-		} elseif { [package vcompare [lindex [package versions describe_your_espresso] 0] \
-				$data(latest_plugin_version) ] >= 0 } {
-			set data(update_plugin_state) [translate "Up-to-date"]
-		} else {
-			set data(update_plugin_state) "v$data(latest_plugin_version) [translate available]"
-			.can itemconfig $widgets(update_plugin_state) -fill $::plugins::DGUI::remark_color
-			if { $data(latest_plugin_desc) ne "" } {
-				set data(update_plugin_msg) "\[ [translate {What's new?}] \]"
-			}
-		}
-	}
-}
-
-proc ::plugins::DYE::CFG::show_latest_plugin_description {} {
-	variable data
-	
-	if { $data(latest_plugin_version) eq "" || $data(latest_plugin_version) == -1 || \
-			$data(latest_plugin_desc) eq "" } return
-	if { [package vcompare [lindex [package versions describe_your_espresso] 0] \
-		$data(latest_plugin_version) ] >= 0 } return 
-	
-	::plugins::DYE::TXT::load_page "latest_plugin_desc" ::plugins::DYE::CFG::data(latest_plugin_desc) 1 \
-		-page_title "[translate {What's new in DYE v}]$data(latest_plugin_version)"
-}
-
-proc ::plugins::DYE::CFG::update_plugin_click {} {
-	variable data
-	
-	if { $data(latest_plugin_version) eq "" || $data(latest_plugin_version) == -1 } update_plugin_state
-	if { $data(latest_plugin_version) eq "" || $data(latest_plugin_version) == -1 || \
-			$data(latest_plugin_url) eq "" } return
-	
-	if { [package vcompare [lindex [package versions describe_your_espresso] 0] \
-		$data(latest_plugin_version) ] >= 0 } return
-
-	set update_result [::plugins::DYE::update_DSx_plugin_from_github $::plugins::DYE::plugin_file $data(latest_plugin_url)]
-	if { $update_result == 1 } {
-		set data(update_plugin_msg) "[translate {Plugin updated to v}]$data(latest_plugin_version)\r
-[translate {Please quit and restart to load changes}]"
-		set data(update_plugin_state) [translate "Up-to-date"]
-		set data(plugin_has_been_updated) 1		
-		update_plugin_state
-		#set ::app_has_updated 1
-	} else {
-		set data(update_plugin_msg) [translate "Error downloading update"]
-		set data(update_plugin_state) [translate "Error"]
-	}
-}
-
-proc ::plugins::DYE::CFG::page_done {} {
-	say [translate {Done}] $::settings(sound_button_in)
-	fill_extensions_listbox
-	page_to_show_when_off extensions
-	set_extensions_scrollbar_dimensions
-}
-
-### GLOBAL STUFF AND STARTUP  #########################################################################################
+##	set c2_widget $widgets(categories2)
+##	if {[$c2_widget curselection] ne ""} {
+##		set c2_values {}
+##		foreach idx [$c2_widget curselection] {
+##			lappend c2_values [$c2_widget get $idx]
+##		}
+##		lappend where_conds "bean_desc IN ([::plugins::SDB::strings2sql $beans])"
+##	}
+#	
+#	if { $data(date_from) ne "" } {
+#		set from_clock [clock scan "$data(date_from) 00:00:00" -format "$::plugins::DYE::settings(date_format) %H:%M:%S"]
+#		lappend where_conds "clock>=$from_clock"
+#	}	
+#	if { $data(date_to) ne "" } {
+#		set to_clock [clock scan "$data(date_to) 23:59:59" -format "$::plugins::DYE::settings(date_format) %H:%M:%S"]
+#		lappend where_conds "clock<=$to_clock"
+#	}
+#
+#	if { $data(tds_from) ne "" } {
+#		lappend where_conds "LENGTH(drink_tds)>0 AND drink_tds>=$data(tds_from)"
+#	}	
+#	if { $data(tds_to) ne "" } {
+#		lappend where_conds "LENGTH(drink_tds)>0 AND drink_tds<=$data(tds_to)"
+#	}
+#	
+#	if { $data(ey_from) ne "" } {
+#		lappend where_conds "LENGTH(drink_ey)>0 AND drink_ey>=$data(ey_from)"
+#	}	
+#	if { $data(ey_to) ne "" } {
+#		lappend where_conds "LENGTH(drink_ey)>0 AND drink_ey<=$data(ey_to)"
+#	}
+#
+#	if { $data(enjoyment_from) ne "" } {
+#		lappend where_conds "LENGTH(espresso_enjoyment)>0 AND espresso_enjoyment>=$data(enjoyment_from)"
+#	}	
+#	if { $data(enjoyment_to) ne "" && $data(enjoyment_to) > 0 } {
+#		lappend where_conds "LENGTH(espresso_enjoyment)>0 AND espresso_enjoyment<=$data(enjoyment_to)"
+#	}
+#	
+#	set sql "SELECT filename, shot_desc FROM V_shot WHERE removed=0 "
+#	if {[llength $where_conds] > 0} { 
+#		append sql "AND [join $where_conds " AND "] "
+#	}
+#	
+#	if { [string first "\[" $data(order_by_enjoyment)] >= 0 } {
+#		append sql {ORDER BY espresso_enjoyment DESC, clock DESC}
+#	} elseif { [string first "\[" $data(order_by_ey)] >= 0 } {
+#		append sql {ORDER BY drink_ey DESC, clock DESC}
+#	} elseif { [string first "\[" $data(order_by_tds)] >= 0 } {
+#		append sql {ORDER BY drink_tds DESC, clock DESC}
+#	} else {
+#		append sql {ORDER BY clock DESC}
+#	}
+#		
+#	# Run the search
+#	set data(matched_shots) {}
+#	set cnt 0
+#	$widgets(shots) delete 0 end	
+#	
+#	set db ::plugins::SDB::get_db
+#	msg "DYE: $sql"
+#	db eval "$sql" {
+#		lappend data(matched_shots) $filename "$filename.shot"
+#		$widgets(shots) insert $cnt $shot_desc
+#		
+#		# TODO Move this line to the select for left side button.
+#		if { $cnt == 0 } { set ::DSx_settings(DSx_past_espresso_name) $filename }
+#			
+#		incr cnt
+#	}
+#	
+#	set data(n_matched_shots) $cnt
+#	if { $cnt == 0 } {
+#		set data(n_matched_shots_text) "[translate {No matching shots}]"
+#	} elseif { $cnt == 1 } {
+#		set data(n_matched_shots_text) "$cnt [translate {matching shot}]"
+#	} else {		
+#		set data(n_matched_shots_text) "$cnt [translate {matching shots}]"
+#	}
+#}
+#
+#proc ::dui::pages::DYE_fsh::apply_to_left_side {} {
+#	variable data
+#	say [translate {filter}] $::settings(sound_button_in)
+#	if {$data(left_filter_status) eq "off"} {
+#		if {[llength $data(matched_shots)] > 0} {
+#			# Ensure the files still exist on disk, otherwise don't include them
+#			set ::DSx_filtered_past_shot_files {} 
+#			for { set i 0 } { $i < [llength $data(matched_shots)] } { incr i 2 } {
+#				set fn [lindex $data(matched_shots) $i]
+#				if { [file exists "[homedir]/history/${fn}.shot"] } {
+#					lappend ::DSx_filtered_past_shot_files $fn
+#					lappend ::DSx_filtered_past_shot_files "${fn}.shot"
+#				} elseif { [file exists "[homedir]/history_archive/${fn}.shot"] } {
+#					lappend ::DSx_filtered_past_shot_files $fn
+#					lappend ::DSx_filtered_past_shot_files "${fn}.shot"
+#				}
+#			}				
+#			#set ::DSx_filtered_past_shot_files $data(matched_shots)
+#			set data(left_filter_status) "on"
+#		}
+#	} else {
+#		set data(left_filter_status) "off"
+#		unset -nocomplain ::DSx_filtered_past_shot_files
+#	}	
+#}
+#
+#proc ::dui::pages::DYE_fsh::apply_to_right_side {} {
+#	variable data
+#	say [translate {filter}] $::settings(sound_button_in)
+#	
+#	if {$data(right_filter_status) eq "off"} {
+#		if {[llength $data(matched_shots)] > 0} {
+#			# Ensure the files still exist on disk, otherwise don't include them
+#			set ::DSx_filtered_past_shot_files2 {} 
+#			for { set i 0 } { $i < [llength $data(matched_shots)] } { incr i 2 } {
+#				set fn [lindex $data(matched_shots) $i]
+#				if { [file exists "[homedir]/history/${fn}.shot"] } {
+#					lappend ::DSx_filtered_past_shot_files2 $fn
+#					lappend ::DSx_filtered_past_shot_files2 "${fn}.shot"
+#				} elseif { [file exists "[homedir]/history_archive/${fn}.shot"] } {
+#					lappend ::DSx_filtered_past_shot_files2 $fn
+#					lappend ::DSx_filtered_past_shot_files2 "${fn}.shot"
+#				}
+#			}				
+#			#set ::DSx_filtered_past_shot_files2 $data(matched_shots)
+#			set data(right_filter_status) "on"
+#		}
+#	} else {
+#		set data(right_filter_status) "off"
+#		unset -nocomplain ::DSx_filtered_past_shot_files
+#	}
+#}
+#
+#proc ::dui::pages::DYE_fsh::page_done {} {
+#	say [translate {save}] $::settings(sound_button_in)
+#	page_to_show_when_off DSx_past
+#	
+#	if {$::dui::pages::DYE_fsh::data(left_filter_status) eq "on"} {
+#		fill_DSx_past_shots_listbox
+#	}
+#	if {$::dui::pages::DYE_fsh::data(right_filter_status) eq "on"} {
+#		fill_DSx_past2_shots_listbox
+#	}
+#}
+#
+#	
+#### "SHORTCUTS MENU" PAGE #############################################################################################
+#### STILL EXPERIMENTAL, USED ONLY WHILE DEBUGGING 
+#
+#namespace eval ::dui::pages::DYE_menu {
+#	# State variables for the "DYE_menu" page. Not persisted. 
+#	variable widgets
+#	array set widgets {}
+#	# affected_shots_slider 1
+#	
+#	variable data
+#	array set data {
+#		page_name "::dui::pages::DYE_menu"
+#		previous_page {}
+#		page_title {}
+#		previous_page {}
+#	}
+#}
+#
+#proc ::dui::pages::DYE_menu::setup {} {
+#	variable data
+#	variable widgets
+#	set page [namespace current]
+#
+#	add_de1_image $page 0 0 "[skin_directory_graphics]/background/bg2.jpg"
+#
+#	::plugins::DGUI::add_text $page 650 100 [translate "Menu"] -widget_name page_title \
+#		-font_size $::plugins::DGUI::header_font_size -fill $::plugins::DGUI::page_title_color -anchor "center" 
+#
+#	# Close menu
+#	::plugins::DGUI::add_symbol $page 1200	60 window_close -widget_name close_page -has_button 1 \
+#		-button_cmd ::dui::pages::DYE_menu::page_done
+#
+#	# DYE shortcuts
+#	set x 100; set y 200
+#	
+#	::plugins::DGUI::add_text $page $x $y [translate "Edit equipment types"] -widget_name edit_equipment -has_button 1 \
+#		-button_width 400 -button_cmd {say "" $::settings(sound_button_in); ::plugins::DYE::MODC::load_page equipment_type}
+#
+#	::plugins::DGUI::add_text $page $x [incr y 80] [translate "Filter shot history"] -widget_name fsh -has_button 1 \
+#		-button_width 400 -button_cmd {say "" $::settings(sound_button_in); ::dui::pages::DYE_fsh::load_page}
+#
+#	::plugins::DGUI::add_text $page $x [incr y 80] [translate "Numbers editor"] -widget_name edit_number -has_button 1 \
+#		-button_width 400 -button_cmd {say "" $::settings(sound_button_in); ::plugins::DYE::NUME::load_page drink_tds }
+#	
+#	set x 800; set y 200
+#	
+#	::plugins::DGUI::add_text $page $x $y [translate "DYE settings"] -widget_name edit_equipment -has_button 1 \
+#		-button_width 400 -button_cmd {say "" $::settings(sound_button_in); ::dui::pages::DYE_settings::load_page}
+#	
+#}
+#
+## Prepare and launch the DYE_modify_category page.
+#proc ::dui::pages::DYE_menu::load { page_to_hide page_to_show } {	
+#	variable data
+#	variable widgets
+#	set ns [namespace current]
+#	
+#	::plugins::DGUI::set_previous_page $ns
+#	page_to_show_when_off $ns	
+#		
+#	hide_android_keyboard
+#}
+#
+#proc ::dui::pages::DYE_menu::page_done {} {
+#	variable data
+#	page_to_show_when_off $data(previous_page)
+#}
+#
+#### "CONFIGURATION SETTINGS" PAGE ######################################################################################
+#
+#namespace eval ::dui::pages::DYE_settings {
+#	variable widgets
+#	array set widgets {}
+#	
+#	variable data
+#	array set data {
+#		page_name "::dui::pages::DYE_settings"
+#		db_status_msg {}
+#		update_plugin_state {-}
+#		latest_plugin_version {}
+#		latest_plugin_url {}
+#		latest_plugin_desc {}
+#		update_plugin_msg {}
+#		plugin_has_been_updated 0
+#	}
+#}
+#
+## Setup the "DYE_configuration" page User Interface.
+#proc ::dui::pages::DYE_settings::setup {} {
+#	variable widgets
+#	set page [namespace current]
+#
+#	# HEADERS
+#	::plugins::DGUI::add_page $page -add_bg_img 0 -title "Describe Your Espresso Settings" \
+#		-cancel_button 0 -buttons_loc center
+#		
+#	set y 180
+#	::plugins::DGUI::add_text $page 600 $y [translate "General options"] -font_size $::plugins::DGUI::section_font_size \
+#		-anchor "center" -justify "center" 	
+##	::plugins::DGUI::add_text $page 1900 $y [translate "Database"] -font_size $::plugins::DGUI::section_font_size \
+##		-anchor "center" -justify "center"	
+#	
+#	# LEFT SIDE
+#	set x_label 100; incr y 70
+#	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(show_shot_desc_on_home) $x_label $y \
+#		::dui::pages::DYE_settings::show_shot_desc_on_home_change -use_page_var 0 \
+#		-widget_name show_shot_desc_on_home \
+#		-label [translate "Show next & last shot description summaries on DSx home page"]
+#		
+#	incr y 80
+#	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(propagate_previous_shot_desc) $x_label $y \
+#		::dui::pages::DYE_settings::propagate_previous_shot_desc_change -use_page_var 0 \
+#		-widget_name propagate_previous_shot_desc \
+#		-label [translate "Propagate Beans, Equipment & People from last to next shot"]
+#
+#	incr y 80
+#	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(describe_from_sleep) $x_label $y \
+#		::dui::pages::DYE_settings::describe_from_sleep_change -use_page_var 0 \
+#		-widget_name describe_from_sleep \
+#		-label [translate "Icon on screensaver to describe last shot without waking up DE1"]
+#
+#	incr y 80
+#	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(backup_modified_shot_files) $x_label $y \
+#		::dui::pages::DYE_settings::backup_modified_shot_files_change -use_page_var 0 \
+#		-widget_name backup_modified_shot_files \
+#		-label [translate "Backup past shot files when they are modified (.bak)"]
+#	
+#	incr y 80
+#	::plugins::DGUI::add_checkbox $page ::plugins::DYE::settings(use_stars_to_rate_enjoyment) $x_label $y \
+#		{plugins save_settings DYE} -use_page_var 0 \
+#		-widget_name use_stars_to_rate_enjoyment \
+#		-label [translate "Use 1-5 stars rating to evaluate enjoyment"]
+#			
+#	incr y 125
+#	::plugins::DGUI::add_button2 $page shot_desc_font_color $x_label $y [translate "Shots\rsummaries\rcolor"] \
+#		"" paintbrush ::dui::pages::DYE_settings::shot_desc_font_color_change -symbol_fill $::plugins::DYE::settings(shot_desc_font_color)
+#	incr y [expr {$::plugins::DGUI::button2_height+35}]
+#	::plugins::DGUI::add_text $page [expr {$x_label+$::plugins::DGUI::button2_width/2}] $y "\[ [translate {Use default color}] \]" \
+#		-anchor center -justify center -fill $::plugins::DYE::default_shot_desc_font_color
+#	::add_de1_button $page ::dui::pages::DYE_settings::set_default_shot_desc_font_color $x_label [expr {$y-20}] \
+#		[expr {$x_label+$::plugins::DGUI::button2_width}] [expr {$y+50}]
+#	
+#}
+#
+## Normally not used as this is not invoked directly but by the DSx settings pages carousel, but still kept for 
+## consistency or for launching the page from a menu.
+#proc ::dui::pages::DYE_settings::load { page_to_hide page_to_show } {
+#	page_to_show_when_off [namespace current]
+#}
+#
+## Added to context actions, so invoked automatically whenever the page is loaded
+#proc ::dui::pages::DYE_settings::show { page_to_hide page_to_show } {
+#	update_plugin_state	
+#}
+#
+#
+#proc ::dui::pages::DYE_settings::show_shot_desc_on_home_change {} {	
+#	::plugins::DYE::define_last_shot_desc
+#	::plugins::DYE::define_next_shot_desc
+#	plugins save_settings DYE
+#}
+#
+#proc ::dui::pages::DYE_settings::propagate_previous_shot_desc_change {} {
+#	if { $::plugins::DYE::settings(propagate_previous_shot_desc) == 1 } {
+#		if { $::plugins::DYE::settings(next_modified) == 0 } {
+#			foreach field_name $::plugins::DYE::propagated_fields {
+#				set ::plugins::DYE::settings(next_$field_name) $::settings($field_name)
+#			}
+#			set ::plugins::DYE::settings(next_espresso_notes) {}
+#		}
+#	} else {
+#		if { $::plugins::DYE::settings(next_modified) == 0 } {
+#			foreach field_name "$::plugins::DYE::propagated_fields next_espresso_notes" {
+#				set ::plugins::DYE::settings(next_$field_name) {}
+#			}			
+#		}
+#	}
+#	
+#	::plugins::DYE::define_next_shot_desc
+#	plugins save_settings DYE
+#}
+#	
+#proc ::dui::pages::DYE_settings::describe_from_sleep_change {} {
+#	if { [info exists ::plugins::DYE::widgets(describe_from_sleep_symbol)] } {
+#		if { $::plugins::DYE::settings(describe_from_sleep) == 1 } {
+#			.can itemconfig $::plugins::DYE::widgets(describe_from_sleep_symbol) \
+#				-text $::plugins::DYE::settings(describe_icon)
+#			.can coords $::plugins::DYE::widgets(describe_from_sleep_button) [rescale_x_skin 230] [rescale_y_skin 0] \
+#				[rescale_x_skin 460] [rescale_y_skin 230]
+#		} else {
+#			.can itemconfig $::plugins::DYE::widgets(describe_from_sleep_symbol) -text ""
+#			.can coords $::plugins::DYE::widgets(describe_from_sleep_button) 0 0 0 0
+#		}
+#	}
+#	plugins save_settings DYE
+#}
+#	
+#proc ::dui::pages::DYE_settings::backup_modified_shot_files_change {} {	
+#	plugins save_settings DYE
+#}
+#
+#proc ::dui::pages::DYE_settings::shot_desc_font_color_change {} {
+#	say "" $::settings(sound_button_in)	
+#	set colour [tk_chooseColor -initialcolor $::plugins::DYE::settings(shot_desc_font_color) \
+#		-title [translate "Set shot summary descriptions color"]]
+#	if {$colour != {}} {
+#		if { $::settings(skin) eq "DSx" } {
+#			foreach fn "DSx_home_next_shot_desc DSx_home_last_shot_desc DSx_past_shot_desc DSx_past_shot_desc2 \
+#					DSx_past_zoomed_shot_desc DSx_past_zoomed_shot_desc2" {
+#				.can itemconfigure $::plugins::DGUI::widgets($fn) -fill $colour
+#			}
+#			.can itemconfigure $::dui::pages::DYE_settings::widgets(shot_desc_font_color_symbol) -fill $colour
+#		}
+#	
+#		set ::plugins::DYE::settings(shot_desc_font_color) $colour
+#		plugins save_settings DYE
+#	}	
+#}
+#
+#proc ::dui::pages::DYE_settings::set_default_shot_desc_font_color {} {
+#	say "" $::settings(sound_button_in)
+#	set colour $::plugins::DYE::default_shot_desc_font_color
+#	
+#	if { $::settings(skin) eq "DSx" } {
+#		foreach fn "DSx_home_next_shot_desc DSx_home_last_shot_desc DSx_past_shot_desc DSx_past_shot_desc2 \
+#				DSx_past_zoomed_shot_desc DSx_past_zoomed_shot_desc2" {
+#			.can itemconfigure $::plugins::DGUI::widgets($fn) -fill $colour
+#		}
+#		.can itemconfigure $::dui::pages::DYE_settings::widgets(shot_desc_font_color_symbol) -fill $colour
+#	}
+#
+#	set ::plugins::DYE::settings(shot_desc_font_color) $colour
+#	plugins save_settings DYE
+#}
+#
+#proc ::dui::pages::DYE_settings::show_or_hide_visualizer_pwd {} {
+#	variable widgets
+#	
+#	if { [$widgets(visualizer_password) cget -show] eq "*" } {
+#		$widgets(visualizer_password) configure -show ""
+#	} else {
+#		$widgets(visualizer_password) configure -show "*"
+#	}
+#}
+#
+#proc ::dui::pages::DYE_settings::update_plugin_state {} {
+#	variable data
+#	variable widgets
+#	
+#	::plugins::DGUI::enable_or_disable_widgets [expr !$data(plugin_has_been_updated)] update_plugin* [namespace current]
+#	if { $data(plugin_has_been_updated) == 1 } return
+#	
+#	.can itemconfig $widgets(update_plugin_state) -fill $::plugins::DGUI::font_color
+#	set data(update_plugin_msg) ""
+#	
+#	if { [ifexists ::plugins::DYE::settings(github_latest_url) "" ] eq "" } {
+#		set data(update_plugin_state) [translate "No update URL"]
+#	} elseif { $::android == 1 && [borg networkinfo] eq "none" } {
+#		set data(update_plugin_state) [translate "No wifi"]		
+#	} else {
+#		lassign [::plugins::DYE::github_latest_release $::plugins::DYE::settings(github_latest_url)] \
+#			data(latest_plugin_version) data(latest_plugin_url) data(latest_plugin_desc)
+#		
+##msg "DYE PLUGIN UPDATE - Comparing [lindex [package versions describe_your_espresso] 0] and $data(latest_plugin_version)"		
+#		if { $data(latest_plugin_version) == -1 } {
+#			set data(update_plugin_state) [translate "Error"]
+#			set data(update_plugin_msg) $data(latest_plugin_desc)
+#		} elseif { [package vcompare [lindex [package versions describe_your_espresso] 0] \
+#				$data(latest_plugin_version) ] >= 0 } {
+#			set data(update_plugin_state) [translate "Up-to-date"]
+#		} else {
+#			set data(update_plugin_state) "v$data(latest_plugin_version) [translate available]"
+#			.can itemconfig $widgets(update_plugin_state) -fill $::plugins::DGUI::remark_color
+#			if { $data(latest_plugin_desc) ne "" } {
+#				set data(update_plugin_msg) "\[ [translate {What's new?}] \]"
+#			}
+#		}
+#	}
+#}
+#
+#proc ::dui::pages::DYE_settings::show_latest_plugin_description {} {
+#	variable data
+#	
+#	if { $data(latest_plugin_version) eq "" || $data(latest_plugin_version) == -1 || \
+#			$data(latest_plugin_desc) eq "" } return
+#	if { [package vcompare [lindex [package versions describe_your_espresso] 0] \
+#		$data(latest_plugin_version) ] >= 0 } return 
+#	
+#	::plugins::DYE::TXT::load_page "latest_plugin_desc" ::dui::pages::DYE_settings::data(latest_plugin_desc) 1 \
+#		-page_title "[translate {What's new in DYE v}]$data(latest_plugin_version)"
+#}
+#
+#proc ::dui::pages::DYE_settings::update_plugin_click {} {
+#	variable data
+#	
+#	if { $data(latest_plugin_version) eq "" || $data(latest_plugin_version) == -1 } update_plugin_state
+#	if { $data(latest_plugin_version) eq "" || $data(latest_plugin_version) == -1 || \
+#			$data(latest_plugin_url) eq "" } return
+#	
+#	if { [package vcompare [lindex [package versions describe_your_espresso] 0] \
+#		$data(latest_plugin_version) ] >= 0 } return
+#
+#	set update_result [::plugins::DYE::update_DSx_plugin_from_github $::plugins::DYE::plugin_file $data(latest_plugin_url)]
+#	if { $update_result == 1 } {
+#		set data(update_plugin_msg) "[translate {Plugin updated to v}]$data(latest_plugin_version)\r
+#[translate {Please quit and restart to load changes}]"
+#		set data(update_plugin_state) [translate "Up-to-date"]
+#		set data(plugin_has_been_updated) 1		
+#		update_plugin_state
+#		#set ::app_has_updated 1
+#	} else {
+#		set data(update_plugin_msg) [translate "Error downloading update"]
+#		set data(update_plugin_state) [translate "Error"]
+#	}
+#}
+#
+#proc ::dui::pages::DYE_settings::page_done {} {
+#	say [translate {Done}] $::settings(sound_button_in)
+#	fill_extensions_listbox
+#	page_to_show_when_off extensions
+#	set_extensions_scrollbar_dimensions
+#}
+#
+#### GLOBAL STUFF AND STARTUP  #########################################################################################
 
 # Ensure new metadata fields are initialized on the global settings on first use.
 # This fails to create them for the first time if the code is on check_settings...
