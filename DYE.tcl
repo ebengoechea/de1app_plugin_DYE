@@ -678,16 +678,16 @@ proc ::dui::pages::DYE::setup {} {
 	# LEFT COLUMN 
 	set x_left_label 100; set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
 	
-	set y 40
-	dui add symbol $page $x_left_label $y -symbol backward -tags move_backward -style dye_main_nav_button -command true
+	set y 40; set hspace 110
+	dui add symbol $page $x_left_label $y -symbol backward -tags move_backward -style dye_main_nav_button -command yes
 	
-	dui add symbol $page [expr {$x_left_label+140}] $y -symbol search -tags search_shot -style dye_main_nav_button \
+	dui add symbol $page [expr {$x_left_label+$hspace}] $y -symbol search -tags search_shot -style dye_main_nav_button \
 		-command yes
 	
-	dui add symbol $page [expr {$x_left_label+280}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
+	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
 		-command yes
 	
-	dui add symbol $page [expr {$x_left_label+420}] $y fast_forward -tags move_to_next -style dye_main_nav_button \
+	dui add symbol $page [expr {$x_left_label+$hspace*3}] $y -symbol fast_forward -tags move_to_next -style dye_main_nav_button \
 		-command yes
 	
 	# BEANS DATA
@@ -809,7 +809,7 @@ proc ::dui::pages::DYE::setup {} {
 	incr y 100
 	lassign [::plugins::SDB::field_lookup espresso_enjoyment {n_decimals min_value max_value default_value small_increment big_increment}] \
 		n_decimals min max default smallinc biginc
-	dui add text $page $x_right_label [expr {$y+6}] -text [translate "Enjoyment (0-100)"] -tags {espresso_enjoyment_label espresso_enjoyment*}
+	dui add text $page $x_right_label [expr {$y+6}] -text [translate "Enjoyment (0-100)"] -tags espresso_enjoyment_label
 		
 	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610  -bheight 75 -tags espresso_enjoyment \
 		-labelvariable espresso_enjoyment -style dye_double \
@@ -856,7 +856,7 @@ proc ::dui::pages::DYE::setup {} {
 	set x [expr {$x+[dui aspect get dbutton bwidth -style dsx_settings -default 400]+75}]
 	set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
 	dui add dbutton $page $x $y -tags upload_to_visualizer -style dsx_settings -symbol file_upload \
-		-labelvariable upload_to_visualizer_label
+		-labelvariable upload_to_visualizer_label -state hidden
 	
 	dui add variable $page 2420 1380 -tags warning_msg -style remark -anchor e -justify right -state hidden
 }
@@ -864,8 +864,11 @@ proc ::dui::pages::DYE::setup {} {
 # 'which_shot' can be either a clock value matching a past shot clock, or any of 'current', 'next', 'DSx_past' or 
 #	'DSx_past2'.
 proc ::dui::pages::DYE::load { page_to_hide page_to_show which_shot } {
-	variable data	
-	set data(previous_page) $page_to_hide
+	variable data
+	# If reloading the page (to show a different shot data), remember the original page we came from
+	if { $page_to_hide ne "DYE" } {
+		set data(previous_page) $page_to_hide
+	}
 	
 	if { [info exists ::settings(espresso_clock)] && $::settings(espresso_clock) ne "" && $::settings(espresso_clock) > 0} {
 		set current_clock $::settings(espresso_clock)
@@ -957,9 +960,9 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 #		::plugins::DGUI::hide_widgets "espresso_enjoyment_rating_button" $ns
 #	}
 
-	dui item show_or_hide $::plugins::DYE::settings(use_stars_to_rate_enjoyment) $page_to_show espresso_enjoyment_rater*
-	dui item show_or_hide [expr {!$::plugins::DYE::settings(use_stars_to_rate_enjoyment)}] $page_to_show espresso_enjoyment*
-	
+#	dui item show_or_hide $::plugins::DYE::settings(use_stars_to_rate_enjoyment) $page_to_show espresso_enjoyment_rater*
+#	dui item show_or_hide [expr {!$::plugins::DYE::settings(use_stars_to_rate_enjoyment)}] $page_to_show espresso_enjoyment*
+		
 	if { $data(describe_which_shot) eq "next" } {
 		dui item disable $page_to_show "grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment* \
 			espresso_enjoyment_rater*"
@@ -970,6 +973,11 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 			#::plugins::DGUI::draw_rating $ns espresso_enjoyment 5
 		}
 	}
+
+	dui item show_or_hide $::plugins::DYE::settings(use_stars_to_rate_enjoyment) $page_to_show espresso_enjoyment_rater*
+	dui item show_or_hide [expr {!$::plugins::DYE::settings(use_stars_to_rate_enjoyment)}] $page_to_show espresso_enjoyment*
+	# Force redrawing the stars after showing/hiding
+	set data(espresso_enjoyment) $data(espresso_enjoyment)
 	
 	dui item relocate_text_wrt $page_to_show beans_select beans_header e 25 -8 w
 	dui item hide $page_to_show warning_msg
@@ -996,34 +1004,29 @@ proc ::dui::pages::DYE::unload_page {} {
 proc ::dui::pages::DYE::move_backward {} {
 	variable data
 	if { [ask_to_save_if_needed] eq "cancel" } return
-	
+
 	if { $data(describe_which_shot) eq "next" } {
-		load_page current
-		# show_page not invoked automatically when staying in the same page
-		show_page
+		dui page load DYE current -reload yes		
 	} else {
 		set previous_clock [::plugins::SDB::previous_shot $data(clock)]
 		if { $previous_clock ne "" && $previous_clock > 0 } {
-			load_page $previous_clock
-			show_page
+			dui page load DYE $previous_clock -reload yes
 		}
 	}
 }
 
 proc ::dui::pages::DYE::move_forward {} {
 	variable data
+	
 	if { $data(describe_which_shot) eq "next" } return
 	if { [ask_to_save_if_needed] eq "cancel" } return
 	
-	if { $data(describe_which_shot) eq "last" || $data(clock) == $::settings(espresso_clock) } {
-		load_page next
-		# show_page not invoked automatically when staying in the same page
-		show_page
-	} else {
+	if { $data(describe_which_shot) eq "current" || $data(clock) == $::settings(espresso_clock) } {
+		dui page load DYE next -reload yes
+	} else {		
 		set next_clock [::plugins::SDB::next_shot $data(clock)]
 		if { $next_clock ne "" && $next_clock > 0} {
-			load_page $next_clock
-			show_page
+			dui page load DYE $next_clock -reload yes
 		}
 	}
 }
@@ -1033,16 +1036,24 @@ proc ::dui::pages::DYE::move_to_next {} {
 	if { $data(describe_which_shot) eq "next" } return	
 	if { [ask_to_save_if_needed] eq "cancel" } return
 	
-	load_page next
-	# show_page not invoked automatically when staying in the same page
-	show_page
+	dui page load DYE next -reload yes
 }
 
 proc ::dui::pages::DYE::search_shot {} {
-msg -DEBUG "TRYING TO LOAD DYE_fsh"
-	dui page load DYE_fsh
+	set answer [ask_to_save_if_needed]
+	if { $answer eq "cancel" } return
+
+	dui page load DYE_fsh -page_title [translate "Select the shot to move to"] -callback_cmd ::dui::pages::DYE::select_shot_callback
 }
 
+proc ::dui::pages::DYE::select_shot_callback { matched_shots selected_shots } {
+	variable data
+	if { [llength $selected_shots] == 0 } { return }
+
+	set previous_page $data(previous_page)
+	dui page load DYE [lindex $selected_shots 0]
+	set data(previous_page) $previous_page
+}
 
 proc ::dui::pages::DYE::beans_select {} {
 	variable data
@@ -1144,9 +1155,7 @@ proc ::dui::pages::DYE::read_from {} {
 		array set shots [::plugins::SDB::shots "clock shot_desc" 1 "$filter AND ([join $sql_conditions { OR }])" 500]
 		dui page load dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
 			-page_title [translate "Select the shot to read the data from"] \
-			-callback_cmd [namespace current]::select_shot_callback
-#		::plugins::DGUI::IS::load_page shot "" $shots(shot_desc) -item_ids $shots(clock) \
-#			-callback_cmd ::dui::pages::DYE::select_shot_callback 
+			-callback_cmd [namespace current]::select_read_from_shot_callback
 		set data(read_from_status) "last"
 	} else {
 		array set last_shot [::plugins::SDB::shots "$::plugins::DYE::propagated_fields" 1 \
@@ -1166,7 +1175,7 @@ proc ::dui::pages::DYE::read_from {} {
 
 # Callback procedure returning control from the item_selection page to the describe_espresso page, to select a 
 # source shot to be used for next shot propagation values. 
-proc ::dui::pages::DYE::select_shot_callback { shot_desc shot_clock item_type args } {
+proc ::dui::pages::DYE::select_read_from_shot_callback { shot_desc shot_clock item_type args } {
 	variable data
 	dui page show [namespace tail [namespace current]]
 	
@@ -1792,6 +1801,7 @@ namespace eval ::dui::pages::DYE_fsh {
 	array set data {
 		page_title "Filter Shot History"
 		previous_page {}
+		callback_cmd {}
 		category1 {profile_tile}
 		categories1_label {Profiles}
 		category2 {beans}
@@ -1801,6 +1811,7 @@ namespace eval ::dui::pages::DYE_fsh {
 		left_filter_shots {}
 		right_filter_shots {}
 		matched_shots {}
+		matched_clocks {}
 		n_matched_shots_text {}
 		date_from {}
 		date_to {}
@@ -1902,8 +1913,10 @@ proc ::dui::pages::DYE_fsh::setup {} {
 		-min $min -max $max -default $default -n_decimals $n_dec -smallincrement $smallinc -bigincrement $biginc
 	
 	# Enjoyment stars rating from/to
-	dui add drater $page $x_right_widget $y -tags enjoyment_from_rater -width 600 -variable enjoyment_from -min $min -max $max 
-	dui add drater $page $x_right_widget [expr {$y+75}] -tags enjoyment_to_rater -width 600 -variable enjoyment_to -min $min -max $max 
+	dui add drater $page $x_right_widget $y -tags enjoyment_from_rater -width 600 -variable enjoyment_from \
+		-min $min -max $max -label [translate "Enjoyment from"]	-label_pos [list $x_right_label $y]
+	dui add drater $page $x_right_widget [expr {$y+75}] -tags enjoyment_to_rater -width 600 -variable enjoyment_to \
+		-min $min -max $max -label [translate "to"]	-label_pos {w -20 0} -label_anchor e -label_justify right 
 	
 	# Order by
 	dui add text $page $x_right_label 688 -tags order_by_label -text [translate "Order by"] -font_size +2
@@ -1932,23 +1945,23 @@ proc ::dui::pages::DYE_fsh::setup {} {
 	# Button "Apply to left history"
 	set y 1375
 	dui add dbutton $page $x_left $y -tags apply_to_left_side -symbol filter -style dsx_settings \
-		-label "[translate {Apply to}]\n[translate {left side}]" -statevariable left_filter_status \
+		-label "[translate {Apply to}]\n[translate {left side}]" -statevariable left_filter_status -state hidden
 		
 	# Button "Apply to right history"
 	dui add dbutton $page 2100 $y -tags apply_to_right_side -symbol filter -style dsx_settings \
-		-label "[translate {Apply to}]\n[translate {right side}]" -statevariable right_filter_status \
+		-label "[translate {Apply to}]\n[translate {right side}]" -statevariable right_filter_status -state hidden
 		
 }
 
 # Prepare the DYE_filter_shot_history page.
-proc ::dui::pages::DYE_fsh::load { page_to_hide page_to_show {category1 profile_title} {category2 bean_desc} args } {
-	#variable widgets
+proc ::dui::pages::DYE_fsh::load { page_to_hide page_to_show args } {
 	variable data
 	array set opts $args
 	
 	set data(previous_page) $page_to_hide
-	set data(category1) $category1
-	set data(category2) $category2
+	set data(callback_cmd) [value_or_default opts(-callback_cmd) {}]
+	set data(category1) [value_or_default opts(-category1) profile_title]
+	set data(category2) [value_or_default opts(-category2) bean_desc]
 	set data(page_title) [value_or_default opts(-page_title) [translate "Filter Shot History"]]
 	set_order_by date
 
@@ -1965,38 +1978,16 @@ proc ::dui::pages::DYE_fsh::show { page_to_hide page_to_show } {
 	category1_change $data(category1)
 	category2_change $data(category2)
 	
-#	if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
-#		.can itemconfig $widgets(enjoyment_from) -state hidden
-#		.can itemconfig $widgets(enjoyment_to_label) -state hidden
-#		.can itemconfig $widgets(enjoyment_to) -state hidden
-#		for { set i 1 } { $i <= 5 } { incr i } {
-#			.can itemconfig $widgets(enjoyment_from_rating$i) -state normal
-#			.can itemconfig $widgets(enjoyment_from_rating_half$i) -state normal
-#			.can itemconfig $widgets(enjoyment_to_rating$i) -state normal
-#			.can itemconfig $widgets(enjoyment_to_rating_half$i) -state normal
-#		}
-#		.can itemconfig $widgets(enjoyment_to_rating_label) -state normal
-#		.can itemconfig $widgets(enjoyment_from_rating_button) -state normal
-#		.can itemconfig $widgets(enjoyment_to_rating_button) -state normal
-#		
-#		::plugins::DGUI::draw_rating $page espresso_enjoyment -widget_name enjoyment_from
-#		::plugins::DGUI::draw_rating $page espresso_enjoyment -widget_name enjoyment_to
-#	} else {
-#		.can itemconfig $widgets(enjoyment_from) -state normal
-#		.can itemconfig $widgets(enjoyment_to_label) -state normal
-#		.can itemconfig $widgets(enjoyment_to) -state normal
-#		for { set i 1 } { $i <= 5 } { incr i } {
-#			.can itemconfig $widgets(enjoyment_from_rating$i) -state hidden
-#			.can itemconfig $widgets(enjoyment_from_rating_half$i) -state hidden
-#			.can itemconfig $widgets(enjoyment_to_rating$i) -state hidden
-#			.can itemconfig $widgets(enjoyment_to_rating_half$i) -state hidden
-#		}
-#		.can itemconfig $widgets(enjoyment_to_rating_label) -state hidden
-#		.can itemconfig $widgets(enjoyment_from_rating_button) -state hidden
-#		.can itemconfig $widgets(enjoyment_to_rating_button) -state hidden	
-#	}	
+	dui item show_or_hide $::plugins::DYE::settings(use_stars_to_rate_enjoyment) $page_to_show {enjoyment_from_rater* enjoyment_to_rater*}
+	dui item show_or_hide [expr {!$::plugins::DYE::settings(use_stars_to_rate_enjoyment)}] $page_to_show {enjoyment_from* enjoyment_to*}
+	# Force repainting the stars
+	set data(enjoyment_from) $data(enjoyment_from) 
+	set data(enjoyment_to) $data(enjoyment_to)
+	
+	dui item show_or_hide [expr {$::settings(skin) eq "DSx" && $data(previous_page) eq "DSx_past"}] $page_to_show \
+		{apply_to_left_side* apply_to_right_side*}
 }
-#
+
 proc ::dui::pages::DYE_fsh::categories1_label_dropdown { } {
 	variable data
 
@@ -2230,6 +2221,7 @@ proc ::dui::pages::DYE_fsh::reset {} {
 	set_order_by date	
 	$widgets(shots) delete 0 end
 	set data(matched_shots) {}
+	set data(matched_clocks) {}
 	set data(n_matched_shots_text) "[translate {No matching shots}]"
 }
 
@@ -2299,7 +2291,7 @@ proc ::dui::pages::DYE_fsh::search {} {
 		lappend where_conds "LENGTH(espresso_enjoyment)>0 AND espresso_enjoyment<=$data(enjoyment_to)"
 	}
 	
-	set sql "SELECT filename, shot_desc FROM V_shot WHERE removed=0 "
+	set sql "SELECT clock, filename, shot_desc FROM V_shot WHERE removed=0 "
 	if {[llength $where_conds] > 0} { 
 		append sql "AND [join $where_conds " AND "] "
 	}
@@ -2316,13 +2308,17 @@ proc ::dui::pages::DYE_fsh::search {} {
 		
 	# Run the search
 	set data(matched_shots) {}
+	set data(matched_clocks) {}
 	set cnt 0
 	$widgets(shots) delete 0 end	
 	
 	set db ::plugins::SDB::get_db
 	msg "DYE: $sql"
 	db eval "$sql" {
+		# data(matched_shots) has this apparently nonsense repeated data structure because that's exactly what DSx
+		# expects, and this was used only for filtering DSx History Viewer on DYE before v2.00
 		lappend data(matched_shots) $filename "$filename.shot"
+		lappend data(matched_clocks) $clock
 		$widgets(shots) insert $cnt $shot_desc
 		
 		# TODO Move this line to the select for left side button.
@@ -2371,6 +2367,18 @@ proc ::dui::pages::DYE_fsh::apply_to_left_side {} {
 	}	
 }
 
+# Returns a list with the clocks of all shots returned from the last search. 
+proc ::dui::pages::DYE_fsh::matched_shots {} {
+	variable data
+	return $data(matched_clocks)
+}
+
+# Returns a list with the clocks of the currently selected shot(s).
+proc ::dui::pages::DYE_fsh::selected_shots {} {
+	variable data
+	return [dui item listbox_get_selection DYE_fsh shots $data(matched_clocks)]
+}
+
 proc ::dui::pages::DYE_fsh::apply_to_right_side {} {
 	variable data
 	if { $::settings(skin) ne "DSx" } return
@@ -2403,7 +2411,13 @@ proc ::dui::pages::DYE_fsh::page_done {} {
 	variable data
 	dui say [translate {save}] button_in
 	
-	if { $data(previous_page) eq "" } {
+	if { $data(callback_cmd) ne "" } {
+		msg "::dui::pages::DYE_fsh::page_done, callback_cmd=$data(callback_cmd)"
+		msg "::dui::pages::DYE_fsh::page_done, matched_clocks=$data(matched_clocks), selected_clock=[dui item listbox_get_selection DYE_fsh shots $data(matched_clocks)]"	
+				
+		uplevel #0 [list $data(callback_cmd) $data(matched_clocks) [dui item listbox_get_selection DYE_fsh shots $data(matched_clocks)]]
+		return
+	} elseif { $data(previous_page) eq "" } {
 		if { $::settings(skin) eq "DSx" } {
 			dui page show DSx_past
 		} else {
