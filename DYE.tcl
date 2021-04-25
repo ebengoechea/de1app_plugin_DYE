@@ -137,6 +137,7 @@ proc ::plugins::DYE::preload {} {
 	check_settings
 	plugins save_settings DYE
 
+	setup_default_aspects
 	dui page add DYE_settings -namespace true	
 	return DYE_settings
 }
@@ -197,8 +198,8 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(propagate_previous_shot_desc) 1
 	ifexists settings(backup_modified_shot_files) 0
 	ifexists settings(use_stars_to_rate_enjoyment) 1
-	ifexists settings(next_shot_DSx_home_coords) {500 1150}
-	ifexists settings(last_shot_DSx_home_coords) {2120 1150}
+	ifexists settings(next_shot_DSx_home_coords) {500 1165}
+	ifexists settings(last_shot_DSx_home_coords) {2120 1165}
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
 	
 	# Propagation mechanism 
@@ -239,6 +240,43 @@ proc ::plugins::DYE::check_settings {} {
 roast_level bean_notes grinder_model grinder_setting drink_tds drink_ey espresso_enjoyment \
 espresso_notes my_name drinker_name scentone skin beverage_type final_desired_shot_weight repository_links}	
 	}
+}
+
+# Defines the DYE-specific aspect styles for the default theme. These are always needed even if the current theme used is 
+# another one, to have a default and to build the settings page with the default theme.
+proc ::plugins::DYE::setup_default_aspects { args } {
+	set theme default
+	dui aspect set -theme $theme -style dsx_settings {dbutton.shape round dbutton.bwidth 384 dbutton.bheight 192 
+		dbutton_symbol.pos {0.2 0.5} dbutton_symbol.font_size 37 
+		dbutton_label.pos {0.65 0.5} dbutton_label.font_size 18 
+		dbutton_label1.pos {0.65 0.8} dbutton_label1.font_size 16}
+	
+	dui aspect set -theme $theme -style dsx_midsize {dbutton.shape round dbutton.bwidth 220 dbutton.bheight 140
+		dbutton_label.pos {0.5 0.5} dbutton_symbol.font_size 30}
+	
+	set bold_font [dui aspect get text font_family -theme default -style bold]
+	dui aspect set -theme $theme -style dsx_done [list dbutton.shape round dbutton.bwidth 220 dbutton.bheight 140 \
+		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
+	
+	dui aspect set -theme $theme -type symbol -style dye_main_nav_button { font_size 24 fill "#35363d" }
+	
+	dui aspect set -theme $theme -type text -style section_header [list font_family $bold_font font_size 20]
+	
+	dui aspect set -theme $theme -type dclicker -style dye_double {orient horizontal use_biginc 1 symbol chevron_double_left 
+		symbol1 chevron_left symbol2 chevron_right symbol3 chevron_double_right }
+	dui aspect set -theme $theme -type dclicker_symbol -style dye_double {pos {0.075 0.5} font_size 24 anchor center fill "#7f879a"} 
+	dui aspect set -theme $theme -type dclicker_symbol1 -style dye_double {pos {0.275 0.5} font_size 24 anchor center fill "#7f879a"} 
+	dui aspect set -theme $theme -type dclicker_symbol2 -style dye_double {pos {0.725 0.5} font_size 24 anchor center fill "#7f879a"}
+	dui aspect set -theme $theme -type dclicker_symbol3 -style dye_double {pos {0.925 0.5} font_size 24 anchor center fill "#7f879a"}
+
+	dui aspect set -theme $theme -type dclicker -style dye_single {orient horizontal use_biginc 0 symbol chevron_left symbol1 chevron_right}
+	dui aspect set -theme $theme -type dclicker_symbol -style dye_single {pos {0.1 0.5} font_size 24 anchor center fill "#7f879a"} 
+	dui aspect set -theme $theme -type dclicker_symbol1 -style dye_single {pos {0.9 0.5} font_size 24 anchor center fill "#7f879a"} 
+	
+	foreach {a aval} [dui aspect list -theme default -type dbutton -style dsx_settings -values 1 -full_aspect 1]] {
+		msg -DEBUG "setup_default_aspects, $a = $aval"
+	}
+	::logging::flush_log
 }
 
 # Update the current shot description from the "next" description when doing a new espresso, if it has been
@@ -960,24 +998,25 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 #		::plugins::DGUI::hide_widgets "espresso_enjoyment_rating_button" $ns
 #	}
 
-#	dui item show_or_hide $::plugins::DYE::settings(use_stars_to_rate_enjoyment) $page_to_show espresso_enjoyment_rater*
-#	dui item show_or_hide [expr {!$::plugins::DYE::settings(use_stars_to_rate_enjoyment)}] $page_to_show espresso_enjoyment*
+	set use_stars $::plugins::DYE::settings(use_stars_to_rate_enjoyment)
+	dui item show_or_hide $use_stars $page_to_show espresso_enjoyment_rater*
+	dui item show_or_hide [expr {!$use_stars}] $page_to_show espresso_enjoyment*
 		
 	if { $data(describe_which_shot) eq "next" } {
-		dui item disable $page_to_show "grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment* \
-			espresso_enjoyment_rater*"
+		dui item disable $page_to_show {grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment* 
+			espresso_enjoyment_rater* espresso_enjoyment_label}
 	} else {
-		dui item enable $page_to_show "grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment*"
+		dui item enable $page_to_show {grinder_dose_weight* drink_weight* drink_tds* drink_ey* espresso_enjoyment* 
+			espresso_enjoyment_label}
 		if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
 			dui item enable $page_to_show "espresso_enjoyment_rater*"
-			#::plugins::DGUI::draw_rating $ns espresso_enjoyment 5
+			# Force redrawing the stars after showing/hiding
+			if { $use_stars } {
+				set data(espresso_enjoyment) $data(espresso_enjoyment)
+			}
 		}
+		
 	}
-
-	dui item show_or_hide $::plugins::DYE::settings(use_stars_to_rate_enjoyment) $page_to_show espresso_enjoyment_rater*
-	dui item show_or_hide [expr {!$::plugins::DYE::settings(use_stars_to_rate_enjoyment)}] $page_to_show espresso_enjoyment*
-	# Force redrawing the stars after showing/hiding
-	set data(espresso_enjoyment) $data(espresso_enjoyment)
 	
 	dui item relocate_text_wrt $page_to_show beans_select beans_header e 25 -8 w
 	dui item hide $page_to_show warning_msg
