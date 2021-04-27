@@ -14,15 +14,16 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	dui font add_dir $::DSx_settings(font_dir)
 	
 	set disabled_colour "#35363d"
+	set default_font_size 15
 	dui aspect set -theme DSx [subst {
 		page.bg_img {}
 		page.bg_color $::DSx_settings(bg_colour)
 		
-		font.font_family notosansuiregular
-		font.font_size 16
+		font.font_family $::DSx_settings(font_name)
+		font.font_size $default_font_size
 		
 		text.font_family $::DSx_settings(font_name)
-		text.font_size 16
+		text.font_size $default_font_size
 		text.fill $::DSx_settings(font_colour)
 		text.disabledfill $disabled_colour
 		text.anchor nw
@@ -33,7 +34,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		text.font_family.section_title $::DSx_settings(font_name)
 		
 		text.font_family.page_title $::DSx_settings(font_name)
-		text.font_size.page_title 26
+		text.font_size.page_title 24
 		text.fill.page_title $::DSx_settings(heading_colour)
 		text.anchor.page_title center
 		text.justify.page_title center
@@ -58,14 +59,14 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dbutton.width 0
 		
 		dbutton_label.pos {0.5 0.5}
-		dbutton_label.font_size 18
+		dbutton_label.font_size [expr {$default_font_size+1}]
 		dbutton_label.anchor center	
 		dbutton_label.justify center
 		dbutton_label.fill $::DSx_settings(font_colour)
 		dbutton_label.disabledfill $disabled_colour
 		
 		dbutton_label1.pos {0.5 0.8}
-		dbutton_label1.font_size 16
+		dbutton_label1.font_size [expr {$default_font_size-1}]
 		dbutton_label1.anchor center
 		dbutton_label1.justify center
 		dbutton_label1.fill $::DSx_settings(font_colour)
@@ -90,7 +91,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dclicker.fill $::DSx_settings(font_colour)
 		dclicker.disabledfill $disabled_colour
 		dclicker_label.pos {0.5 0.5}
-		dclicker_label.font_size 18
+		dclicker_label.font_size 16
 		dclicker_label.fill $::DSx_settings(font_colour)
 		dclicker_label.anchor center
 		dclicker_label.justify center
@@ -100,13 +101,14 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		entry.disabledbackground $disabled_colour
 		entry.width 2
 		entry.foreground $::DSx_settings(font_colour)
+		entry.font_size $default_font_size
 		 
 		multiline_entry.relief sunken
 		multiline_entry.foreground $::DSx_settings(font_colour)
 		multiline_entry.bg $::DSx_settings(bg_colour)
 		multiline_entry.width 2
 		multiline_entry.font_family $::DSx_settings(font_name)
-		multiline_entry.font_size 16
+		multiline_entry.font_size $default_font_size
 		multiline_entry.width 15
 		multiline_entry.height 5
 	
@@ -114,7 +116,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dcombobox.bg $::DSx_settings(bg_colour)
 		dcombobox.width 2
 		dcombobox.font_family $::DSx_settings(font_name)
-		dcombobox.font_size 16
+		dcombobox.font_size $default_font_size
 		
 		dcombobox_ddarrow.font_size 24
 		dcombobox_ddarrow.disabledfill $disabled_colour
