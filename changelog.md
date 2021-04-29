@@ -2,16 +2,15 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2.00] - [Unreleased]
+## [2.00] - 2021-04-29
+
 ### Added
-- New navigation menu on the main DYE page (top left) allow to move through the shot history. Specially useful under 
-the Insight skin as it has no history viewer.
+- New navigation menu on the main DYE page (top left) allow to move through the shot history. Specially useful under the Insight skin as it has no history viewer.
 
 ### Changed
-- Migrated from a DSx plugin to a DE1app plugin. Could now potentially work with any skin, though currently it's only 
-integrated with Insight and DSx.
+- Migrated from a DSx plugin to a DE1app plugin. Could now potentially work with any skin, though currently it's only integrated with Insight, DSx and MimojaCafe.
+- Namespaces GUI, IS, and NUME split-off to the new 'de1_dui' package integrated in the DE1app core app. GUI building now uses the DUI framework.
 - Namespace DB split-off to new DE1app plugin "Shot DataBase" (SDB).
-- Namespaces GUI, IS, NUME, TXT, and data dictionary features split-off to new DE1app plugin "Describe GUI" (DGUI).
 - Auto-update from GitHub functionality split-off to new DE1app plugin "GitHub Plugins".
 - Upload to visualizer extra functionality moved to the visualizer_upload plugin.
 - Corrected bug in the reset button in the Filter Shot History page, that was not resetting the stars.
@@ -19,8 +18,7 @@ integrated with Insight and DSx.
 already selected in the other listbox.
 - 'web_browser' command removed as its changes to work on Windows have already been incorporated into the de1app.
 - Listboxes now scroll correctly until the final elements.
-- Size of text-based widgets like listboxes has been made fixed to it doesn't collide with other widgets when user
-changes font size.
+- Size of text-based widgets like listboxes has been fixed to reduce collisions with other widgets when user changes font size.
 - comes_from_sleep no longer needed in DE::load_page, now uses the more general mechanism 'previous_page'.
 
 ## [1.18] - [Unreleased]

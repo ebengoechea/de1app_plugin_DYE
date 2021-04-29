@@ -201,7 +201,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	# DUI-specific styles
 	dui aspect set -style dsx_settings {dbutton.shape outline dbutton.bwidth 384 dbutton.bheight 192 dbutton.width 3 
 		dbutton_symbol.pos {0.2 0.5} dbutton_symbol.font_size 37 
-		dbutton_label.pos {0.65 0.5} dbutton_label.font_size 18 
+		dbutton_label.pos {0.65 0.5} dbutton_label.font_size 17 
 		dbutton_label1.pos {0.65 0.8} dbutton_label1.font_size 16}
 	
 	dui aspect set -style dsx_midsize {dbutton.shape outline dbutton.bwidth 220 dbutton.bheight 140 dbutton.width 6 dbutton.arc_offset 15

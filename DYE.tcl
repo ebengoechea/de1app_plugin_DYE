@@ -55,7 +55,7 @@ namespace eval ::plugins::DYE {
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
 
-	variable min_de1app_version {1.35}
+	variable min_de1app_version {1.36}
 	variable min_DSx_version {4.39}
 	variable debug_text {}	
 	
@@ -252,8 +252,9 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 
 proc ::plugins::DYE::upgrade { previous_version } {
 	variable settings
+	variable version
 	
-	msg -INFO "Upgrading DYE plugin from v$previous_version"
+	msg -INFO "plugin upgraded from v$previous_version to v$version"
 	if { $previous_version eq "" } {
 		set old_settings_file "[homedir]/skins/DSx/DSx_User_Set/DYE_settings.tdb"
 		if { [file exists $old_settings_file] } {
@@ -269,12 +270,15 @@ proc ::plugins::DYE::upgrade { previous_version } {
 						set settings($s) $old_settings($s)
 					}
 				}
+				
+				msg -INFO "settings copied from old DSx DYE plugin"
 			}
 		}
 
 		if { [file exists "[homedir]/skins/DSx/DSx_Plugins/describe_your_espresso.dsx"] } {
 			file rename -force "[homedir]/skins/DSx/DSx_Plugins/describe_your_espresso.dsx" \
 				"[homedir]/skins/DSx/DSx_Plugins/describe_your_espresso.off"
+			msg -INFO "describe_your_espresso.dsx has been disabled"
 		}
 	}
 }
