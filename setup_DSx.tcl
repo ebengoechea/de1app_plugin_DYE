@@ -1,6 +1,3 @@
-
-#dui config debug_buttons 1  
-
 # Setup the UI integration with the DSx skin.
 proc ::plugins::DYE::setup_ui_DSx {} {
 	variable widgets 
@@ -263,14 +260,6 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 			-symbol_font_size 28 -labelvariable {$::plugins::DYE::next_shot_desc} -label_pos {0.575 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
 			-command [list dui page load DYE next]
-		
-#		dui add symbol $::DSx_standby_pages [expr {$x-360}] [expr {$y-35}] -tags dsx_launch_dye_next -symbol $settings(describe_icon) \
-#			-style small -command [list dui page load DYE next]
-#		dui add variable $::DSx_standby_pages $x $y -tags dsx_home_next_shot_desc -textvariable {$::plugins::DYE::next_shot_desc} \
-#			-anchor "center" -justify center -font_size -2 -fill $settings(shot_desc_font_color) -width 500 \
-#			-command [list dui page load DYE next]
-#		add_de1_button "$::DSx_standby_pages" { ::plugins::DYE::DE::load_page next } [expr {$x-400}] [expr {$y-75}] \
-#			[expr {$x+250}] [expr {$y+75}]
 	}
 	
 	# Icon and summary of the current (last) shot description below the shot chart and steam chart (right side)
@@ -285,19 +274,6 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
 			-command { if { $::settings(history_saved) == 1 && [info exists ::DSx_settings(live_graph_time)] } {
 					dui page load DYE current }}
-
-#		dui add symbol $::DSx_standby_pages [expr {$x+300}] [expr {$y-35}] -tags dsx_launch_dye_last -symbol $settings(describe_icon) \
-#			-style small -command [list dui page load DYE current]		
-#		dui add variable $::DSx_standby_pages $x $y -tags dsx_home_last_shot_desc -textvariable {$::plugins::DYE::last_shot_desc} \
-#			-anchor "center" -justify center -font_size -2 -fill $settings(shot_desc_font_color) -width 500 \
-#			-command { if { $::settings(history_saved) == 1 && [info exists ::DSx_settings(live_graph_time)] } {
-#					::plugins::DYE::DE::load_page current
-#				}}
-#		add_de1_button "$::DSx_standby_pages" { 
-#			if { $::settings(history_saved) == 1 && [info exists ::DSx_settings(live_graph_time)] } {
-#				::plugins::DYE::DE::load_page current
-#			} 		
-#			} [expr {$x-300}] [expr {$y-75}] [expr {$x+400}] [expr {$y+75}]
 	}
 		
 	### HISTORY VIEWER PAGE ###
@@ -308,23 +284,10 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		-label_fill $::plugins::DYE::settings(shot_desc_font_color) -label_justify left -label_width 1100 \
 		-command { if { [ifexists ::DSx_settings(past_shot_file) ""] ne "" } { dui page load DYE DSx_past } }
 	
-#	dui add variable DSx_past 40 850 -tags DSx_past_shot_desc -textvariable {$::plugins::DYE::past_shot_desc} \
-#		-font_size -1 -canvas_anchor "nw" -fill $::plugins::DYE::settings(shot_desc_font_color) -justify left -width 1100 
-#	add_de1_button "DSx_past" { 
-#			if { [ifexists ::DSx_settings(past_shot_file) ""] ne "" } { ::plugins::DYE::DE::load_page DSx_past }	
-#		} 40 850 1125 975
-
 	dui add dbutton DSx_past 1300 850 2400 975 -tags dsx_past2_launch_dye -labelvariable {$::plugins::DYE::past_shot_desc2} \
 		-label_pos { 0.001 0.01 } -label_font_size -1 -label_anchor nw \
 		-label_fill $::plugins::DYE::settings(shot_desc_font_color) -label_justify left -label_width 1100 \
 		-command { if { [ifexists ::DSx_settings(past_shot_file2) ""] ne "" } { dui page load DYE DSx_past2 } }
-	
-#	set widgets(DSx_past_shot_desc2) [add_de1_variable "DSx_past" 1300 850 -text "" \
-#		-font [::plugins::DGUI::get_font $::plugins::DGUI::font 7] -fill $::plugins::DYE::settings(shot_desc_font_color) \
-#		-anchor "nw" -justify left -width [rescale_x_skin 1100] -textvariable {$::plugins::DYE::past_shot_desc2}]
-#	add_de1_button "DSx_past" { 
-#		if { [ifexists ::DSx_settings(past_shot_file2) ""] ne "" } { ::plugins::DYE::DE::load_page DSx_past2 }
-#		} 1300 850 2400 975
 	
 	# Update left and right side shot descriptions when they change
 	trace add execution ::load_DSx_past_shot {leave} { ::plugins::DYE::define_past_shot_desc }
@@ -342,23 +305,6 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 				dui page load DYE_fsh
 			}
 		} 
-
-#	add_de1_image "DSx_past" 935 1390 "[skin_directory_graphics]/icons/store_button.png"
-#	::plugins::DGUI::add_symbol "DSx_past" 977 1473 filter -size small 
-##	add_de1_text "DSx_past" 977 1473 -font fontawesome_reg_small \
-##		-fill $::DSx_settings(font_colour) -anchor "nw" -text $::plugins::DGUI::symbol_filter
-#	add_de1_variable "DSx_past" 1066 1495 -font [::plugins::DGUI::get_font $::plugins::DGUI::font 7] \
-#		-fill $::plugins::DGUI::font_color -anchor "center" \
-#		-justify "center" -textvariable {$::plugins::DYE::FSH::data(left_filter_status)} 
-#	add_de1_button "DSx_past" { 
-#		if { $::plugins::DYE::FSH::data(left_filter_status) eq "on" } {
-#			set ::plugins::DYE::FSH::data(left_filter_status) "off"
-#			unset -nocomplain ::DSx_filtered_past_shot_files
-#			fill_DSx_past_shots_listbox
-#		} else {
-#			::plugins::DYE::FSH::load_page
-#		}
-#		} 935 1400 1120 1575
 	
 	# Search/filter button for right side
 	dui add dbutton DSx_past 1440 1445 -tags dsx_past_filter2 -style dsx_archive -symbol filter \
@@ -371,39 +317,14 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 				dui page load DYE_fsh
 			}
 		} 
-	
-#	add_de1_image "DSx_past" 1435 1390 "[skin_directory_graphics]/icons/store_button.png"
-#	::plugins::DGUI::add_symbol "DSx_past" 1477 1473 filter -size small 		
-##	add_de1_text "DSx_past" 1477 1473 -font fontawesome_reg_small \
-##		-fill $::plugins::DGUI::font_color -anchor "nw" -text $::plugins::DGUI::symbol_filter
-#	add_de1_variable "DSx_past" 1566 1495 -font [::plugins::DGUI::get_font $::plugins::DGUI::font 7] \
-#		-fill $::DSx_settings(font_colour) -anchor "center" \
-#		-justify "center" -textvariable {$::plugins::DYE::FSH::data(right_filter_status)}
-#	add_de1_button "DSx_past" { 
-#		if { $::plugins::DYE::FSH::data(right_filter_status) eq "on" } {
-#			set ::plugins::DYE::FSH::data(right_filter_status) "off"
-#			unset -nocomplain ::DSx_filtered_past_shot_files2
-#			fill_DSx_past2_shots_listbox
-#		} else {
-#			::plugins::DYE::FSH::load_page 
-#		}
-#		} 1435 1400 1620 1575
-	
+		
 	### FULL PAGE CHARTS FROM HISTORY VIEWER ###
 	dui add variable DSx_past_zoomed 1280 1535 -tags dye_shot_desc -textvariable {$::plugins::DYE::past_shot_desc_one_line} \
 		-font_size 12 -fill $settings(shot_desc_font_color) -anchor center -justify center -width 2200
-#	set widgets(DSx_past_zoomed_shot_desc) [add_de1_variable "DSx_past_zoomed" 1280 1535 \
-#		-font [::plugins::DGUI::get_font $::plugins::DGUI::font 7] -fill $::plugins::DYE::settings(shot_desc_font_color) \
-#		-anchor "center" -justify center -width [rescale_x_skin 2200] \
-#		-textvariable {$::plugins::DYE::past_shot_desc_one_line}]
 
 	dui add variable DSx_past2_zoomed 1280 1535 -tags dye_shot_desc -textvariable {$::plugins::DYE::past_shot_desc_one_line2} \
 		-font_size 12 -fill $settings(shot_desc_font_color) -anchor center -justify center -width 2200
 	
-#	set widgets(DSx_past_zoomed_shot_desc2) [add_de1_variable "DSx_past2_zoomed" 1280 1535 \
-#		-font [::plugins::DGUI::get_font $::plugins::DGUI::font 7] -fill $::plugins::DYE::settings(shot_desc_font_color) \
-#		-anchor "center" -justify center -width [rescale_x_skin 2200] \
-#		-textvariable {$::plugins::DYE::past_shot_desc_one_line2}]
 	trace add execution ::history_godshots_switch leave ::plugins::DYE::history_godshots_switch_leave_hook
 	
 	### SCREENSAVER ###
@@ -420,11 +341,6 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	set widgets(describe_from_sleep) [dui add dbutton saver {*}$sleep_describe_button_coords -tags saver_to_dye \
 		-symbol $sleep_describe_symbol -symbol_pos {0.5 0.5} -symbol_font_size 45 -symbol_anchor center -symbol_justify center \
 		-command [list dui page load DYE current]]
-	
-#	set widgets(describe_from_sleep_symbol) [add_de1_text "saver" 275 35 -font fontawesome_reg_big \
-#		-fill $::plugins::DGUI::font_color -anchor "nw" -text $sleep_describe_symbol]	
-#	set widgets(describe_from_sleep_button) [add_de1_button "saver" { ::plugins::DYE::DE::load_page current } \
-#		{*}$sleep_describe_button_coords]
 	
 	### DEBUG TEXT IN SOME PAGES ###
 	# Show the debug text variable. Set it to any value I want to see on screen at the moment.

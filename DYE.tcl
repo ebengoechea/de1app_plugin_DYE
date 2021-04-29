@@ -53,8 +53,7 @@ namespace eval ::plugins::DYE {
 	variable version 2.00
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
-	variable description [translate "Describe your shots: beans, grinder, extraction parameters or people involved.
-Describe your last shot, plan the next one, or retrieve shots from your history, searching by any description field."]
+	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
 
 	variable min_de1app_version {1.35}
 	variable min_DSx_version {4.39}
@@ -1656,7 +1655,7 @@ proc ::dui::pages::DYE::calc_ey_from_tds  {} {
 proc ::dui::pages::DYE::upload_to_visualizer {} {
 	variable data
 	variable widgets
-
+	set remark_color [dui aspect get text fill -style remark -default orange]
 #	if { $::dui::pages::DYE::data(repository_links) ne {} } {
 #		say [translate "browsing"] $::settings(sound_button_in)
 #		if { [llength $::dui::pages::DYE::data(repository_links)] > 1 } {
@@ -1668,11 +1667,11 @@ proc ::dui::pages::DYE::upload_to_visualizer {} {
 	say "" $::settings(sound_button_in)
 	if { $::android == 1 && [borg networkinfo] eq "none" } {
 		set data(upload_to_visualizer_label) [translate "Failed\rNo wifi"]
-#		set ::plugins::DYE::settings(last_visualizer_result) "[translate {Upload failed}]: [translate {No wifi}]" 
-		.can itemconfig $widgets(upload_to_visualizer-lbl) -fill ::plugins::DGUI::remark_color
-		update
-		after 3000 { ::dui::pages::DYE::update_visualizer_button }
-		say "" $::settings(sound_button_out)
+#		set ::plugins::DYE::settings(last_visualizer_result) "[translate {Upload failed}]: [translate {No wifi}]"
+		dui item config $widgets(upload_to_visualizer-lbl) -fill $remark_color 
+		#update
+		after 3000 ::dui::pages::DYE::update_visualizer_button
+		dui sound make button_out
 		return
 	}
 	
@@ -1683,14 +1682,14 @@ proc ::dui::pages::DYE::upload_to_visualizer {} {
 	}
 		
 	set data(upload_to_visualizer_label) [translate "Uploading..."]
-	.can itemconfig $widgets(upload_to_visualizer-lbl) -fill $::plugins::DGUI::remark_color
-	update
+	dui item config $widgets(upload_to_visualizer-lbl) -fill $remark_color
+	#update
 	
-	set repo_link [::plugins::DYE::upload_to_visualizer_and_save $::dui::pages::DYE::data(clock)]
+	set repo_link [::plugins::DYE::upload_to_visualizer_and_save $data(clock)]
 	
 	if { $repo_link eq "" } {
 		set data(upload_to_visualizer_label) [translate "Upload\rfailed"]
-		update
+		#update
 		after 3000 ::dui::pages::DYE::update_visualizer_button
 	} else {
 		set data(upload_to_visualizer_label) [translate "Upload\rsuccessful"]
@@ -1700,44 +1699,40 @@ proc ::dui::pages::DYE::upload_to_visualizer {} {
 			lappend data(repository_links) $repo_link
 		}
 		
-		update
+		#update
 		after 3000 ::dui::pages::DYE::update_visualizer_button
 	}
-	say "" $::settings(sound_button_out)
+	dui sound make button_out
 }
 
-proc ::dui::pages::DYE::update_visualizer_button { {check_context 1} } {
+proc ::dui::pages::DYE::update_visualizer_button { {check_page 1} } {
 	variable data
 	variable widgets
 	set page [namespace tail [namespace current]]
-	if { $check_context == 1 && $::de1(current_context) ne $page } {
-		msg "WARNING: WRONG context in update_visualizer_button='$::de1(current_context)'"	
+	
+	if { [string is true $check_page] && [dui page current] ne $page } {
+		msg "WARNING: WRONG page in update_visualizer_button='[dui page current]'"	
 		return
 	}
 
 	if { $data(describe_which_shot) ne "next" && [plugins enabled visualizer_upload] &&
 			$::plugins::visualizer_upload::settings(visualizer_username) ne "" && 
 			$::plugins::visualizer_upload::settings(visualizer_password) ne "" } {
-		dui item config $widgets(upload_to_visualizer-lbl) -fill [dui aspect get dbutton_label fill]
-		dui item show $page "upload_to_visualizer*"
-#		foreach wn {_symbol _label _img ""} {
-#			.can itemconfig $widgets(upload_to_visualizer$wn) -state normal
-#		}
+		dui item config $widgets(upload_to_visualizer-lbl) -fill [dui aspect get {dbutton_label text} fill]
+		dui item show $page upload_to_visualizer*
+				
 		if { $data(repository_links) eq {} } {
-			#.can itemconfig $::dui::pages::DYE::widgets(upload_to_visualizer_symbol) -text $::plugins::DGUI::symbols(file_upload)
+			#dui item config $widgets(upload_to_visualizer_symbol) -text [dui symbol get file_upload]
 			set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
 		} else {
 			set data(upload_to_visualizer_label) [translate "Re-upload to\rVisualizer"]
 		}
 #		else {
-#			.can itemconfig $::dui::pages::DYE::widgets(upload_to_visualizer_symbol) -text $::plugins::DGUI::symbols(file_contract)
-#			set ::dui::pages::DYE::data(upload_to_visualizer_label) [translate "See in\rVisualizer"]
+			#dui item config $widgets(upload_to_visualizer_symbol) -text [dui symbol get file_contract]
+#			set $data(upload_to_visualizer_label) [translate "See in\rVisualizer"]
 #		}
 	} else {
 		dui item hide $page "upload_to_visualizer*"
-#		foreach wn {_symbol _label _img ""} {
-#			.can itemconfig $widgets(upload_to_visualizer$wn) -state hidden
-#		}		
 	}
 }
 
@@ -2049,7 +2044,7 @@ proc ::dui::pages::DYE_fsh::categories2_label_dropdown { } {
 	variable data
 
 	set cats {}
-	foreach cat [array names ::plugins::DGUI::data_dictionary ] {
+	foreach cat [array names ::plugins::SDB::data_dictionary ] {
 		lassign [::plugins::SDB::field_lookup $cat "data_type name"] data_type cat_name
 		if { $data_type eq "category" && $cat ne $data(category1) } {
 			lappend cats "[list $cat "$cat_name"]" 
@@ -2197,10 +2192,7 @@ proc ::dui::pages::DYE_fsh::reset {} {
 	set data(ey_to) {}
 	set data(enjoyment_from) {}	
 	set data(enjoyment_to) {}
-#	if { $::plugins::DYE::settings(use_stars_to_rate_enjoyment) == 1 } {
-#		::plugins::DGUI::draw_rating $page "" -widget_name enjoyment_from
-#		::plugins::DGUI::draw_rating $page "" -widget_name enjoyment_to
-#	}
+	
 	set_order_by date	
 	$widgets(shots) delete 0 end
 	set data(matched_shots) {}
@@ -2653,10 +2645,11 @@ proc ::dui::pages::DYE_settings::shot_desc_font_color_change {} {
 		-title [translate "Set shot summary descriptions color"]]
 	if { $colour ne "" } {
 		if { $::settings(skin) eq "DSx" } {
-			foreach fn "DSx_home_next_shot_desc DSx_home_last_shot_desc DSx_past_shot_desc DSx_past_shot_desc2 \
-					DSx_past_zoomed_shot_desc DSx_past_zoomed_shot_desc2" {
-				.can itemconfigure $::plugins::DYE::widgets($fn) -fill $colour
-			}			
+			dui item config [lindex $::DSx_standby_pages 0] launch_dye_next-lbl -fill $colour
+			dui item config [lindex $::DSx_standby_pages 0] launch_dye_last-lbl -fill $colour
+			dui item config DSx_past {dsx_past_launch_dye-lbl dsx_past2_launch_dye-lbl} -fill $colour
+			dui item config DSx_past_zoomed dye_shot_desc -fill $colour
+			dui item config DSx_past2_zoomed dye_shot_desc -fill $colour
 		}
 		dui item config $widgets(shot_desc_font_color-sym) -fill $colour
 	
@@ -2671,10 +2664,11 @@ proc ::dui::pages::DYE_settings::set_default_shot_desc_font_color {} {
 	set colour $::plugins::DYE::default_shot_desc_font_color
 	
 	if { $::settings(skin) eq "DSx" } {
-		foreach fn "DSx_home_next_shot_desc DSx_home_last_shot_desc DSx_past_shot_desc DSx_past_shot_desc2 \
-				DSx_past_zoomed_shot_desc DSx_past_zoomed_shot_desc2" {
-			.can itemconfigure $::plugins::DGUI::widgets($fn) -fill $colour
-		}		
+		dui item config [lindex $::DSx_standby_pages 0] launch_dye_next-lbl -fill $colour
+		dui item config [lindex $::DSx_standby_pages 0] launch_dye_last-lbl -fill $colour
+		dui item config DSx_past {dsx_past_launch_dye-lbl dsx_past2_launch_dye-lbl} -fill $colour
+		dui item config DSx_past_zoomed dye_shot_desc -fill $colour
+		dui item config DSx_past2_zoomed dye_shot_desc -fill $colour
 	}
 	
 	dui item config $widgets(shot_desc_font_color-sym) -fill $colour
