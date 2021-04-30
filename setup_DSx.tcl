@@ -221,7 +221,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	
 	dui aspect set -type dclicker -style dye_double [subst {shape {} fill $::DSx_settings(bg_colour) 
 		disabledfill $::DSx_settings(bg_colour) width 0 orient horizontal use_biginc 1 
-		symbol chevron_double_left symbol1 chevron_left symbol2 chevron_right symbol3 chevron_double_right}]
+		symbol chevron-double-left symbol1 chevron-left symbol2 chevron-right symbol3 chevron-double-right}]
 	dui aspect set -type dclicker_symbol -style dye_double [subst {pos {0.075 0.5} font_size 24 anchor center 
 		fill "#7f879a" disabledfill $disabled_colour}]
 	dui aspect set -type dclicker_symbol1 -style dye_double [subst {pos {0.275 0.5} font_size 24 anchor center 
@@ -231,7 +231,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	dui aspect set -type dclicker_symbol3 -style dye_double [subst {pos {0.925 0.5} font_size 24 anchor center 
 		fill "#7f879a" disabledfill $disabled_colour}]
 
-	dui aspect set -type dclicker -style dye_single {orient horizontal use_biginc 0 symbol chevron_left symbol1 chevron_right}
+	dui aspect set -type dclicker -style dye_single {orient horizontal use_biginc 0 symbol chevron-left symbol1 chevron-right}
 	dui aspect set -type dclicker_symbol -style dye_single {pos {0.1 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -type dclicker_symbol1 -style dye_single {pos {0.9 0.5} font_size 24 anchor center fill "#7f879a"} 
 			

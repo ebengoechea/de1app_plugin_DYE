@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.01] - 2021-04-30
+
+### Changed
+- Change the Fontawesome symbol names to standard names.
+
 ## [2.00] - 2021-04-29
 
 ### Added

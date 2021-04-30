@@ -50,7 +50,7 @@ package require de1_logging 1.0
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.00
+	variable version 2.01
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -126,13 +126,6 @@ proc ::plugins::DYE::preload {} {
 	# Because DUI calls the page setup commands automatically we need to initialize stuff here
 	dui add image_dirs "[homedir]/[plugin_directory]/DYE/"
 		
-	dui symbol set {filter "\uf0b0" people "\uf500" plug "\uf1e6" cup "\uf0f4" 
-		file_upload "\uf574" file_import "\uf56f" file_contract "\uf56c" cloud_download_alt "\uf381" 
-		plus "\uf067" pencil "\uf303" paintbrush "\uf5a9" db "\uf1c0" sync "\uf021" 
-		circle "\uf111" circle_right "\uf138" circle_left "\uf137" circle_up "\uf331" circle_down "\uf32d" 
-		circle_times "\uf057" circle_check "\uf058" bars "\uf0c9" window_close "\uf410" 
-		forward "\uf04e" fast_forward "\uf050" backward "\uf04a" fast_backward "\uf049" search "\uf002" }
-	
 	check_settings
 	plugins save_settings DYE
 
@@ -303,14 +296,14 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	
 	dui aspect set -theme $theme -type text -style section_header [list font_family $bold_font font_size 20]
 	
-	dui aspect set -theme $theme -type dclicker -style dye_double {orient horizontal use_biginc 1 symbol chevron_double_left 
-		symbol1 chevron_left symbol2 chevron_right symbol3 chevron_double_right }
+	dui aspect set -theme $theme -type dclicker -style dye_double {orient horizontal use_biginc 1 symbol chevron-double-left 
+		symbol1 chevron-left symbol2 chevron-right symbol3 chevron-double-right }
 	dui aspect set -theme $theme -type dclicker_symbol -style dye_double {pos {0.075 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -theme $theme -type dclicker_symbol1 -style dye_double {pos {0.275 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -theme $theme -type dclicker_symbol2 -style dye_double {pos {0.725 0.5} font_size 24 anchor center fill "#7f879a"}
 	dui aspect set -theme $theme -type dclicker_symbol3 -style dye_double {pos {0.925 0.5} font_size 24 anchor center fill "#7f879a"}
 
-	dui aspect set -theme $theme -type dclicker -style dye_single {orient horizontal use_biginc 0 symbol chevron_left symbol1 chevron_right}
+	dui aspect set -theme $theme -type dclicker -style dye_single {orient horizontal use_biginc 0 symbol chevron-left symbol1 chevron-right}
 	dui aspect set -theme $theme -type dclicker_symbol -style dye_single {pos {0.1 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -theme $theme -type dclicker_symbol1 -style dye_single {pos {0.9 0.5} font_size 24 anchor center fill "#7f879a"} 
 	
@@ -695,7 +688,7 @@ proc ::dui::pages::DYE::setup {} {
 	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
 		-command yes
 	
-	dui add symbol $page [expr {$x_left_label+$hspace*3}] $y -symbol fast_forward -tags move_to_next -style dye_main_nav_button \
+	dui add symbol $page [expr {$x_left_label+$hspace*3}] $y -symbol fast-forward -tags move_to_next -style dye_main_nav_button \
 		-command yes
 	
 	# BEANS DATA
@@ -703,7 +696,7 @@ proc ::dui::pages::DYE::setup {} {
 	dui add text $page $x_left_field 250 -text [translate "Beans"] -tags beans_header -style section_header \
 		-command beans_select
 	
-	dui add symbol $page [expr {$x_left_field+300}] 245 -tags beans_select -symbol sort_down -font_size 24 -command yes
+	dui add symbol $page [expr {$x_left_field+300}] 245 -tags beans_select -symbol sort-down -font_size 24 -command yes
 
 	# Beans roaster / brand 
 	set y 350
@@ -864,12 +857,12 @@ proc ::dui::pages::DYE::setup {} {
 	# Recover "propagated" fields from a previous shot
 	set x [expr {$x+[dui aspect get dbutton bwidth -style dsx_settings -default 400]+75}]
 	set data(read_from_label) [translate $data(read_from_last_text)]
-	dui add dbutton $page $x $y -tags read_from -style dsx_settings -symbol file_import -labelvariable read_from_label
+	dui add dbutton $page $x $y -tags read_from -style dsx_settings -symbol file-import -labelvariable read_from_label
 
 	# Upload to Miha's Visualizer button
 	set x [expr {$x+[dui aspect get dbutton bwidth -style dsx_settings -default 400]+75}]
 	set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
-	dui add dbutton $page $x $y -tags upload_to_visualizer -style dsx_settings -symbol file_upload \
+	dui add dbutton $page $x $y -tags upload_to_visualizer -style dsx_settings -symbol file-upload \
 		-labelvariable upload_to_visualizer_label -initial_state hidden
 	
 	dui add variable $page 2420 1380 -tags warning_msg -style remark -anchor e -justify right -initial_state hidden
@@ -1726,13 +1719,13 @@ proc ::dui::pages::DYE::update_visualizer_button { {check_page 1} } {
 		dui item show $page upload_to_visualizer*
 				
 		if { $data(repository_links) eq {} } {
-			#dui item config $widgets(upload_to_visualizer_symbol) -text [dui symbol get file_upload]
+			#dui item config $widgets(upload_to_visualizer_symbol) -text [dui symbol get file-upload]
 			set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
 		} else {
 			set data(upload_to_visualizer_label) [translate "Re-upload to\rVisualizer"]
 		}
 #		else {
-			#dui item config $widgets(upload_to_visualizer_symbol) -text [dui symbol get file_contract]
+			#dui item config $widgets(upload_to_visualizer_symbol) -text [dui symbol get file-contract]
 #			set $data(upload_to_visualizer_label) [translate "See in\rVisualizer"]
 #		}
 	} else {
@@ -1823,7 +1816,7 @@ proc ::dui::pages::DYE_fsh::setup {} {
 	# Categories1 listbox
 	set x_left 60; set y 120
 	dui add variable $page $x_left $y -tags categories1_label -style section_header -command categories1_label_dropdown
-	dui add symbol $page [expr {$x_left+300}] $y -symbol sort_down -tags categories1_label_dropdown \
+	dui add symbol $page [expr {$x_left+300}] $y -symbol sort-down -tags categories1_label_dropdown \
 		-aspect_type dcombobox_ddarrow -command true
 	
 	dui add listbox $page $x_left [expr {$y+80}] -tags categories1 -canvas_width 500 -canvas_height 560 \
@@ -1836,7 +1829,7 @@ proc ::dui::pages::DYE_fsh::setup {} {
 	# Categories2 listbox
 	set x_left2 750
 	dui add variable $page $x_left2 $y -tags categories2_label -style section_header -command categories2_label_dropdown
-	dui add symbol $page [expr {$x_left2+300}] $y -symbol sort_down -tags categories2_label_dropdown \
+	dui add symbol $page [expr {$x_left2+300}] $y -symbol sort-down -tags categories2_label_dropdown \
 		-aspect_type dcombobox_ddarrow -command true
 	
 	dui add listbox $page $x_left2 [expr {$y+80}] -tags categories2 -canvas_width 500 -canvas_height 560 \
@@ -2572,7 +2565,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	
 	incr y [expr {int($vspace * 1.60)}]
 	dui add dbutton $page [expr {$x+100}] $y -tags shot_desc_font_color -style dsx_settings -label [translate "Shots\rsummaries\rcolor"] \
-		-symbol paintbrush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color) -command shot_desc_font_color_change 
+		-symbol paint-brush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color) -command shot_desc_font_color_change 
 	incr y [expr {[dui aspect get dbutton bheight -style dsx_settings]+35}]
 	
 	dui add text $page [expr {int($x+100+[dui aspect get dbutton bwidth -style dsx_settings]/2)}] $y \
