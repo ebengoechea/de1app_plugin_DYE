@@ -675,21 +675,28 @@ proc ::dui::pages::DYE::setup {} {
 	set skin $::settings(skin)	
 	
 	::plugins::DYE::page_skeleton $page "" page_title yes yes right
-	
-	# LEFT COLUMN 
-	set x_left_label 100; set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
-	
-	set y 40; set hspace 110
+
+	# NAVIGATION
+	set x_left_label 100; set y 40; set hspace 110
 	dui add symbol $page $x_left_label $y -symbol backward -tags move_backward -style dye_main_nav_button -command yes
 	
-	dui add symbol $page [expr {$x_left_label+$hspace}] $y -symbol search -tags search_shot -style dye_main_nav_button \
+	dui add symbol $page [expr {$x_left_label+$hspace}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
 		-command yes
 	
-	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
+	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol fast-forward -tags move_to_next -style dye_main_nav_button \
+		-command yes
+
+	set x_right 2360
+	dui add symbol $page $x_right $y -symbol history -tags open_history_viewer -style dye_main_nav_button -command yes
+	
+	dui add symbol $page [expr {$x_right-$hspace}] $y -symbol search -tags search_shot -style dye_main_nav_button \
+		-command yes
+
+	dui add symbol $page [expr {$x_right-$hspace*2}] $y -symbol list -tags select_shot -style dye_main_nav_button \
 		-command yes
 	
-	dui add symbol $page [expr {$x_left_label+$hspace*3}] $y -symbol fast-forward -tags move_to_next -style dye_main_nav_button \
-		-command yes
+	# LEFT COLUMN 
+	set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
 	
 	# BEANS DATA
 	dui add image $page $x_left_label 150 "bean_${skin}.png" -tags beans_img
@@ -761,9 +768,9 @@ proc ::dui::pages::DYE::setup {} {
 	dui add text $page 1550 250 -text [translate "Extraction"] -style section_header
 
 	# Calc EY from TDS button
-	dui add dbutton $page 2050 125 -tags calc_ey_from_tds -style dsx_settings -label [translate "Calc EY from TDS"] \
-		-label_pos {0.5 0.38} -label1variable {$::plugins::DYE::settings(calc_ey_from_tds)} -label1_pos {0.5 0.7} \
-		-command calc_ey_from_tds_click
+	dui add dbutton $page 2050 175 -tags calc_ey_from_tds -style dsx_settings -label [translate "Calc EY from TDS"] \
+		-label_pos {0.5 0.3} -label1variable {$::plugins::DYE::settings(calc_ey_from_tds)} -label1_pos {0.5 0.7} \
+		-command calc_ey_from_tds_click -bheight 140
 	
 	# Grinder Dose weight
 	set y 350
@@ -870,7 +877,7 @@ proc ::dui::pages::DYE::setup {} {
 
 # 'which_shot' can be either a clock value matching a past shot clock, or any of 'current', 'next', 'DSx_past' or 
 #	'DSx_past2'.
-proc ::dui::pages::DYE::load { page_to_hide page_to_show which_shot } {
+proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } {
 	variable data
 	# If reloading the page (to show a different shot data), remember the original page we came from
 	if { $page_to_hide ne "DYE" } {
@@ -1026,16 +1033,61 @@ proc ::dui::pages::DYE::search_shot {} {
 	set answer [ask_to_save_if_needed]
 	if { $answer eq "cancel" } return
 
-	dui page load DYE_fsh -page_title [translate "Select the shot to move to"] -callback_cmd ::dui::pages::DYE::select_shot_callback
+	dui page load DYE_fsh -page_title [translate "Select the shot to describe"] -callback_cmd ::dui::pages::DYE::search_shot_callback
 }
 
-proc ::dui::pages::DYE::select_shot_callback { selected_shots matched_shots } {
+proc ::dui::pages::DYE::search_shot_callback { selected_shots matched_shots } {
 	variable data
 	if { [llength $selected_shots] == 0 } { 
 		dui page show DYE
 	} else {
 		set previous_page $data(previous_page)
 		dui page load DYE [lindex $selected_shots 0]
+		set data(previous_page) $previous_page
+	}
+}
+
+proc ::dui::pages::DYE::select_shot {} {
+	set answer [ask_to_save_if_needed]
+	if { $answer eq "cancel" } return
+	
+	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
+	dui page load dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
+		-page_title [translate "Select the shot to describe"] \
+		-callback_cmd [namespace current]::select_shot_callback -listbox_width 2300
+}
+
+proc ::dui::pages::DYE::select_shot_callback { shot_desc shot_id args } {
+	variable data
+
+	if { [llength $shot_id] == 0 } { 
+		dui page show DYE
+	} else {
+		set previous_page $data(previous_page)
+		dui page load DYE [lindex $shot_id 0]
+		set data(previous_page) $previous_page
+	}
+}
+
+proc ::dui::pages::DYE::open_history_viewer {} {
+	set answer [ask_to_save_if_needed]
+	if { $answer eq "cancel" } return
+	
+	if { $::settings(skin) eq "DSx" } {
+		::history_prep
+	} else {
+		history_viewer open -callback_cmd ::dui::pages::DYE::history_viewer_callback
+	}
+}
+
+proc ::dui::pages::DYE::history_viewer_callback { left_clock right_clock } {
+	variable data
+	
+	if { $left_clock eq "" } { 
+		dui page show DYE
+	} else {
+		set previous_page $data(previous_page)
+		dui page load DYE [lindex $left_clock 0]
 		set data(previous_page) $previous_page
 	}
 }
