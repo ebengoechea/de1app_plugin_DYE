@@ -130,7 +130,7 @@ proc ::plugins::DYE::preload {} {
 	plugins save_settings DYE
 
 	setup_default_aspects
-	dui page add DYE_settings -namespace true
+	dui page add DYE_settings -namespace true -theme default
 	return DYE_settings
 }
 
@@ -2570,11 +2570,6 @@ proc ::dui::pages::DYE_settings::setup {} {
 	variable widgets
 	set page [namespace tail [namespace current]]
 
-	# Use Insight aspect to integrate visually with the settings pages, even if another skin is in use, then revert
-	#	to the active theme at the end.
-	set current_theme [dui theme get]
-	dui theme set default
-	
 	# HEADER AND BACKGROUND
 	dui add text $page 1280 100 -tags page_title -text [translate "Describe Your Espresso Settings"] -style page_title
 
@@ -2626,8 +2621,6 @@ proc ::dui::pages::DYE_settings::setup {} {
 	
 	# FOOTER
 	dui add dbutton $page 1035 1460 -tags page_done -style insight_ok -command page_done -label [translate Ok]
-		
-	dui theme set $current_theme
 }
 
 # Normally not used as this is not invoked directly but by the DSx settings pages carousel, but still kept for 
