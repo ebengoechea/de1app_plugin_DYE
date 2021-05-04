@@ -50,7 +50,7 @@ package require de1_logging 1.0
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.01
+	variable version 2.02
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -197,7 +197,7 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(shot_desc_font_color) $::plugins::DYE::default_shot_desc_font_color
 	ifexists settings(describe_from_sleep) 1
 	ifexists settings(date_format) "%d/%m/%Y"
-	ifexists settings(describe_icon) [dui symbol get cup]
+	ifexists settings(describe_icon) [dui symbol get mug]
 	ifexists settings(propagate_previous_shot_desc) 1
 	ifexists settings(backup_modified_shot_files) 0
 	ifexists settings(use_stars_to_rate_enjoyment) 1
