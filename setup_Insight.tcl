@@ -36,7 +36,12 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 	# Add an icon on the bottom-right Insight home page to open the demo page.
 	dui add symbol {off espresso_3} 2450 960 -tags launch_dye -symbol $settings(describe_icon) -style small \
 		-command [list dui page load DYE current]
+	
+	# TODO: REMOVE
+	dui add symbol {off espresso_3} 2450 1020 -tags launch_dye_v3 -symbol $settings(describe_icon) -style small -fill orange \
+		-command [list dui page load DYE_v3 last]
 
+	
 	### SCREENSAVER ###
 	# Makes the left side of the app screensaver clickable so that you can describe your last shot without waking up 
 	# the DE1. Note that this would overlap with the DSx plugin management option, if enabled. Provided by Damian.

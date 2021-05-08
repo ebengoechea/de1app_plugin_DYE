@@ -91,7 +91,7 @@ proc ::plugins::DYE::main {} {
 	if { [namespace which -command "::plugins::DYE::setup_ui_$::settings(skin)"] ne "" } {
 		::plugins::DYE::setup_ui_$::settings(skin)
 	}
-	foreach page {DYE DYE_fsh} {
+	foreach page {DYE DYE_fsh DYE_v3} {
 		dui page add $page -namespace true
 	}
 	
@@ -225,6 +225,8 @@ proc ::plugins::DYE::check_settings {} {
 			}
 		}
 	}
+	
+	ifexists settings(summary_fields) {bean_brand bean_type roast_date espresso_notes espresso_enjoyment}
 	
 #	ifexists settings(visualizer_url) "visualizer.coffee"
 #	ifexists settings(visualizer_endpoint) "api/shots/upload"
@@ -2794,6 +2796,296 @@ proc ::dui::pages::DYE_settings::page_done {} {
 	dui say [translate {Done}] button_in
 	dui page load extensions
 }
+
+#### DYE v3  #########################################################################################
+
+namespace eval ::dui::pages::DYE_v3 {
+	variable widgets
+	array set widgets {}
+	
+	variable data
+	array set data {
+		previous_page {}
+		callback_cmd {}
+		page_title {translate {Describe your espresso}}
+		# next / last / past
+		which_shot {current}
+		clock 0
+		shot_file {}
+		test_msg {}
+	}
+	
+	variable pages
+	set pages {DYE_v3 DYE_v3_summary}
+		
+	variable original_shot
+	array set original_shot {}
+	
+	variable edited_shot
+	array set edited_shot {}
+}
+
+proc ::dui::pages::DYE_v3::setup {} {
+	variable data
+	variable widgets
+	variable pages
+	set page [namespace tail [namespace current]]
+	set skin $::settings(skin)	
+	
+	### TOP NAVIGATION BAR (common to all pages) ###
+	set x 75
+	set y 50
+	set bar_width [expr {2560-$x*2}]
+	set btn_width [expr {int($bar_width/9)}]
+	set btn_height 90
+	# Summary Chart Profile Beans Equipment Extraction Other | Compare Search
+	
+	dui aspect set -style dyev3_topnav [subst { dbutton.bwidth $btn_width dbutton.bheight $btn_height 
+		dubtton.shape rect dbutton_label.font_size -1 dbutton_label.pos {0.5 0.5} dbutton_label.anchor center 
+		dbutton_label.justify center }]
+	
+	dui add dbutton $pages $x $y -tags nav_summary -style dyev3_topnav -label [translate Summary] \
+		-command {%NS::navigate_to summary} -shape round -bwidth [expr {$btn_width+75}] -label_pos {0.45 0.5}
+	set i 0
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_chart -style dyev3_topnav -label [translate Chart] \
+		-command {%NS::navigate_to chart} 
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_profile -style dyev3_topnav -label [translate Profile] \
+		-command {%NS::navigate_to profile} 	
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_beans -style dyev3_topnav -label [translate Beans] \
+		-command {%NS::navigate_to beans}
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_equipment -style dyev3_topnav -label [translate Equipment] \
+		-command {%NS::navigate_to equipment} 
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_extraction -style dyev3_topnav -label [translate Extraction] \
+		-command {%NS::navigate_to extraction} 
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_other -style dyev3_topnav -label [translate Other] \
+		-command {%NS::navigate_to other}
+	
+	dui add dbutton $pages [expr {$x+$btn_width*($i+2)-75}] $y -tags nav_search -style dyev3_topnav -label [translate Search] \
+		-command {%NS::navigate_to search} -shape round -bwidth [expr {$btn_width+75}] -label_pos {0.55 0.5}
+	dui add dbutton $pages [expr {$x+$btn_width*($i+1)}] $y -tags nav_compare -style dyev3_topnav -label [translate Compare] \
+		-command {%NS::navigate_to compare} 
+	
+	### LEFT PANEL (common to all pages) ###
+	set width [expr {(2560-$x*2-150-200)/2}]
+	dui add text $pages $x 175 -tags shot_summary -width $width -font_size -1 \
+		-text "LAST SHOT: Saturday September 6  08:55\rGentle and Sweet - 18.0 g in  36.1 g out (1:2)"
+	
+	dui add tk_text $pages $x 300 -tags text_shot -canvas_width $width -canvas_height 1100 -yscrollbar yes \
+		-yscrollbar_width 100 -wrap word -font_size -1
+	
+	# Create graph
+	set widget [dui canvas].[string tolower $page]-shot_chart
+	graph $widget -background white -plotbackground white -width [dui platform rescale_x 1000] -height [dui platform rescale_y 600] -borderwidth 1 -plotrelief flat	
+	$widget axis create temp 
+	$widget axis configure temp -color #333 -min 0.0 -max [expr 12 * 10]
+	$widget axis configure x -color #333 -tickfont Helv_7 -min 0.0 
+	$widget axis configure y -color #333 -tickfont Helv_7 -min 0.0 -max 12 -subdivisions 5 -majorticks {0 1 2 3 4 5 6 7 8 9 10 11 12} -hide 0
+
+	$widgets(text_shot) window create insert -window $widget -align center
+	
+	### RIGHT PANEL (specific for this page) ###
+	dui add text $page 1890 220 -tags right_side_title -font_size +2 -anchor center -justify center -text "Summary"
+
+	set x_label [expr {$x+$width+150+100}]
+	set x_widget [expr {$x_label+500}]
+	set widget_width [expr {$width-500}]
+	set y 300
+	set vspace 100
+	
+	foreach field $::plugins::DYE::settings(summary_fields) {
+		lassign [::plugins::SDB::field_lookup $field {name short_name data_type n_decimals min_value max_value 
+			default_value small_increment big_increment}] \
+			name short_name data_type n_decimals min max default smallinc biginc
+		if { $name eq "" } {
+			msg -ERROR "summary field '$field' not recognized"
+			continue
+		}
+
+		dui add entry $page $x_widget $y -tags $field -label $name -label_pos [list $x_label $y] \
+			-textvariable {$%NS::edited_shot($field)}
+		
+		incr y $vspace
+	}
+	
+	
+#	dui add variable $page 1890 500 -tags test_msg -font_size +2 -anchor center -justify center -width 1200
+#	dui add tk_text $page [expr {$x+$width+150+100}] 300 -tags text_right -canvas_width $width -canvas_height 1100 \
+#		-yscrollbar yes -yscrollbar_width 100
+	
+	### Ok and Cancel buttons (common to all pages) ###
+	dui add dbutton $pages 750 1460 -tags page_cancel -style insight_ok -label [translate Cancel]
+	dui add dbutton $pages 1330 1460 -tags page_done -style insight_ok -label [translate Ok]	
+}
+
+proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show which_shot args } {
+	variable data
+	variable original_shot
+	variable edited_shot
+	
+	array set opts $args
+	set page [namespace tail [namespace current]]
+
+	array set original_shot {}
+	array set edited_shot {}
+	
+	set data(previous_page) $page_to_hide
+	set data(callback_cmd) [value_or_default opts(-callback_cmd)]
+	if { $which_shot eq "next" } {
+		set data(which_shot) next
+		set data(clock) {}		
+		set data(shot_file) {}
+	} elseif { $which_shot in {last current} } {
+		set data(which_shot) last
+		set data(clock) $::settings(espresso_clock)
+		set data(shot_file) [::plugins::SDB::get_shot_file_path $data(clock)]
+	} elseif { [string is integer $which_shot] } {
+		if { $which_shot == $::settings(espresso_clock) } {
+			set data(which_shot) last
+		} else {			
+			set data(which_shot) past
+		}
+		set data(clock) $which_shot
+		set data(shot_file) [::plugins::SDB::get_shot_file_path $data(clock)]
+	} else {
+		msg -ERROR [namespace current] "'which_shot' value '$which_shot' is not valid"
+		return 0
+	}
+	
+	if { $data(shot_file) eq "" } {
+		if { $data(which_shot) ne next } {
+			msg -ERROR [namespace current] "shot file '$which_shot' not found"
+			return 0
+		}
+	} else {
+		array set original_shot [::plugins::SDB::load_shot $data(shot_file)]
+		array set edited_shot $original_shot
+		shot_to_text
+	}
+	
+	return 1
+}
+
+proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
+	variable data
+	set page [namespace tail [namespace current]]
+
+}
+
+proc ::dui::pages::DYE_v3::navigate_to { dest } {
+	variable widgets
+	variable data
+	set tw $widgets(text_shot)
+	
+	if { $dest eq "beans" } {
+		set tag_rg [$tw tag ranges beans]
+		$tw see [lindex $tag_rg 0]
+	}
+} 
+
+proc ::dui::pages::DYE_v3::shot_to_text { {shot {}} {widget {}} } {
+	variable widgets
+	variable data
+	variable original_shot
+	
+	if { $shot eq "" } {
+		set shot [array get original_shot]
+	}
+	array set shot_array $shot
+	if { $widget eq "" } {
+		set widget $widgets(text_shot)
+	}
+	
+	
+	# Tag styles
+	$widget tag configure section -foreground black
+	$widget tag configure field -foreground brown
+	$widget tag configure value -foreground blue
+	$widget tag configure compare -elide 1
+		
+	# Shot description	
+	foreach field [array names shot_array] {
+		lassign [::plugins::SDB::field_lookup $field {name short_name data_type n_decimals min_value max_value 
+			default_value small_increment big_increment}] \
+			name short_name data_type n_decimals min max default smallinc biginc
+		if { $name eq "" } continue
+
+		$widget insert insert [translate $name] [list field $field] ": "
+		if { $shot_array($field) eq "" } {
+			$widget insert insert "<undef>" [list undef $field]
+		} else {
+			$widget insert insert $shot_array($field) [list value $field]
+		}
+		$widget insert insert " (unchanged)" [list compare $field]
+		$widget insert insert "\n"
+	}
+		
+	$widget tag bind field <ButtonPress-1> [list ::dui::pages::DYE_v3::click_text %x %y %X %Y]
+	$widget tag bind value <ButtonPress-1> [list ::dui::pages::DYE_v3::click_text %x %y %X %Y]
+	$widget configure -state disabled
+} 
+
+proc ::dui::pages::DYE_v3::click_text { x y X Y } {
+	variable widgets
+	variable data
+	set tw $widgets(text_shot)
+	set clicked_tags [$tw tag names @$x,$y]
+	
+	if { [lindex $clicked_tags 0] ni {field value} } {
+		return
+	}
+	set field_name [lindex $clicked_tags 1]
+	
+	set tag_rg [$tw tag ranges $field_name]
+	set tag_start [lindex $tag_rg 0] 
+	set tag_end [lindex $tag_rg 1]
+	set value [$tw get $tag_start $tag_end] 
+	
+	set data(test_msg) "Clicked ${field_name}!\r(from $tag_start to $tag_end)\rValue is '$value'"
+	#$tw tag configure comp -elide [expr {![$tw tag cget comp -elide]}]
+	
+	$tw delete $tag_start $tag_end
+	$tw insert $tag_start "New value" [list value $field_name]
+	
+	#after 1000 {set ::dui::pages::DYE_v3::data(test_msg) ""} 
+}
+
+proc ::dui::pages::DYE_v3::page_cancel {} {
+	variable data
+	if { $data(callback_cmd) ne "" } {
+		$data(callback_cmd) {}
+	} else {
+		dui page show $data(previous_page)
+	}
+}
+
+proc ::dui::pages::DYE_v3::page_done {} {
+	variable data
+	if { $data(callback_cmd) ne "" } {
+		$data(callback_cmd) {}
+	} else {
+		dui page show $data(previous_page)
+	}
+}
+
+namespace eval ::dui::pages::DYE_v3_number_editor {
+	variable widgets
+	array set widgets {}
+	
+	variable data
+	array set data {}
+}
+
+proc ::dui::pages::DYE_v3_number_editor::setup { page_to_hide page_to_show args } {
+	
+	
+	
+}
+
+proc ::dui::pages::DYE_v3_number_editor::show { page_to_hide page_to_show } {
+	
+	
+}
+
 
 #### GLOBAL STUFF AND STARTUP  #########################################################################################
 
