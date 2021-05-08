@@ -2,6 +2,16 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.03] - 2021-05-08
+
+### Added
+- New navigation menu on the main DYE page (top right) provides 3 options to search shots: select from a list, search, or call History Viewer (new one or DSx one)
+
+### Changed
+- Correct "cup" symbol name (now named "mug").
+- Move package dependencies to preload to avoid problems when downgrading versions
+- Set DYE_settings page through 'dui page add' instead of inside setup
+
 ## [2.01] - 2021-04-30
 
 ### Changed

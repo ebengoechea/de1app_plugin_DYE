@@ -42,7 +42,6 @@
 ### By Enrique Bengoechea <enri.bengoechea@gmail.com> 
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
-package require de1_logging 1.0
 
 #set ::skindebug 1 
 #plugins enable DYE
@@ -50,13 +49,13 @@ package require de1_logging 1.0
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.02
+	variable version 2.03
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
 
 	variable min_de1app_version {1.36}
-	variable min_DSx_version {4.39}
+	variable min_DSx_version {4.54}
 	variable debug_text {}	
 	
 	# Store widgets used in the skin-specific GUI integration 
@@ -122,6 +121,8 @@ proc ::plugins::DYE::preload {} {
 	if { [plugins available SDB] } {
 		plugins preload SDB
 	}
+	package require de1_logging 1.0
+	package require de1_dui 1.0
 	
 	# Because DUI calls the page setup commands automatically we need to initialize stuff here
 	dui add image_dirs "[homedir]/[plugin_directory]/DYE/"
