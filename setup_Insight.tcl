@@ -39,7 +39,7 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 	
 	# TODO: REMOVE
 	dui add symbol {off espresso_3} 2450 1020 -tags launch_dye_v3 -symbol $settings(describe_icon) -style small -fill orange \
-		-command [list dui page load DYE_v3 last]
+		-command [list dui page load DYE_v3 -which_shot last]
 
 	
 	### SCREENSAVER ###
