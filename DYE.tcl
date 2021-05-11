@@ -2919,8 +2919,12 @@ proc ::dui::pages::DYE_v3::setup {} {
 	### LEFT PANEL (common to all pages) ###
 	#set width [expr {(2560-$x*2-150-200)/2}]
 	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
-	dui add text $pages $x $page_coords(y_top_panel) -tags shot_summary -width $width -font_size -1 \
-		-text "LAST SHOT: Saturday September 6  08:55\rGentle and Sweet - 18.0 g in  36.1 g out (1:2)"
+#	dui add text $pages $x $page_coords(y_top_panel) -tags shot_summary -width $width -font_size -1 \
+#		-text "LAST SHOT: Saturday September 6  08:55\rGentle and Sweet - 18.0 g in  36.1 g out (1:2)"
+	
+	dui add tk_text $pages $x $page_coords(y_top_panel) -tags edited_summary -canvas_width $width \
+		-canvas_height $page_coords(top_panel_height) -font_size -1 -wrap word \
+		-yscrollbar no -bg "#d7d9e6" -borderwidth 0 -highlightthickness 0 -relief flat
 	
 	# We need to handle the yscrollbar in a special way to manually hide the graph on top of the text widget,
 	# otherwise it overflows the space on top of the text widget when scrolling down (Androwish bug?) 
@@ -3314,7 +3318,9 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 	set shot [array get ${ns}::${target}_shot]
 	array set shot_array $shot
-	set widget $widgets(${target}_text)
+	set tw $widgets(${target}_text)
+	set sw $widgets(${target}_summary)
+
 	set do_compare 0
 	if { $target eq "edited" && $data(compare_clock) ne "" } {
 		set do_compare 1
@@ -3323,64 +3329,116 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 	unset -nocomplain shot
 
-	$widget configure -state normal
+	# Top panel (2-lines shot summary)
+	$sw configure -state normal
+	$sw delete 0.1 end
+	
+	$sw tag configure which -foreground black -font [dui font get notosansuibold 15] -justify center
+	$sw tag configure profile_title -justify center
+	
+	if { $target eq "edited" } {
+		if { $data(which_shot) eq "next" } {
+			set which "NEXT SHOT"
+		} elseif { $data(which_shot) eq "last" } {
+			set which "LAST SHOT"
+		} else {
+			set which "PAST SHOT"
+		}
+	}
+
+	$sw insert insert [translate $which] which
+	if { $data(which_shot) eq "next" } {
+		$sw insert insert "\n"
+	} else {
+		$sw insert insert ": " {} $shot_array(date_time) "date_time" "\n"
+	}
+	$sw insert insert $shot_array(profile_title) "profile_title" " - "
+	
+	if { $shot_array(grinder_dose_weight) eq "" } {
+		set dose "?"
+	} else {
+		set dose $shot_array(grinder_dose_weight)
+	}
+	set ratio ""
+	if { $shot_array(drink_weight) eq "" } {
+		set yield "?"
+	} else {
+		set yield $shot_array(drink_weight)
+		if { $dose ne "?" && $dose > 0 && $yield > 0 } {
+			set ratio [format {%.1f} [expr {$yield/$dose}]]
+		}
+	}
+
+	$sw insert insert $dose grinder_dose_weight " g in " "" $yield drink_weight " g out "
+	if { $ratio ne "" } {
+		$sw insert insert "(1:$ratio) " ratio
+	}
+	
+	if { $data(which_shot) ne "next" && $shot_array(extraction_time) ne "" } {
+		$sw insert insert "in $shot_array(extraction_time) sec" extraction_time
+	}
+
+	$sw configure -state disabled
+
+	# Main panel (shot full description)
+	$tw configure -state normal
 	# First time this is run mark "chart:end" does not exist
 	set first_time 0
 	try { 
-		$widget delete chart:end end 
+		$tw delete chart:end end 
 	} on error err {
 		set first_time 1
 	}
-	#$widget delete chart:end end
+	#$tw delete chart:end end
 
 	# Tag styles
-	$widget tag configure section -foreground black -font [dui font get notosansuibold 17] -spacing1 [dui platform rescale_y 20]
-	$widget tag configure field -foreground brown -lmargin1 [dui platform rescale_x 35] -lmargin2 [dui platform rescale_x 45]  
-	$widget tag configure value -foreground blue
-	$widget tag configure compare -elide [expr {!$do_compare}]
+	$tw tag configure section -foreground black -font [dui font get notosansuibold 17] -spacing1 [dui platform rescale_y 20]
+	$tw tag configure field -foreground brown -lmargin1 [dui platform rescale_x 35] -lmargin2 [dui platform rescale_x 45]  
+	$tw tag configure value -foreground blue
+	$tw tag configure compare -elide [expr {!$do_compare}]
 
 #	# Add graph to the shot text widget
 	if { $first_time } {
 		foreach mark {summary summary:end chart} {
-			$widget mark set $mark insert
-			$widget mark gravity $mark left
+			$tw mark set $mark insert
+			$tw mark gravity $mark left
 		}
-		$widget window create insert -window $widgets(${target}_graph) -align center
+		$tw window create insert -window $widgets(${target}_graph) -align center
 		
-		$widget mark set chart:end insert
-		$widget mark gravity chart:end left
+		$tw mark set chart:end insert
+		$tw mark gravity chart:end left
 		
 		# These make the app shut down immediately as we start to scroll!!!
-		#bind $widgets(${target}_graph) <Configure> [list ::dui::pages::DYE_v3::show_or_hide_text_graph $widget %W]
-		#bind $widget <Expose> [list + ::dui::pages::DYE_v3::show_or_hide_text_graph $widget $widgets(${target}_graph)]
+		#bind $widgets(${target}_graph) <Configure> [list ::dui::pages::DYE_v3::show_or_hide_text_graph $tw %W]
+		#bind $tw <Expose> [list + ::dui::pages::DYE_v3::show_or_hide_text_graph $tw $widgets(${target}_graph)]
 	}
 	
 	# Shot management
 	set section manage
-	$widget mark set $section insert 
-	$widget mark gravity $section left
-	$widget insert insert [translate "Shot management"] [list section $section] "\n"
+	$tw mark set $section insert 
+	$tw mark gravity $section left
+	$tw insert insert [translate "Shot management"] [list section $section] "\n"
 	
 	if { [info exists shot_array(filename)] } {
 		set field filename
 		set filename [::plugins::SDB::get_shot_file_path $shot_array($field) 1]
 		if { $filename ne "" } {
-			$widget insert insert [translate File] [list field $field ${field}:n] ": " [list colon $field]
-			$widget insert insert $filename [list readonly $field ${field}:v] "\n"
+			$tw insert insert [translate File] [list field $field ${field}:n] ": " [list colon $field]
+			$tw insert insert $filename [list readonly $field ${field}:v] "\n"
 		}
 	}
 	if { $do_compare && [info exists comp_array(filename)] } {
 		set field comp_filename
 		set filename [::plugins::SDB::get_shot_file_path $comp_array(filename) 1]
 		if { $filename ne "" } {
-			$widget insert insert [translate "Compare to file"] [list field $field ${field}:n] ": " [list colon $field]
-			$widget insert insert $filename [list readonly $field ${field}:v] "\n"
+			$tw insert insert [translate "Compare to file"] [list field $field ${field}:n] ": " [list colon $field]
+			$tw insert insert $filename [list readonly $field ${field}:v] "\n"
 		}
 	}
 	
 	if { [info exists shot_array(repository_links)] } {
 		set field "visualizer"
-		$widget insert insert [translate Visualizer] [list field $field ${field}:n] ": " [list colon $field]
+		$tw insert insert [translate Visualizer] [list field $field ${field}:n] ": " [list colon $field]
 		
 		set visualizer_link ""
 		set i 0
@@ -3394,9 +3452,9 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 		}
 		
 		if { $visualizer_link eq "" } {
-			$widget insert insert [translate "Not uploaded"] [list $field ${field}:v] "\n"
+			$tw insert insert [translate "Not uploaded"] [list $field ${field}:v] "\n"
 		} else {
-			$widget insert insert [translate "Uploaded"] [list link $field ${field}:v] "\n"
+			$tw insert insert [translate "Uploaded"] [list link $field ${field}:v] "\n"
 		}
 	}
 
@@ -3417,13 +3475,13 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 
 	if { $app_version ne "" } {
 		set app_version [string range $app_version 0 end-2]
-		$widget insert insert [translate "Versions"] [list field $field ${field}:n] ": " [list colon $field]
-		$widget insert insert $app_version [list readonly $field ${field}:v] "\n"
+		$tw insert insert [translate "Versions"] [list field $field ${field}:n] ": " [list colon $field]
+		$tw insert insert $app_version [list readonly $field ${field}:v] "\n"
 	}
 
 
-	$widget mark set ${section}:end insert
-	$widget mark gravity ${section}:end left 
+	$tw mark set ${section}:end insert
+	$tw mark gravity ${section}:end left 
 
 	# Shot meta description
 	array set sections {
@@ -3435,9 +3493,9 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 	
 	foreach section [array names sections] {
-		$widget mark set $section insert 
-		$widget mark gravity $section left
-		$widget insert insert [translate $sections($section)] [list section $section] "\n"
+		$tw mark set $section insert 
+		$tw mark gravity $section left
+		$tw insert insert [translate $sections($section)] [list section $section] "\n"
 		
 		foreach field [::plugins::SDB::field_names "" "" $section] {
 			if { ![info exists shot_array($field)] } continue			
@@ -3446,12 +3504,12 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 				name short_name data_type n_decimals min max default smallinc biginc desc_section
 			#if { $name eq "" } continue
 			#if { $section eq $desc_section } {
-				$widget insert insert [translate $name] [list field $field ${field}:n] ": " [list colon $field]
+				$tw insert insert [translate $name] [list field $field ${field}:n] ": " [list colon $field]
 				
 				if { $shot_array($field) eq "" } {
-					$widget insert insert "  " [list undef $field ${field}:v]
+					$tw insert insert "  " [list undef $field ${field}:v]
 				} else {
-					$widget insert insert $shot_array($field) [list value $field ${field}:v]
+					$tw insert insert $shot_array($field) [list value $field ${field}:v]
 #				}
 
 				set compare_text ""
@@ -3482,23 +3540,24 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 				} else {
 					set compare_text "  (${compare_text})"
 				}
-				$widget insert insert $compare_text [list compare $field ${field}:c] "\n"
+				$tw insert insert $compare_text [list compare $field ${field}:c] "\n"
 				
 				if { $target eq "edited" } {
 					trace add variable ${ns}::edited_shot($field) write ${ns}::shot_variable_changed
 				}
 			#}
 		}
-		$widget mark set ${section}:end insert
-		$widget mark gravity ${section}:end left 
+		$tw mark set ${section}:end insert
+		$tw mark gravity ${section}:end left 
 	}
 	
 	if {$target eq "edited" } { 
-		$widget tag bind section [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
-		$widget tag bind field [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
-		$widget tag bind value [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
+		$tw tag bind section [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
+		$tw tag bind field [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
+		$tw tag bind value [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
 	}
-	$widget configure -state disabled
+	
+	$tw configure -state disabled
 	return 1
 }
 
