@@ -2821,6 +2821,7 @@ namespace eval ::dui::pages::DYE_v3 {
 		compare_file {}
 		shot_modified 0
 		field_being_edited {}
+		menu {}
 		
 		test_msg {}
 	}
@@ -2886,7 +2887,7 @@ proc ::dui::pages::DYE_v3::setup {} {
 		-command {%NS::navigate_to chart} 
 	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_profile -style dyev3_topnav -label [translate Profile] \
 		-command {%NS::navigate_to profile} 	
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_beans -style dyev3_topnav -label [translate Beans] \
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_bean -style dyev3_topnav -label [translate Beans] \
 		-command {%NS::navigate_to bean}
 	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_equipment -style dyev3_topnav -label [translate Equipment] \
 		-command {%NS::navigate_to equipment} 
@@ -3225,15 +3226,27 @@ proc ::dui::pages::DYE_v3::load_graph { {target edited} } {
 
 proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 	variable data
-	set page [namespace tail [namespace current]]
-
+	
+	if { $data(menu) ne "" } {
+		dui item config DYE_v3 nav_$data(menu)-lbl -fill white
+	}
+	
+	if { $page_to_show in {DYE_v3 DYE_v3_next} } {
+		set data(menu) "summary"
+	} else {
+		set data(menu) [string range $page_to_show 7 end]
+	}
+	
+	if { $data(menu) ne "" } {
+		dui item config DYE_v3 nav_$data(menu)-lbl -fill orange
+	}	
 }
 
 proc ::dui::pages::DYE_v3::navigate_to { dest } {
 	variable widgets
 	variable data
 	set tw $widgets(edited_text)
-	
+		
 	switch $dest {
 		bean_batch {set dest bean} 
 		people {set dest other}
@@ -3254,7 +3267,7 @@ proc ::dui::pages::DYE_v3::navigate_to { dest } {
 	}
 	
 	if { $dest_page ne [dui page current] } {
-		if { [dui page exists $dest_page] } { 
+		if { [dui page exists $dest_page] } {
 			dui page show $dest_page
 		} else {
 			msg -WARNING [namespace current] "show: destination page '$dest_page' not found"
@@ -3454,9 +3467,9 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 	
 	if {$target eq "edited" } { 
-		$widget tag bind section [dui platform button_press] [list + ${ns}::click_text %x %y %X %Y]
-		$widget tag bind field [dui platform button_press] [list + ${ns}::click_text %x %y %X %Y]
-		$widget tag bind value [dui platform button_press] [list + ${ns}::click_text %x %y %X %Y]
+		$widget tag bind section [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
+		$widget tag bind field [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
+		$widget tag bind value [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
 	}
 	$widget configure -state disabled
 	return 1
@@ -3550,11 +3563,21 @@ proc ::dui::pages::DYE_v3::change_text_shot_field { field var {widget {}} } {
 	$widget configure -state disabled
 }
 
-proc ::dui::pages::DYE_v3::click_text { x y X Y } {
+proc ::dui::pages::DYE_v3::click_shot_text { widget x y X Y } {
 	variable widgets
 	variable data
-	set tw $widgets(edited_text)
-	set clicked_tags [$tw tag names @$x,$y]
+
+	# On PC the coordinates taken by [Text tag names] are screen absolute, whereas on android we need to first transform
+	# them, then make then relative to the Text widget left-top coordinate	
+	set rx [dui platform translate_coordinates_finger_down_x $x]
+	set ry [dui platform translate_coordinates_finger_down_y $y]
+	if { $::android == 1 } {
+		set wcoords [[dui canvas] bbox $widget]
+		set rx [expr {$rx-[lindex $wcoords 0]}]
+		set ry [expr {$ry-[lindex $wcoords 1]}]
+	}
+	
+	set clicked_tags [$widget tag names @$rx,$ry]
 	
 	set type [lindex $clicked_tags 0] 
 	if { $type ni {section field colon value} } {
