@@ -3594,7 +3594,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 
 	set field app_version
-	set app_verison ""
+	set app_version ""
 	if { [info exists shot_array(app_version)] } {
 		append app_version "app=$shot_array(app_version), "	
 	}
@@ -3634,9 +3634,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 		
 		foreach field [::plugins::SDB::field_names "" "" $section] {
 			if { ![info exists shot_array($field)] } continue			
-			lassign [::plugins::SDB::field_lookup $field {name short_name data_type n_decimals min_value max_value 
-				default_value small_increment big_increment desc_section}] \
-				name short_name data_type n_decimals min max default smallinc biginc desc_section
+			lassign [::plugins::SDB::field_lookup $field {name data_type n_decimals desc_section}] name data_type n_decimals desc_section
 			#if { $name eq "" } continue
 			#if { $section eq $desc_section } {
 				$tw insert insert [translate $name] [list field $field ${field}:n] ": " [list colon $field]
@@ -3645,38 +3643,16 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 					$tw insert insert "  " [list undef $field ${field}:v]
 				} else {
 					$tw insert insert $shot_array($field) [list value $field ${field}:v]
-#				}
+				}
 
-				set compare_text ""
 				if { $do_compare } {
-					if { $data_type eq "numeric" } {
-						if { [info exists comp_array($field)] && $shot_array($field) ne "" && $comp_array($field) ne "" } {
-							if { $shot_array($field) == $comp_array($field) } {
-								set $compare_text "="
-							} else {
-								set $compare_text [expr {$shot_array($field)-$comp_array($field)}]
-							}
-						} 
-					} elseif { $data_type in {text category date} } {
-						if { [info exists comp_array($field)] && $shot_array($field) ne "" && $comp_array($field) ne "" } {
-							if { $shot_array($field) eq $comp_array($field) } {
-								set compare_text "="
-							} else {
-								set compare_text "[translate was] \"$comp_array($field)\""
-							}
-						}
-					}
-				}
-					
-				if { $compare_text eq "" } {
-					set compare_text " "
-				} elseif { $compare_text eq "=" } {
-					set compare_text "  ="
+					set compare_text [field_compare_string $shot_array($field) [value_or_default comp_array($field) ""] \
+						$field $data_type $n_decimals]
+					$tw insert insert $compare_text [list compare $field ${field}:c] "\n"
 				} else {
-					set compare_text "  (${compare_text})"
+					$tw insert insert "\n"
 				}
-				$tw insert insert $compare_text [list compare $field ${field}:c] "\n"
-				
+
 				if { $target eq "edited" } {
 					trace add variable ${ns}::edited_shot($field) write ${ns}::shot_variable_changed
 				}
@@ -3696,24 +3672,70 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	return 1
 }
 
+proc ::dui::pages::DYE_v3::field_compare_string { value compare {field {}} {data_type {}} {n_decimals {}} } {
+msg "COMPARING $value and $compare, field=$field, data_type=$data_type, n_dec=$n_decimals"	
+	if { [string trim $value] eq "" || [string trim $compare] eq "" } {
+		return " "
+	}
+
+	if { $field ne "" && ($data_type eq "" || $n_decimals eq "") } {
+		lassign [::plugins::SDB::field_lookup $field {data_type n_decimals}] data_type n_decimals
+		if { $data_type eq "" } {
+			if { [string is double $value] && [string is double $compare] } {
+				set data_type "numeric"
+				if { [string is integer $value] && [string is integer $compare] } {
+					set n_decimals 0
+				} else {
+					set n_decimals 2
+				}
+			} else {
+				set data_type text
+			}
+		}
+	}
+	
+	if { $data_type eq "long_text" } {
+		set compare_text " "
+	} elseif { $data_type eq "numeric" } {
+		if { $value == $compare } {
+			set compare_text "  ="
+		} else {
+			set comparison [expr {$value-$compare}]
+			set compare_text [format "%.${n_decimals}f" $comparison]
+			if { $comparison > 0 } {
+				set compare_text "+$compare_text"
+			}
+		}
+	} else {
+		#{text category date}
+		if { $value eq $compare } {
+			set compare_text "  ="
+		} else {
+			set compare_text "[translate was] \"$value\""
+		}
+	}
+	
+	if { $compare_text ne "  =" && [string trim $compare_text] ne "" } {
+		set compare_text "  (${compare_text})"
+	}
+	return $compare_text
+}
+
 
 proc ::dui::pages::DYE_v3::show_or_hide_text_graph { tw gw } {
 #	set tw [dui item get_widget DYE_v3 edited_text]
 #	set gw [dui item get_widget DYE_v3 edited_graph]
 	if { $tw eq "" || $gw eq "" } return
 	set yview [$tw yview]
-	msg -DEBUG "YVIEW=$yview"		
 		
 	set ygraph ""
 	catch { set ygraph [lindex [$tw dlineinfo chart] 1] }
-msg -DEBUG "YGRAPH=$ygraph"	
 	if { $ygraph eq "" } {
 #		catch { set ygraph [lindex [$tw dlineinfo chart:end] 1] }
 #		if { $ygraph >= 0 } {
 #			$gw configure -height [dui platform rescale_y 600]
 #		}
 		set yview [$tw yview]
-msg -DEBUG "YVIEW=$yview"		
 	} elseif { $ygraph < -1 } {
 		$gw configure -height 1
 		#$tw window configure $gw -height 0
@@ -3770,6 +3792,9 @@ proc ::dui::pages::DYE_v3::unhighlight_field { field {widget {}} } {
 
 proc ::dui::pages::DYE_v3::change_text_shot_field { field var {widget {}} } { 
 	variable widgets
+	variable data
+	variable edited_shot
+	variable compare_shot
 	if { $widget eq "" } { set widget $widgets(edited_text) }
 	set value [subst \$$var]
 	set start_index [$widget index ${field}:v.first]
@@ -3778,10 +3803,32 @@ proc ::dui::pages::DYE_v3::change_text_shot_field { field var {widget {}} } {
 		msg -WARNING [namespace current] "change_text_shot_field: tag '${field}:v' not found in text shot widget '$widget'"
 		return
 	}
+	
 	$widget configure -state normal
 	$widget delete $start_index ${field}:v.last
 	$widget insert $start_index "$value" [list value $field ${field}:v]
+	
+	if { $data(which_compare) ne "" } {
+		set compare [value_or_default compare_shot($field) ""]
+		set compare_text [field_compare_string $value $compare $field]
+		set start_index [$widget index ${field}:c.first]
+		if { $start_index ne "" } {
+			$widget delete $start_index ${field}:c.last
+			$widget insert $start_index "$compare_text" [list compare $field ${field}:c]
+		}
+	}	
 	$widget configure -state disabled
+	
+	if { $field in {date_time profile_title grinder_dose_weight drink_weight extraction_time} } {
+		# TODO: Replace empty dose & yield by "?", and compute ratio
+		set widget $widgets(edited_summary)
+	
+		$widget configure -state normal
+		set start_index [$widget index ${field}.first]
+		$widget delete $start_index ${field}.last
+		$widget insert $start_index "$value" $field
+		$widget configure -state disabled
+	}
 }
 
 proc ::dui::pages::DYE_v3::click_shot_text { widget x y X Y } {
