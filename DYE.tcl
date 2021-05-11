@@ -2829,6 +2829,22 @@ namespace eval ::dui::pages::DYE_v3 {
 	variable pages
 	set pages {DYE_v3 DYE_v3_bean DYE_v3_equipment DYE_v3_extraction DYE_v3_other DYE_v3_manage}
 		
+	variable page_coords
+	array set page_coords {
+		margin_width 75
+		middle_width 150
+		scrollbar_width 100
+		y_top_panel 175
+		y_main_panel 300
+		top_panel_height 125
+		main_panel_height 1100 
+		field_label_width 425
+	}
+	set page_coords(panel_width) [expr {int(($dui::_base_screen_width-$page_coords(margin_width)*2-$page_coords(middle_width))/2)}]
+	set page_coords(x_right_panel) [expr {int($page_coords(margin_width)+$page_coords(panel_width)+$page_coords(middle_width))}]
+	set page_coords(x_field_widget) [expr {int($page_coords(x_right_panel)+$page_coords(field_label_width))}]
+	set page_coords(field_widget_width) [expr {int($page_coords(panel_width)-$page_coords(field_label_width)-$page_coords(scrollbar_width)-50)}]
+	
 	variable original_shot
 	variable edited_shot
 	variable compare_shot
@@ -2844,12 +2860,9 @@ namespace eval ::dui::pages::DYE_v3 {
 
 		namespace eval compare {
 			proc init {} {
-				blt::vector create elapsed pressure_goal flow_goal temperature_goal
-				blt::vector create pressure flow flow_weight
-				blt::vector create weight
-				blt::vector create state_change
-				blt::vector create resistance_weight resistance
-				blt::vector create temperature_basket temperature_mix  temperature_goal
+				blt::vector create elapsed pressure_goal flow_goal temperature_goal \
+					pressure flow flow_weight weight state_change resistance_weight resistance \
+					temperature_basket temperature_mix  temperature_goal
 			}
 		}
 
@@ -2865,11 +2878,11 @@ proc ::dui::pages::DYE_v3::setup {} {
 	variable data
 	variable widgets
 	variable pages
+	variable page_coords
 	set page [namespace tail [namespace current]]
-	set skin $::settings(skin)	
 	
 	### TOP NAVIGATION BAR (common to all pages) ###
-	set x 75
+	set x $page_coords(margin_width)
 	set y 50
 	set bar_width [expr {2560-$x*2}]
 	set btn_width [expr {int($bar_width/10)}]
@@ -2904,21 +2917,23 @@ proc ::dui::pages::DYE_v3::setup {} {
 		-command {%NS::navigate_to compare} 
 	
 	### LEFT PANEL (common to all pages) ###
-	set width [expr {(2560-$x*2-150-200)/2}]
-	dui add text $pages $x 175 -tags shot_summary -width $width -font_size -1 \
+	#set width [expr {(2560-$x*2-150-200)/2}]
+	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
+	dui add text $pages $x $page_coords(y_top_panel) -tags shot_summary -width $width -font_size -1 \
 		-text "LAST SHOT: Saturday September 6  08:55\rGentle and Sweet - 18.0 g in  36.1 g out (1:2)"
 	
 	# We need to handle the yscrollbar in a special way to manually hide the graph on top of the text widget,
 	# otherwise it overflows the space on top of the text widget when scrolling down (Androwish bug?) 
-	dui add tk_text $pages $x 300 -tags edited_text -canvas_width $width -canvas_height 1100 -font_size -1 -wrap word \
-		-yscrollbar yes -yscrollbar_width 100 -yscrollcommand ::dui::pages::DYE_v3::edited_text_scale_scroll \
+	dui add tk_text $pages $x $page_coords(y_main_panel) -tags edited_text -canvas_width $width \
+		-canvas_height $page_coords(main_panel_height) -font_size -1 -wrap word \
+		-yscrollbar yes -yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand ::dui::pages::DYE_v3::edited_text_scale_scroll \
 		-yscrollbar_command ::dui::pages::DYE_v3::edited_text_scroll_moveto
 	
 	# Create graphs (but don't add them, they'are added to the text widgets when shots are loaded) 
 	set widget [dui canvas].[string tolower $page]-edited_graph
 	set widgets(edited_graph) $widget
-	graph $widget -background white -plotbackground white -width [dui platform rescale_x 1000] -height [dui platform rescale_y 600] \
-		-background white -plotbackground white -borderwidth 1 -plotrelief flat
+	graph $widget -background white -plotbackground white -width [dui platform rescale_x [expr {$width-50}]] \
+		-height [dui platform rescale_y 600] -background white -plotbackground white -borderwidth 1 -plotrelief flat
 	vectors::init
 	setup_graph $widget edited 1
 		
@@ -3000,22 +3015,31 @@ proc ::dui::pages::DYE_v3::setup_graph { widget {target edited} {create_axis 0} 
 	
 }
 
-proc ::dui::pages::DYE_v3::setup_right_side_title { page title } {
-	dui add text $page 1890 220 -tags right_side_title -font_size +2 -anchor center -justify center -text [translate $title]
+proc ::dui::pages::DYE_v3::setup_right_side_title { page title {y {}} {tag {}} } {
+	variable page_coords
+	
+	set x [expr {int($page_coords(x_right_panel)+($page_coords(panel_width)-$page_coords(scrollbar_width))/2)}]	
+	if { $y eq "" } {
+		set y [expr {int($page_coords(y_top_panel)+$page_coords(top_panel_height)*0.4)}]
+	}
+	if { $tag eq "" } {
+		set tag "right_side_title"
+	}
+	dui add text $page $x $y -tags $tag -font_size +2 -anchor center -justify center -text [translate $title]
 }
 
 proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
+	variable page_coords
 	set ns [namespace current]
 	
-	setup_right_side_title $page $title
-	
-	set x 75
-	set width [expr {(2560-$x*2-150-200)/2}]
-	set x_label [expr {$x+$width+150+100}]
-	set x_widget [expr {$x_label+425}]
-	set widget_width [expr {$width-425}]
-	set y 300
+	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
+	set x_label $page_coords(x_right_panel)
+	set x_widget $page_coords(x_field_widget)
+	set widget_width $page_coords(field_widget_width)
+	set y $page_coords(y_main_panel)	
 	set vspace 100
+	
+	setup_right_side_title $page $title
 	
 	foreach field $fields {
 		if { $field eq "" } {
@@ -3063,19 +3087,21 @@ proc ::dui::pages::DYE_v3::setup_chart_page {  } {
 }
 
 proc ::dui::pages::DYE_v3::setup_manage_page {  } {
+	variable page_coords
 	set page "DYE_v3_manage"
-	setup_right_side_title $page "Manage shot"
 	
-	set x 75
-	set width [expr {(2560-$x*2-150-200)/2}]
-	set x_label [expr {$x+$width+150+100}]
-	set x_widget [expr {$x_label+425}]
-	set widget_width [expr {$width-425}]
-	set y 300
+	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
+	set x_label $page_coords(x_right_panel)
+	set x_widget $page_coords(x_field_widget)
+	set widget_width $page_coords(field_widget_width)
+	set y $page_coords(y_main_panel)	
 	set vspace 100
 
-	set btn_width [expr {(((2560-$x*2-150)/2)-100)/2}]
+	set btn_spacing 100
+	set btn_width [expr {int(($page_coords(panel_width)-$btn_spacing)/2)}]
 	set btn_height 125
+	
+	setup_right_side_title $page "Manage shot"
 	
 	dui aspect set -style dye_action_half [subst { dbutton.shape round dbutton.bwidth $btn_width dbutton.bheight $btn_height
 		dbutton_symbol.pos {0.2 0.5} dbutton_label.pos {0.6 0.5} dbutton_label.width [expr {$btn_width-75}]
@@ -3084,7 +3110,7 @@ proc ::dui::pages::DYE_v3::setup_manage_page {  } {
 	dui add dbutton $page $x_label $y -tags archive_shot -style dye_action_half -label [translate "Archive"] \
 		-symbol archive -command yes
 	
-	dui add dbutton $page [expr {$x_label+$btn_width+100}] $y -tags delete_shot -style dye_action_half \
+	dui add dbutton $page [expr {$x_label+$btn_width+$btn_spacing}] $y -tags delete_shot -style dye_action_half \
 		-label [translate "Delete"] -symbol trash -command yes
 	
 	incr y 175
@@ -3092,13 +3118,14 @@ proc ::dui::pages::DYE_v3::setup_manage_page {  } {
 		-label [translate "Export"] -symbol file-export -command yes
 	
 	incr y 275
-	dui add text $page 1890 $y -tags visualizer_title -font_size +2 -anchor center -justify center -text [translate Visualizer]
+	setup_right_side_title $page Visualizer $y visualizer_title 
+	#dui add text $page 1890 $y -tags visualizer_title -font_size +2 -anchor center -justify center -text [translate Visualizer]
 	
 	incr y 75
 	dui add dbutton $page $x_label $y -tags upload_to_visualizer -style dye_action_half -label [translate "Upload"] \
 		-symbol cloud-upload -command yes
 	
-	dui add dbutton $page [expr {$x_label+$btn_width+100}] $y -tags download_from_visualizer -style dye_action_half \
+	dui add dbutton $page [expr {$x_label+$btn_width+$btn_spacing}] $y -tags download_from_visualizer -style dye_action_half \
 		-label [translate "Download"] -symbol cloud-download -command yes
 		
 	incr y 175
