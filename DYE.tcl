@@ -209,7 +209,8 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(next_shot_DSx_home_coords) {500 1165}
 	ifexists settings(last_shot_DSx_home_coords) {2120 1165}
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
-
+	ifexists settings(use_dye_v3) 0
+	
 	# Propagation mechanism 
 	ifexists settings(next_modified) 0
 	foreach field_name "$::plugins::DYE::propagated_fields espresso_notes" {
@@ -526,6 +527,76 @@ proc ::plugins::DYE::define_next_shot_desc { args } {
 	}
 }
 
+# Returns an array with the same structure as ::plugins::SDB::load_shot but with the data for next shot, taken from
+# the global and DYE settings. Data that doesn't apply to a "next" shot gets an emptry string as value, or 0.0 for series.
+# This is used so we can easily use the returned array as the source for DYE pages.
+proc ::plugins::DYE::load_next_shot { } {
+	array set shot_data {
+		comes_from_archive 0
+		path {}
+		filename {}
+		file_modification_date {}
+		clock {}
+		date_time {}
+		local_time {}
+		espresso_elapsed {0.0}
+		extraction_time 0.0
+		espresso_pressure {0.0}
+		espresso_weight {0.0}
+		espresso_flow {0.0}
+		espresso_flow_weight {0.0} 
+		espresso_temperature_basket {0.0}
+		espresso_temperature_mix {0.0}
+		espresso_flow_weight_raw {0.0}
+		espresso_water_dispensed {0.0} 
+		espresso_temperature_goal {0.0}
+		espresso_pressure_goal {0.0}
+		espresso_flow_goal {0.0}
+		espresso_state_change {0.0}
+		repository_links {}
+	}
+		
+	set text_fields [::plugins::SDB::field_names "category text long_text date" "shot"]
+	foreach field_name $text_fields {
+		if { [info exists ::plugins::DYE::settings(next_$field_name)] } {
+			set shot_data($field_name) [string trim $::plugins::DYE::settings(next_$field_name)]
+		} else {
+			set shot_data($field_name) {}
+		}
+	}
+	
+	foreach field_name [::plugins::SDB::field_names "numeric" "shot"] {
+		if { [info exists ::plugins::DYE::settings(next_$field_name)] && $::plugins::DYE::settings(next_$field_name) > 0 } {
+			set shot_data($field_name) $::plugins::DYE::settings(next_$field_name)
+		} else {
+			# We use {} instead of 0 to get DB NULLs and empty values in entry textboxes
+			set shot_data($field_name) {}
+		}
+	}
+
+	foreach field_name {app_version firmware_version_number enabled_plugins skin skin_version profile_title beverage_type} {
+		if { [info exists ::settings($field_name)] } {
+			set shot_data($field_name) $::settings($field_name)
+		} else {
+			set shot_data($field_name) {}
+		}
+	}
+	
+#	if { $shot_data(grinder_dose_weight) eq "" } {
+#		if {[info exists file_sets(DSx_bean_weight)] == 1} {
+#			set shot_data(grinder_dose_weight) $file_sets(DSx_bean_weight)
+#		} elseif {[info exists file_sets(dsv4_bean_weight)] == 1} {
+#			set shot_data(grinder_dose_weight) $file_sets(dsv4_bean_weight)
+#		} elseif {[info exists file_sets(dsv3_bean_weight)] == 1} {
+#			set shot_data(grinder_dose_weight) $file_sets(dsv3_bean_weight)
+#		} elseif {[info exists file_sets(dsv2_bean_weight)] == 1} {
+#			set shot_data(grinder_dose_weight) $file_sets(dsv2_bean_weight)
+#		}
+#	}
+	
+	return [array get shot_data]
+}
+
 proc ::plugins::DYE::return_blank_if_zero {in} {
 	if {$in == 0} { return {} }
 	return $in
@@ -621,6 +692,25 @@ proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button 
 	}
 	if { $done_button } {
 		dui add dbutton $page $x_done $y -label [translate Ok] -tags page_done -style dsx_done
+	}
+}
+
+
+proc ::plugins::DYE::open { args } {	
+	if { [llength $args] == 1 } {
+		set use_dye_v3 0
+		set which_shot [lindex $args 0]
+		set args {}
+	} else {
+		array set opts $args
+		set use_dye_v3 [string is true [dui::args::get_option -use_dye_v3 [value_or_default ::plugins::DYE::settings(use_dye_v3) 0] 1]]
+		set which_shot [dui::args::get_option -which_shot "last" 1] 
+	}
+	
+	if { $use_dye_v3 } {	
+		dui page load DYE_v3 -which_shot $which_shot {*}$args 
+	} else {
+		dui page load DYE $which_shot
 	}
 }
 
@@ -905,7 +995,9 @@ proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } 
 			set data(describe_which_shot) "past"
 		}
 		set data(clock) $which_shot
-	} elseif { $which_shot eq "current" } { 
+	} elseif { $which_shot in {last current} } {
+		set which_shot "current"
+		set data(describe_which_shot) "current"
 		if { $current_clock == 0 } {
 			info_page [translate "Last shot is not available to describe"] [translate Ok]
 			return
@@ -2562,6 +2654,8 @@ namespace eval ::dui::pages::DYE_settings {
 	variable data
 	array set data {
 		page_name "::dui::pages::DYE_settings"
+		previous_page {}
+		callback_cmd {}
 		db_status_msg {}
 		update_plugin_state {-}
 		latest_plugin_version {}
@@ -2607,7 +2701,12 @@ proc ::dui::pages::DYE_settings::setup {} {
 
 	dui add dcheckbox $page $x [incr y $vspace] -tags use_stars_to_rate_enjoyment \
 		-textvariable ::plugins::DYE::settings(use_stars_to_rate_enjoyment) \
-		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth
+		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth \
+		-command [list ::plugins::save_settings DYE]
+
+	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
+		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
+		-command [list ::plugins::save_settings DYE]
 	
 	# RIGHT SIDE
 	set x 1350; set y 250
@@ -2632,7 +2731,12 @@ proc ::dui::pages::DYE_settings::setup {} {
 
 # Normally not used as this is not invoked directly but by the DSx settings pages carousel, but still kept for 
 # consistency or for launching the page from a menu.
-proc ::dui::pages::DYE_settings::load { page_to_hide page_to_show } {
+proc ::dui::pages::DYE_settings::load { page_to_hide page_to_show args } {
+	variable data
+	array set opts $args
+	
+	set data(previous_page) $page_to_hide
+	set data(callback_cmd) [value_or_default opts(-callback_cmd) ""]
 }
 
 # Added to context actions, so invoked automatically whenever the page is loaded
@@ -2797,8 +2901,16 @@ proc ::dui::pages::DYE_settings::set_default_shot_desc_font_color {} {
 #}
 
 proc ::dui::pages::DYE_settings::page_done {} {
+	variable data
 	dui say [translate {Done}] button_in
-	dui page load extensions
+	
+	if { $data(callback_cmd) ne "" } {
+		uplevel #0 $data(callback_cmd)
+	} elseif { $data(previous_page) eq "" } {
+		dui page load extensions
+	} else {
+		dui page show $data(previous_page)
+	} 
 }
 
 #### DYE v3  #########################################################################################
@@ -2884,7 +2996,7 @@ proc ::dui::pages::DYE_v3::setup {} {
 	### TOP NAVIGATION BAR (common to all pages) ###
 	set x $page_coords(margin_width)
 	set y 50
-	set bar_width [expr {2560-$x*2}]
+	set bar_width [expr {$dui::_base_screen_width-$x*2}]
 	set btn_width [expr {int($bar_width/10)}]
 	set btn_height 90
 	# Summary Chart Profile Beans Equipment Extraction Other | Compare Search
@@ -2956,9 +3068,24 @@ proc ::dui::pages::DYE_v3::setup {} {
 #	dui add tk_text $page [expr {$x+$width+150+100}] 300 -tags text_right -canvas_width $width -canvas_height 1100 \
 #		-yscrollbar yes -yscrollbar_width 100
 	
-	### Ok and Cancel buttons (common to all pages) ###
+	### BOTTOM BAR (common to all pages ###
+	# Shot navigation
+	set y 1460; set hspace 120
+	dui add dbutton $pages $page_coords(margin_width) $y -bwidth 100 -bheight 120 -symbol backward -tags move_backward \
+		-style dye_main_nav_button -symbol_pos {0.5 0.5}
+	dui add dbutton $pages [expr {$page_coords(margin_width)+$hspace}] $y -bwidth 100 -bheight 120 -symbol forward \
+		-tags move_forward -style dye_main_nav_button -symbol_pos {0.5 0.5}	
+	dui add dbutton $pages [expr {$page_coords(margin_width)+$hspace*2}] $y -bwidth 100 -bheight 120 -symbol fast-forward \
+		-tags move_to_next -style dye_main_nav_button -symbol_pos {0.5 0.5}
+	
+	# Ok & Cancel 
 	dui add dbutton $pages 750 1460 -tags page_cancel -style insight_ok -label [translate Cancel]
-	dui add dbutton $pages 1330 1460 -tags page_done -style insight_ok -label [translate Ok]	
+	dui add dbutton $pages 1330 1460 -tags page_done -style insight_ok -label [translate Ok]
+	
+	# Go to settings
+	dui add dbutton $pages [expr {$dui::_base_screen_width-$page_coords(margin_width)}] $y -bwidth 120 -bheight 120 \
+		-symbol cogs -tags settings -style dye_main_nav_button -symbol_pos {0.5 0.5} -anchor ne \
+		-command [list dui page load DYE_settings]
 }
 
 # This proc and the next add code to the standard scrollbar commands so that the graph widget on top doesn't 
@@ -3166,7 +3293,9 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	set data(shot_modified) 0
 	set data(field_being_edited) ""
 	
-	set data(previous_page) $page_to_hide
+	if { [string range $page_to_hide 0 5] ne "DYE_v3" } {
+		set data(previous_page) $page_to_hide
+	}
 	set data(callback_cmd) [value_or_default opts(-callback_cmd)]
 	set which_shot [value_or_default opts(-which_shot) "last"]
 	if { $which_shot eq "next" } {
@@ -3174,7 +3303,7 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 		set data(clock) {}		
 		set data(shot_file) {}
 	} elseif { $which_shot in {last current} } {
-		set data(which_shot) last
+		set data(which_shot) "last"
 		set data(clock) $::settings(espresso_clock)
 		set data(shot_file) [::plugins::SDB::get_shot_file_path $data(clock)]
 	} elseif { [string is integer $which_shot] } {
@@ -3198,7 +3327,11 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	set data(which_compare) [value_or_default opts(-which_compare) "previous"]
 	if { $data(which_compare) eq "previous" } {
 		# BEWARE $data(clock) may not be defined if -which_shot was a filename
-		set data(compare_clock) [::plugins::SDB::previous_shot $data(clock)]
+		if { $data(which_shot) eq "next" } {
+			set data(compare_clock) $::settings(espresso_clock)
+		} else {
+			set data(compare_clock) [::plugins::SDB::previous_shot $data(clock)]
+		}
 		if { $data(compare_clock) ne "" } { 
 			set data(compare_file) [::plugins::SDB::get_shot_file_path $data(compare_clock)]
 		}
@@ -3210,24 +3343,26 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	}
 	
 	if { $data(shot_file) eq "" } {
-		if { $data(which_shot) ne next } {
+		if { $data(which_shot) ne "next" } {
 			msg -ERROR [namespace current] "shot file '$which_shot' not found"
 			return 0
 		}
+		set shot_list [::plugins::DYE::load_next_shot]
 	} else {
 		set shot_list [::plugins::SDB::load_shot $data(shot_file)]
-		array set original_shot $shot_list 
-		array set edited_shot $shot_list
-		load_graph edited
-		
-		if { $data(which_compare) ne "" } {
-			set compare_list [::plugins::SDB::load_shot $data(compare_file)]
-			array set compare_shot $compare_list
-			#load_graph compare
-		}
-		
-		shot_to_text edited
 	}
+	
+	array set original_shot $shot_list 
+	array set edited_shot $shot_list
+	load_graph edited
+	
+	if { $data(compare_file) ne "" } {
+		set compare_list [::plugins::SDB::load_shot $data(compare_file)]
+		array set compare_shot $compare_list
+		#load_graph compare
+	}
+	
+	shot_to_text edited
 	
 	return 1
 }
@@ -3710,6 +3845,49 @@ proc ::dui::pages::DYE_v3::download_from_visualizer { } {
 
 proc ::dui::pages::DYE_v3::visualizer_browse { } {
 	
+}
+	
+proc ::dui::pages::DYE_v3::move_backward {} {
+	variable data
+	#if { [ask_to_save_if_needed] eq "cancel" } return
+	#set previous_page $data(previous_page)
+	
+	if { $data(which_shot) eq "next" } {
+		dui page load DYE_v3 -which_shot last -reload yes		
+	} else {
+		set previous_clock [::plugins::SDB::previous_shot $data(clock)]
+		if { $previous_clock ne "" && $previous_clock > 0 } {
+			dui page load DYE_v3 -which_shot $previous_clock -reload yes
+	#		set data(previous_page) $previous_page
+		}
+	}
+}
+
+proc ::dui::pages::DYE_v3::move_forward {} {
+	variable data
+	if { $data(which_shot) eq "next" } return
+	#if { [ask_to_save_if_needed] eq "cancel" } return
+	#set previous_page $data(previous_page)
+	
+	if { $data(which_shot) eq "last" || $data(clock) == $::settings(espresso_clock) } {
+		dui page load DYE_v3 -which_shot next -reload yes
+	} else {		
+		set next_clock [::plugins::SDB::next_shot $data(clock)]
+		if { $next_clock ne "" && $next_clock > 0} {
+			dui page load DYE_v3 -which_shot $next_clock -reload yes
+	#		set data(previous_page) $previous_page
+		}
+	}
+}
+
+proc ::dui::pages::DYE_v3::move_to_next {} {
+	variable data
+	if { $data(which_shot) eq "next" } return
+	#if { [ask_to_save_if_needed] eq "cancel" } return
+	#set previous_page $data(previous_page)
+	
+	dui page load DYE_v3 -which_shot next -reload yes
+	#set data(previous_page) $previous_page
 }
 
 proc ::dui::pages::DYE_v3::page_cancel {} {

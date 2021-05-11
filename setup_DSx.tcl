@@ -259,7 +259,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 			-tags launch_dye_next -symbol $settings(describe_icon) -symbol_pos {0.01 0.5} -symbol_anchor w -symbol_justify left \
 			-symbol_font_size 28 -labelvariable {$::plugins::DYE::next_shot_desc} -label_pos {0.575 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
-			-command [list dui page load DYE next]
+			-command [list ::plugins::DYE::open -which_shot next]
 	}
 	
 	# Icon and summary of the current (last) shot description below the shot chart and steam chart (right side)
@@ -272,8 +272,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 			-tags launch_dye_last -symbol $settings(describe_icon) -symbol_pos {0.99 0.5} -symbol_anchor e -symbol_justify right \
 			-symbol_font_size 28 -labelvariable {$::plugins::DYE::last_shot_desc} -label_pos {0.45 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
-			-command { if { $::settings(history_saved) == 1 && [info exists ::DSx_settings(live_graph_time)] } {
-					dui page load DYE current }}
+			-command { if { $::settings(history_saved) == 1 && [info exists ::DSx_settings(live_graph_time)] } { ::plugins::DYE::open -which_shot last }}
 	}
 		
 	### HISTORY VIEWER PAGE ###
@@ -340,7 +339,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 
 	set widgets(describe_from_sleep) [dui add dbutton saver {*}$sleep_describe_button_coords -tags saver_to_dye \
 		-symbol $sleep_describe_symbol -symbol_pos {0.5 0.5} -symbol_font_size 45 -symbol_anchor center -symbol_justify center \
-		-command [list dui page load DYE current]]
+		-command [list ::plugins::DYE::open -which_shot last]]
 	
 	### DEBUG TEXT IN SOME PAGES ###
 	# Show the debug text variable. Set it to any value I want to see on screen at the moment.
