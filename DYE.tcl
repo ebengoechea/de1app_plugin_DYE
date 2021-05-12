@@ -3424,10 +3424,11 @@ proc ::dui::pages::DYE_v3::navigate_to { dest } {
 		set dest_page DYE_v3_$dest
 	}
 	
+	unhighlight_field "" $tw
 	try {
-		$tw yview $dest
-#		$tw see $dest
-#		$tw see ${dest}:end
+#		$tw yview $dest
+		$tw see $dest
+		$tw see ${dest}:end
 	} on error err {
 		msg -WARNING [namespace current] "navigate_to: marks '$dest' or '${dest}:end' not found in text widget '$tw'"
 	}
@@ -3473,11 +3474,11 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	
 	if { $target eq "edited" } {
 		if { $data(which_shot) eq "next" } {
-			set which "NEXT SHOT"
+			set which [translate "NEXT SHOT"]
 		} elseif { $data(which_shot) eq "last" } {
-			set which "LAST SHOT"
+			set which [translate "LAST SHOT"]
 		} else {
-			set which "PAST SHOT"
+			set which [translate "PAST SHOT"]
 		}
 	}
 
@@ -3494,23 +3495,22 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	} else {
 		set dose $shot_array(grinder_dose_weight)
 	}
-	set ratio ""
 	if { $shot_array(drink_weight) eq "" } {
 		set yield "?"
 	} else {
 		set yield $shot_array(drink_weight)
-		if { $dose ne "?" && $dose > 0 && $yield > 0 } {
-			set ratio [format {%.1f} [expr {$yield/$dose}]]
-		}
 	}
+	set ratio [calc_ratio $dose $yield]
 
-	$sw insert insert $dose grinder_dose_weight " g in " "" $yield drink_weight " g out "
-	if { $ratio ne "" } {
-		$sw insert insert "(1:$ratio) " ratio
+	$sw insert insert $dose grinder_dose_weight " g : " "" $yield drink_weight " g "
+	if { $ratio eq "" } {
+		$sw insert insert " " ratio
+	} else {
+		$sw insert insert "($ratio) " ratio
 	}
 	
 	if { $data(which_shot) ne "next" && $shot_array(extraction_time) ne "" } {
-		$sw insert insert "in $shot_array(extraction_time) sec" extraction_time
+		$sw insert insert [format [translate "in %.f0 sec"] $shot_array(extraction_time)] extraction_time
 	}
 
 	$sw configure -state disabled
@@ -3542,10 +3542,6 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 		
 		$tw mark set chart:end insert
 		$tw mark gravity chart:end left
-		
-		# These make the app shut down immediately as we start to scroll!!!
-		#bind $widgets(${target}_graph) <Configure> [list ::dui::pages::DYE_v3::show_or_hide_text_graph $tw %W]
-		#bind $tw <Expose> [list + ::dui::pages::DYE_v3::show_or_hide_text_graph $tw $widgets(${target}_graph)]
 	}
 	
 	# Shot management
@@ -3673,7 +3669,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 }
 
 proc ::dui::pages::DYE_v3::field_compare_string { value compare {field {}} {data_type {}} {n_decimals {}} } {
-msg "COMPARING $value and $compare, field=$field, data_type=$data_type, n_dec=$n_decimals"	
+	#msg -INFO [namespace current] "COMPARING $value and $compare, field=$field, data_type=$data_type, n_dec=$n_decimals"	
 	if { [string trim $value] eq "" || [string trim $compare] eq "" } {
 		return " "
 	}
@@ -3711,7 +3707,7 @@ msg "COMPARING $value and $compare, field=$field, data_type=$data_type, n_dec=$n
 		if { $value eq $compare } {
 			set compare_text "  ="
 		} else {
-			set compare_text "[translate was] \"$value\""
+			set compare_text "[translate was] \"$compare\""
 		}
 	}
 	
@@ -3721,31 +3717,27 @@ msg "COMPARING $value and $compare, field=$field, data_type=$data_type, n_dec=$n
 	return $compare_text
 }
 
-
-proc ::dui::pages::DYE_v3::show_or_hide_text_graph { tw gw } {
-#	set tw [dui item get_widget DYE_v3 edited_text]
-#	set gw [dui item get_widget DYE_v3 edited_graph]
-	if { $tw eq "" || $gw eq "" } return
-	set yview [$tw yview]
-		
-	set ygraph ""
-	catch { set ygraph [lindex [$tw dlineinfo chart] 1] }
-	if { $ygraph eq "" } {
-#		catch { set ygraph [lindex [$tw dlineinfo chart:end] 1] }
-#		if { $ygraph >= 0 } {
-#			$gw configure -height [dui platform rescale_y 600]
-#		}
-		set yview [$tw yview]
-	} elseif { $ygraph < -1 } {
-		$gw configure -height 1
-		#$tw window configure $gw -height 0
-	} 
-#	elseif { $ygraph >=0 } {
-#		$gw configure -height [dui platform rescale_y 600]
-#		#$tw window configure $gw -height [dui platform rescale_y 600]
-#	}
-}
+proc ::dui::pages::DYE_v3::calc_ratio { {dose {}} {yield {}} {target edited} } {
+	variable edited_shot
+	variable compare_shot
+	if { $dose eq "" && $yield eq "" && $target ni {edited compare} } {
+		msg -WARNING [namesapce current] "calc_ratio: target '$target' not recognized, must be one of {target edited}. Assuming 'edited'"
+		set target "edited"
+	}
 	
+	if { $dose eq "" } {
+		set dose [subst \$${target}_shot(grinder_dose_weight)]
+	}
+	if { $yield eq "" } {
+		set yield [subst \$${target}_shot(drink_weight)]
+	}
+	
+	set ratio ""
+	if { [string is double -strict $dose] && [string is double -strict $yield] } {
+		set ratio "1:[format {%.1f} [expr {$yield/$dose}]]"
+	}
+	return $ratio
+}
 
 proc ::dui::pages::DYE_v3::shot_variable_changed { arrname varname op } {
 	if { $arrname ne "::dui::pages::DYE_v3::edited_shot" } return
@@ -3784,10 +3776,22 @@ proc ::dui::pages::DYE_v3::highlight_field { field {widget {}} } {
 	$widget see $field.last
 }
 
-proc ::dui::pages::DYE_v3::unhighlight_field { field {widget {}} } { 
-	variable widgets
-	if { $widget eq "" } { set widget $widgets(edited_text) }
+proc ::dui::pages::DYE_v3::unhighlight_field { field {widget {}} } { 	
+	variable data
+	if { $widget eq "" } {
+		variable widgets
+		set widget $widgets(edited_text)
+	}
+	if { $field eq "" } {
+		set field $data(field_being_edited)
+	}
+	
 	$widget tag configure $field -font [dui font get notosansuiregular 15] -background {}
+	
+	if { $field eq $data(field_being_edited) } {
+		set data(field_being_edited) ""
+	}
+	
 }
 
 proc ::dui::pages::DYE_v3::change_text_shot_field { field var {widget {}} } { 
@@ -3805,30 +3809,54 @@ proc ::dui::pages::DYE_v3::change_text_shot_field { field var {widget {}} } {
 	}
 	
 	$widget configure -state normal
-	$widget delete $start_index ${field}:v.last
-	$widget insert $start_index "$value" [list value $field ${field}:v]
+	modify_text_tag $widget ${field}:v $value
 	
 	if { $data(which_compare) ne "" } {
 		set compare [value_or_default compare_shot($field) ""]
 		set compare_text [field_compare_string $value $compare $field]
-		set start_index [$widget index ${field}:c.first]
-		if { $start_index ne "" } {
-			$widget delete $start_index ${field}:c.last
-			$widget insert $start_index "$compare_text" [list compare $field ${field}:c]
-		}
+		modify_text_tag $widget ${field}:c $compare_text
 	}	
 	$widget configure -state disabled
-	
+
+	# Some fields need to be modified on the summary top panel too
 	if { $field in {date_time profile_title grinder_dose_weight drink_weight extraction_time} } {
-		# TODO: Replace empty dose & yield by "?", and compute ratio
-		set widget $widgets(edited_summary)
-	
+		if { $field in {grinder_dose_weight drink_weight} } {
+			if { $value eq "" } {
+				set value "?"
+			}
+			set ratio [calc_ratio "" "" edited]
+		}
+
+		set widget $widgets(edited_summary)	
 		$widget configure -state normal
-		set start_index [$widget index ${field}.first]
-		$widget delete $start_index ${field}.last
-		$widget insert $start_index "$value" $field
+		
+		modify_text_tag $widget $field $value
+		
+		if { $field in {grinder_dose_weight drink_weight} } {
+			if { $ratio eq "" } {
+				set ratio " "
+			} else {
+				set ratio "($ratio) "
+			}
+			modify_text_tag $widget ratio $ratio
+		}
 		$widget configure -state disabled
 	}
+}
+
+proc ::dui::pages::DYE_v3::modify_text_tag { widget tag new_value } {
+	set start_index ""
+	try {
+		set start_index [$widget index ${tag}.first]
+	} on error err {
+		msg -ERROR [namespace current] "modify_text_tag: can't find tag '$tag' in text widget '$widget'"
+	}
+	
+	if { $start_index ne "" } {
+		set tags [$widget tag names ${tag}.first]
+		$widget delete $start_index ${tag}.last
+		$widget insert $start_index $new_value $tags
+	}	
 }
 
 proc ::dui::pages::DYE_v3::click_shot_text { widget x y X Y } {
