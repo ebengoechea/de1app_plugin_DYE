@@ -2934,12 +2934,14 @@ namespace eval ::dui::pages::DYE_v3 {
 		shot_modified 0
 		field_being_edited {}
 		menu {}
+		chart_stage_idx 0
+		chart_stage {Full shot}
 		
 		test_msg {}
 	}
 	
 	variable pages
-	set pages {DYE_v3 DYE_v3_bean DYE_v3_equipment DYE_v3_extraction DYE_v3_other DYE_v3_manage}
+	set pages {DYE_v3 DYE_v3_bean DYE_v3_equipment DYE_v3_extraction DYE_v3_other DYE_v3_chart DYE_v3_manage DYE_v3_compare}
 		
 	variable page_coords
 	array set page_coords {
@@ -2964,17 +2966,17 @@ namespace eval ::dui::pages::DYE_v3 {
 	namespace eval vectors {
 		namespace eval edited {
 			proc init {} {
-				blt::vector create elapsed pressure_goal flow_goal temperature_goal \
-					pressure flow flow_weight weight state_change resistance_weight resistance \
-					temperature_basket temperature_mix  temperature_goal
+				blt::vector create elapsed pressure_goal flow_goal temperature_goal
+				blt::vector create pressure flow flow_weight weight state_change resistance_weight resistance 
+				blt::vector create temperature_basket temperature_mix  temperature_goal
 			}
 		}
 
 		namespace eval compare {
 			proc init {} {
-				blt::vector create elapsed pressure_goal flow_goal temperature_goal \
-					pressure flow flow_weight weight state_change resistance_weight resistance \
-					temperature_basket temperature_mix  temperature_goal
+				blt::vector create elapsed pressure_goal flow_goal temperature_goal
+				blt::vector create pressure flow flow_weight weight state_change resistance_weight resistance
+				blt::vector create temperature_basket temperature_mix  temperature_goal
 			}
 		}
 
@@ -3029,10 +3031,7 @@ proc ::dui::pages::DYE_v3::setup {} {
 		-command {%NS::navigate_to compare} 
 	
 	### LEFT PANEL (common to all pages) ###
-	#set width [expr {(2560-$x*2-150-200)/2}]
 	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
-#	dui add text $pages $x $page_coords(y_top_panel) -tags shot_summary -width $width -font_size -1 \
-#		-text "LAST SHOT: Saturday September 6  08:55\rGentle and Sweet - 18.0 g in  36.1 g out (1:2)"
 	
 	dui add tk_text $pages $x $page_coords(y_top_panel) -tags edited_summary -canvas_width $width \
 		-canvas_height $page_coords(top_panel_height) -font_size -1 -wrap word \
@@ -3042,16 +3041,17 @@ proc ::dui::pages::DYE_v3::setup {} {
 	# otherwise it overflows the space on top of the text widget when scrolling down (Androwish bug?) 
 	dui add tk_text $pages $x $page_coords(y_main_panel) -tags edited_text -canvas_width $width \
 		-canvas_height $page_coords(main_panel_height) -font_size -1 -wrap word \
-		-yscrollbar yes -yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand ::dui::pages::DYE_v3::edited_text_scale_scroll \
-		-yscrollbar_command ::dui::pages::DYE_v3::edited_text_scroll_moveto
+		-yscrollbar yes -yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand [list ::dui::pages::DYE_v3::text_scale_scroll edited] \
+		-yscrollbar_command [list ::dui::pages::DYE_v3::text_scroll_moveto edited]
 	
-	# Create graphs (but don't add them, they'are added to the text widgets when shots are loaded) 
+	# Create graph (but don't add them, they'are added to the text widgets when shots are loaded) 
 	set widget [dui canvas].[string tolower $page]-edited_graph
 	set widgets(edited_graph) $widget
 	graph $widget -background white -plotbackground white -width [dui platform rescale_x [expr {$width-50}]] \
 		-height [dui platform rescale_y 600] -background white -plotbackground white -borderwidth 1 -plotrelief flat
 	vectors::init
 	setup_graph $widget edited 1
+	bind $widget [dui platform button_press] [list ::dui::pages::DYE_v3::navigate_to chart]
 		
 	### RIGHT PANELS ###
 	setup_right_panel $page "Summary" $::plugins::DYE::settings(summary_fields)		
@@ -3083,39 +3083,59 @@ proc ::dui::pages::DYE_v3::setup {} {
 	dui add dbutton $pages 1330 1460 -tags page_done -style insight_ok -label [translate Ok]
 	
 	# Go to settings
-	dui add dbutton $pages [expr {$dui::_base_screen_width-$page_coords(margin_width)}] $y -bwidth 120 -bheight 120 \
-		-symbol cogs -tags settings -style dye_main_nav_button -symbol_pos {0.5 0.5} -anchor ne \
+	dui add dbutton {DYE_v3 DYE_v3_manage} [expr {$dui::_base_screen_width-$page_coords(margin_width)}] $y \
+		-bwidth 120 -bheight 120 -symbol cogs -tags settings -style dye_main_nav_button -symbol_pos {0.5 0.5} -anchor ne \
 		-command [list dui page load DYE_settings]
 }
 
 # This proc and the next add code to the standard scrollbar commands so that the graph widget on top doesn't 
 # overflow the page space on top of the text widget when it is scrolled (which seems like a bug in Tk::Text or Androwish)
-proc ::dui::pages::DYE_v3::edited_text_scale_scroll { args } {
+proc ::dui::pages::DYE_v3::text_scale_scroll { {target edited} args } {
 	variable widgets
-	::dui::item::scale_scroll DYE_v3 edited_text ::dui::item::sliders(DYE_v3,edited_text) {*}$args
+	if { $target eq "compare" } {
+		set page "DYE_v3_compare"
+	} else {
+		set target "edited"
+		set page "DYE_v3"
+	}
+	if { [dui item cget $page ${target}_text -state] in {hidden {}} } { 
+		return
+	}
+	
+	::dui::item::scale_scroll $page ${target}_text ::dui::item::sliders(${page},${target}_text) {*}$args
 	
 	set ygraph ""
-	catch { set ygraph [lindex [$widgets(edited_text) dlineinfo chart] 1] }
+	catch { set ygraph [lindex [$widgets(${target}_text) dlineinfo chart] 1] }
 	if { $ygraph ne "" } {
 		if { $ygraph < -1 } {
-			$widgets(edited_graph) configure -height 0
+			$widgets(${target}_graph) configure -height 0
 		} elseif { $ygraph >=0 } {
-			$widgets(edited_graph) configure -height [dui platform rescale_y 600]
+			$widgets(${target}_graph) configure -height [dui platform rescale_y 600]
 		}
 	}
 }
 
-proc ::dui::pages::DYE_v3::edited_text_scroll_moveto { args } {
+proc ::dui::pages::DYE_v3::text_scroll_moveto { {target edited} args } {
 	variable widgets
-	::dui::item::scrolled_widget_moveto DYE_v3 edited_text $::dui::item::sliders(DYE_v3,edited_text) {*}$args
+	if { $target eq "compare" } {
+		set page "DYE_v3_compare"
+	} else {
+		set target "edited"
+		set page "DYE_v3"
+	}
+	if { [dui item cget $page ${target}_text -state] eq {hidden {}} } { 
+		return
+	}
+	
+	::dui::item::scrolled_widget_moveto $page ${target}_text $::dui::item::sliders(${page},${target}_text) {*}$args
 	
 	set ygraph ""
-	catch { set ygraph [lindex [$widgets(edited_text) dlineinfo chart] 1] }
+	catch { set ygraph [lindex [$widgets(${target}_text) dlineinfo chart] 1] }
 	if { $ygraph ne "" } {
 		if { $ygraph < -1 } {
-			$widgets(edited_graph) configure -height 0
+			$widgets(${target}_graph) configure -height 0
 		} elseif { $ygraph >=0 } {
-			$widgets(edited_graph) configure -height [dui platform rescale_y 600]
+			$widgets(${target}_graph) configure -height [dui platform rescale_y 600]
 		}
 	}
 }
@@ -3130,17 +3150,17 @@ proc ::dui::pages::DYE_v3::setup_graph { widget {target edited} {create_axis 0} 
 	}
 
 	foreach lt {temperature_goal temperature_basket temperature_mix} {
-		$widget element create line_history_${target}_espresso_$lt -xdata ${ns}::vectors::${target}::elapsed \
+		$widget element create line_${target}_$lt -xdata ${ns}::vectors::${target}::elapsed \
 			-ydata ${ns}::vectors::${target}::$lt -mapy temp {*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
 	}
 	
 	foreach lt {pressure_goal flow_goal pressure flow flow_weight weight} {
-		$widget element create line_history_${target}_espresso_${lt} -xdata ${ns}::vectors::${target}::elapsed \
+		$widget element create line_${target}_$lt -xdata ${ns}::vectors::${target}::elapsed \
 			-ydata ${ns}::vectors::${target}::$lt {*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
 	}
 	
 	foreach lt {state_change resistance} {
-		$widget element create line_history_${target}_$lt -xdata ${ns}::vectors::${target}::elapsed \
+		$widget element create line_${target}_$lt -xdata ${ns}::vectors::${target}::elapsed \
 			-ydata ${ns}::vectors::${target}::$lt {*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
 	}
 	
@@ -3156,7 +3176,8 @@ proc ::dui::pages::DYE_v3::setup_right_side_title { page title {y {}} {tag {}} }
 	if { $tag eq "" } {
 		set tag "right_side_title"
 	}
-	dui add text $page $x $y -tags $tag -font_size +2 -anchor center -justify center -text [translate $title]
+	dui add text $page $x $y -tags $tag -font_family notosansuibold -font_size +2 -fill black -anchor center \
+		-justify center -text [translate $title]
 }
 
 proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
@@ -3213,8 +3234,57 @@ proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
 	}
 }
 
-proc ::dui::pages::DYE_v3::setup_chart_page {  } {
+proc ::dui::pages::DYE_v3::setup_chart_page {} {
+	variable page_coords
+	set page "DYE_v3_chart"
+	
+	set x_label $page_coords(x_right_panel)
+	set y [expr {$page_coords(y_main_panel)+50}]
+	
+	setup_right_side_title $page "Chart"
+	
+	dui add dbutton $page $page_coords(x_right_panel) $y -bwidth 120 -bheight 120 -symbol chevron-left \
+		-tags previous_chart_stage -style dye_main_nav_button -symbol_pos {0.5 0.5} -anchor w
 
+	set x [expr {int($page_coords(x_right_panel)+($page_coords(panel_width)-$page_coords(scrollbar_width))/2)}]	
+	dui add variable $page $x $y -tags chart_stage -font_size +2 -anchor center -justify center -fill black \
+		-textvariable {$%NS::data(chart_stage_idx). $%NS::data(chart_stage)} 
+
+	dui add dbutton $page [expr {$page_coords(x_right_panel)+$page_coords(panel_width)}] $y -bwidth 120 -bheight 120 \
+		-symbol chevron-right -tags next_chart_stage -style dye_main_nav_button -symbol_pos {0.5 0.5} -anchor e
+	
+	array set series {
+		pressure Pressure
+		flow Flow
+		flow_weight "Flow weight"
+		weight Weight
+		temperature_basket "Temp.basket"
+	}
+	
+	set x_start [expr {$x_label+375}]
+	set hspace 170
+	set x_min [expr {$x_start+$hspace}]
+	set x_avg [expr {$x_min+$hspace}]
+	set x_max [expr {$x_avg+$hspace}]
+	set x_end [expr {$x_max+$hspace}]
+	set vspace 100
+	
+	incr y 100
+	dui add text $page $x_start $y -tags start_label -text [translate Start] -anchor center -justify center
+	dui add text $page $x_min $y -tags min_label -text [translate Min] -anchor center -justify center
+	dui add text $page $x_avg $y -tags avg_label -text [translate Avg] -anchor center -justify center
+	dui add text $page $x_max $y -tags max_label -text [translate Max] -anchor center -justify center
+	dui add text $page $x_end $y -tags end_label -text [translate End] -anchor center -justify center
+		
+	foreach var {pressure flow flow_weight weight temperature_basket} {
+		incr y $vspace
+		dui add text $page $x_label $y -tags ${var}_label -text [translate $series($var)] -anchor w
+		
+		foreach stat {start min avg max end} {
+			dui add variable $page [subst \$x_$stat] $y -tags chart_stage_${var}_${stat} -anchor center -justify center 
+		}
+	}
+	
 }
 
 proc ::dui::pages::DYE_v3::setup_manage_page {  } {
@@ -3266,7 +3336,30 @@ proc ::dui::pages::DYE_v3::setup_manage_page {  } {
 }
 
 proc ::dui::pages::DYE_v3::setup_compare_page {  } {
-
+	variable widgets
+	variable page_coords
+	set page "DYE_v3_compare"
+	
+	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
+	set x $page_coords(x_right_panel)
+	
+	dui add tk_text $page $x $page_coords(y_top_panel) -tags compare_summary -canvas_width $width \
+		-canvas_height $page_coords(top_panel_height) -font_size -1 -wrap word \
+		-yscrollbar no -bg "#d7d9e6" -borderwidth 0 -highlightthickness 0 -relief flat
+	
+	# We need to handle the yscrollbar in a special way to manually hide the graph on top of the text widget,
+	# otherwise it overflows the space on top of the text widget when scrolling down (Androwish bug?) 
+	dui add tk_text $page $x $page_coords(y_main_panel) -tags compare_text -canvas_width $width \
+		-canvas_height $page_coords(main_panel_height) -font_size -1 -wrap word \
+		-yscrollbar yes -yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand [list ::dui::pages::DYE_v3::text_scale_scroll compare] \
+		-yscrollbar_command [list ::dui::pages::DYE_v3::text_scroll_moveto compare]
+	
+	# Create graph (but don't add them, they'are added to the text widgets when shots are loaded) 
+	set widget [dui canvas].[string tolower $page]-compare_graph
+	set widgets(compare_graph) $widget
+	graph $widget -background white -plotbackground white -width [dui platform rescale_x [expr {$width-50}]] \
+		-height [dui platform rescale_y 600] -background white -plotbackground white -borderwidth 1 -plotrelief flat
+	setup_graph $widget compare 1
 }
 
 proc ::dui::pages::DYE_v3::setup_search_page {  } {
@@ -3355,14 +3448,16 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	array set original_shot $shot_list 
 	array set edited_shot $shot_list
 	load_graph edited
+	load_graph compare
 	
 	if { $data(compare_file) ne "" } {
 		set compare_list [::plugins::SDB::load_shot $data(compare_file)]
 		array set compare_shot $compare_list
-		#load_graph compare
+		shot_to_text compare
 	}
 	
-	shot_to_text edited
+	shot_to_text edited	
+	calc_chart_stage_stats
 	
 	return 1
 }
@@ -3405,7 +3500,7 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 	
 	if { $data(menu) ne "" } {
 		dui item config DYE_v3 nav_$data(menu)-lbl -fill orange
-	}	
+	}		
 }
 
 proc ::dui::pages::DYE_v3::navigate_to { dest } {
@@ -3474,9 +3569,17 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	
 	if { $target eq "edited" } {
 		if { $data(which_shot) eq "next" } {
-			set which [translate "NEXT SHOT"]
+			set which [translate "NEXT SHOT PLAN"]
 		} elseif { $data(which_shot) eq "last" } {
 			set which [translate "LAST SHOT"]
+		} else {
+			set which [translate "PAST SHOT"]
+		}
+	} else {
+		if { $data(which_compare) eq "next" } {
+			set which [translate "NEXT SHOT PLAN"]
+		} elseif { $data(which_compare) eq "previous" } {
+			set which [translate "PREVIOUS SHOT"]
 		} else {
 			set which [translate "PAST SHOT"]
 		}
@@ -3510,7 +3613,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 	
 	if { $data(which_shot) ne "next" && $shot_array(extraction_time) ne "" } {
-		$sw insert insert [format [translate "in %.f0 sec"] $shot_array(extraction_time)] extraction_time
+		$sw insert insert [format [translate "in %.0f sec"] $shot_array(extraction_time)] extraction_time
 	}
 
 	$sw configure -state disabled
@@ -3897,6 +4000,37 @@ proc ::dui::pages::DYE_v3::click_shot_text { widget x y X Y } {
 #	$tw insert $tag_start "New value" [list value $field_name]
 	
 	#after 1000 {set ::dui::pages::DYE_v3::data(test_msg) ""} 
+}
+
+proc ::dui::pages::DYE_v3::calc_chart_stage_stats { {stage_index 0} } {
+	variable data
+	set target "edited"
+	set ns [namespace current]::vectors::${target}
+
+	foreach var {pressure flow flow_weight weight temperature_basket} {
+		set vecname ${ns}::${var}
+		
+		if { [info commands $vecname] eq $vecname } {
+			$vecname variable vec
+			set data(chart_stage_${var}_start) $vec(1)
+			set data(chart_stage_${var}_end) $vec(end)
+			set data(chart_stage_${var}_min) $vec(min)
+			set data(chart_stage_${var}_max) $vec(max)
+			set data(chart_stage_${var}_avg) [format {%.2f} [vector expr mean($vecname)]]
+		} else {
+			set data(chart_stage_${var}_start) "-"
+			set data(chart_stage_${var}_end) "-"
+			set data(chart_stage_${var}_min) "-"
+			set data(chart_stage_${var}_max) "-"
+			set data(chart_stage_${var}_avg) "-"
+		}
+	}
+}
+
+proc ::dui::pages::DYE_v3::previous_chart_stage { } {
+}
+
+proc ::dui::pages::DYE_v3::next_chart_stage { } {
 }
 
 proc ::dui::pages::DYE_v3::archive_shot { } {
