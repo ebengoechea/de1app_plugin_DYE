@@ -134,6 +134,7 @@ proc ::plugins::DYE::preload {} {
 	check_settings
 	plugins save_settings DYE
 
+	#init_dye_metadata
 	setup_default_aspects
 	dui page add DYE_settings -namespace true -theme default
 	return DYE_settings
@@ -319,6 +320,43 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 		msg -DEBUG "setup_default_aspects, $a = $aval"
 	}
 	::logging::flush_log
+}
+
+proc ::plugins::DYE::init_dye_metadata {} {
+	metadata add drinker_name {
+		domain shot
+		category description
+		section people
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Drinker"
+		name_plural "Drinkers"
+		short_name "Drinker" 
+		short_name_plural "Drinkers"
+		propagate 1
+		data_type category
+		required 0
+		length 1
+		default_dui_widget dcombobox
+	}
+	metadata add repository_links {
+		domain shot
+		category description
+		section id
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Repository link"
+		name_plural "Repository links"
+		short_name "Repo link" 
+		short_name_plural "Repo links"
+		propagate 0
+		data_type complex
+		required 1
+		length list
+		default_dui_widget dcombobox
+	}
 }
 
 # Update the current shot description from the "next" description when doing a new espresso, if it has been
@@ -648,7 +686,7 @@ proc ::plugins::DYE::plugin_directory_graphics {} {
 
 proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button yes} {cancel_button yes} {buttons_loc right} } {
 	if { $title ne "" } {
-		dui add text $page 1280 60 -text $title -tags page_title -style page_title 
+		dui add dtext $page 1280 60 -text $title -tags page_title -style page_title 
 	} elseif { $titlevar ne "" } {
 		dui add variable $page 1280 60 -textvariable $titlevar -tags page_title -style page_title
 	}
@@ -797,7 +835,7 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# BEANS DATA
 	dui add image $page $x_left_label 150 "bean_${skin}.png" -tags beans_img
-	dui add text $page $x_left_field 250 -text [translate "Beans"] -tags beans_header -style section_header \
+	dui add dtext $page $x_left_field 250 -text [translate "Beans"] -tags beans_header -style section_header \
 		-command beans_select
 	
 	dui add symbol $page [expr {$x_left_field+300}] 245 -tags beans_select -symbol sort-down -font_size 24 -command yes
@@ -837,7 +875,7 @@ proc ::dui::pages::DYE::setup {} {
 	set y 925
 
 	dui add image $page $x_left_label $y "niche_${skin}.png" -tags equipment_img
-	dui add text $page $x_left_field [expr {$y+130}] -text [translate "Equipment"] -style section_header
+	dui add dtext $page $x_left_field [expr {$y+130}] -text [translate "Equipment"] -style section_header
 		
 	# Other equipment (EXPERIMENTAL)
 #	if { [info exists ::debugging] && $::debugging == 1 } {
@@ -862,7 +900,7 @@ proc ::dui::pages::DYE::setup {} {
 	# EXTRACTION
 	set x_right_label 1280; set x_right_field 1525
 	dui add image $page $x_right_label 150 "espresso_${skin}.png" -tags extraction_img
-	dui add text $page 1550 250 -text [translate "Extraction"] -style section_header
+	dui add dtext $page 1550 250 -text [translate "Extraction"] -style section_header
 
 	# Calc EY from TDS button
 	dui add dbutton $page 2050 175 -tags calc_ey_from_tds -style dsx_settings -label [translate "Calc EY from TDS"] \
@@ -896,7 +934,7 @@ proc ::dui::pages::DYE::setup {} {
 	incr y 100	
 	lassign [::plugins::SDB::field_lookup drink_tds {n_decimals min_value max_value default_value small_increment big_increment}] \
 		n_decimals min max default smallinc biginc
-	dui add text $page $x_right_label [expr {$y+6}] -text [translate "Total Dissolved Solids (TDS)"] -tags {drink_tds_label drink_tds*}
+	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Total Dissolved Solids (TDS)"] -tags {drink_tds_label drink_tds*}
 	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610 -bheight 75 -tags drink_tds \
 		-labelvariable {$%NS::data(drink_tds)%} -style dye_double \
 		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc \
@@ -907,7 +945,7 @@ proc ::dui::pages::DYE::setup {} {
 	incr y 100
 	lassign [::plugins::SDB::field_lookup drink_ey {n_decimals min_value max_value default_value small_increment big_increment}] \
 		n_decimals min max default smallinc biginc
-	dui add text $page $x_right_label [expr {$y+6}] -text [translate "Extraction Yield (EY)"] -tags {drink_ey_label drink_ey*}
+	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Extraction Yield (EY)"] -tags {drink_ey_label drink_ey*}
 	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610 -bheight 75 -tags drink_ey \
 		-labelvariable {$%NS::data(drink_ey)%} -style dye_double \
 		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc \
@@ -918,7 +956,7 @@ proc ::dui::pages::DYE::setup {} {
 	incr y 100
 	lassign [::plugins::SDB::field_lookup espresso_enjoyment {n_decimals min_value max_value default_value small_increment big_increment}] \
 		n_decimals min max default smallinc biginc
-	dui add text $page $x_right_label [expr {$y+6}] -text [translate "Enjoyment (0-100)"] -tags espresso_enjoyment_label
+	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Enjoyment (0-100)"] -tags espresso_enjoyment_label
 		
 	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610  -bheight 75 -tags espresso_enjoyment \
 		-labelvariable espresso_enjoyment -style dye_double \
@@ -938,7 +976,7 @@ proc ::dui::pages::DYE::setup {} {
 	# PEOPLE
 	set y 1030
 	dui add image $page $x_right_label $y "people_${skin}.png" -tags people_img
-	dui add text $page $x_right_field [expr {$y+140}] -text [translate "People"] -style section_header 
+	dui add dtext $page $x_right_field [expr {$y+140}] -text [translate "People"] -style section_header 
 		
 	# Barista (my_name)
 	incr y 240
@@ -1974,7 +2012,7 @@ proc ::dui::pages::DYE_fsh::setup {} {
 		-selectmode multiple -yscrollbar yes -font_size -1
 	
 	# Reset categories1
-	dui add text $page [expr {$x_left+340}] [expr {$y+15}] -text "\[ [translate "Reset"] \]" -tags reset_categories1 \
+	dui add dtext $page [expr {$x_left+340}] [expr {$y+15}] -text "\[ [translate "Reset"] \]" -tags reset_categories1 \
 		-style remark -command true 
 	
 	# Categories2 listbox
@@ -1987,7 +2025,7 @@ proc ::dui::pages::DYE_fsh::setup {} {
 		-selectmode multiple -yscrollbar yes -font_size -1
 
 	# Reset categories2
-	dui add text $page [expr {$x_left2+340}] [expr {$y+15}] -text "\[ [translate "Reset"] \]" -tags reset_categories2 \
+	dui add dtext $page [expr {$x_left2+340}] [expr {$y+15}] -text "\[ [translate "Reset"] \]" -tags reset_categories2 \
 		-style remark -command true
 	
 	# Date period from
@@ -2044,7 +2082,7 @@ proc ::dui::pages::DYE_fsh::setup {} {
 		-min $min -max $max -n_ratings 5 -use_halfs yes -label [translate "to"]	-label_pos {w -20 0} -label_anchor e -label_justify right 
 	
 	# Order by
-	dui add text $page $x_right_label 688 -tags order_by_label -text [translate "Order by"] -font_size +2
+	dui add dtext $page $x_right_label 688 -tags order_by_label -text [translate "Order by"] -font_size +2
 
 	set x $x_right_widget; set y 720
 	dui add variable $page [incr x 50] $y -tags order_by_date -anchor center -justify center -command [list %NS::set_order_by date]
@@ -2672,7 +2710,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	set page [namespace tail [namespace current]]
 
 	# HEADER AND BACKGROUND
-	dui add text $page 1280 100 -tags page_title -text [translate "Describe Your Espresso Settings"] -style page_title
+	dui add dtext $page 1280 100 -tags page_title -text [translate "Describe Your Espresso Settings"] -style page_title
 
 	dui add canvas_item rect $page 10 190 2550 1430 -fill "#ededfa" -width 0
 	dui add canvas_item line $page 14 188 2552 189 -fill "#c7c9d5" -width 2
@@ -2685,7 +2723,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	# LEFT SIDE
 	set x 75; set y 250; set vspace 130; set lwidth 1050
 	
-	dui add text $page $x $y -text [translate "General options"] -style section_header
+	dui add dtext $page $x $y -text [translate "General options"] -style section_header
 		
 	dui add dcheckbox $page $x [incr y $vspace] -tags propagate_previous_shot_desc -command propagate_previous_shot_desc_change \
 		-textvariable ::plugins::DYE::settings(propagate_previous_shot_desc) \
@@ -2704,13 +2742,13 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth \
 		-command [list ::plugins::save_settings DYE]
 
-	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
-		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
-		-command [list ::plugins::save_settings DYE]
+#	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
+#		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
+#		-command [list ::plugins::save_settings DYE]
 	
 	# RIGHT SIDE
 	set x 1350; set y 250
-	dui add text $page $x $y -text [translate "DSx skin options"] -style section_header
+	dui add dtext $page $x $y -text [translate "DSx skin options"] -style section_header
 	
 	dui add dcheckbox $page $x [incr y 100] -tags show_shot_desc_on_home -command show_shot_desc_on_home_change \
 		-textvariable ::plugins::DYE::settings(show_shot_desc_on_home) \
@@ -2721,7 +2759,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-symbol paint-brush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color) -command shot_desc_font_color_change 
 	incr y [expr {[dui aspect get dbutton bheight -style dsx_settings]+35}]
 	
-	dui add text $page [expr {int($x+100+[dui aspect get dbutton bwidth -style dsx_settings]/2)}] $y \
+	dui add dtext $page [expr {int($x+100+[dui aspect get dbutton bwidth -style dsx_settings]/2)}] $y \
 		-text "\[ [translate {Use default color}] \]" -anchor center -justify center \
 		-fill  $::plugins::DYE::default_shot_desc_font_color -command set_default_shot_desc_font_color
 	
@@ -3033,13 +3071,13 @@ proc ::dui::pages::DYE_v3::setup {} {
 	### LEFT PANEL (common to all pages) ###
 	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
 	
-	dui add tk_text $pages $x $page_coords(y_top_panel) -tags edited_summary -canvas_width $width \
+	dui add text $pages $x $page_coords(y_top_panel) -tags edited_summary -canvas_width $width \
 		-canvas_height $page_coords(top_panel_height) -font_size -1 -wrap word \
 		-yscrollbar no -bg "#d7d9e6" -borderwidth 0 -highlightthickness 0 -relief flat
 	
 	# We need to handle the yscrollbar in a special way to manually hide the graph on top of the text widget,
 	# otherwise it overflows the space on top of the text widget when scrolling down (Androwish bug?) 
-	dui add tk_text $pages $x $page_coords(y_main_panel) -tags edited_text -canvas_width $width \
+	dui add text $pages $x $page_coords(y_main_panel) -tags edited_text -canvas_width $width \
 		-canvas_height $page_coords(main_panel_height) -font_size -1 -wrap word \
 		-yscrollbar yes -yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand [list ::dui::pages::DYE_v3::text_scale_scroll edited] \
 		-yscrollbar_command [list ::dui::pages::DYE_v3::text_scroll_moveto edited]
@@ -3054,18 +3092,23 @@ proc ::dui::pages::DYE_v3::setup {} {
 	bind $widget [dui platform button_press] [list ::dui::pages::DYE_v3::navigate_to chart]
 		
 	### RIGHT PANELS ###
-	setup_right_panel $page "Summary" $::plugins::DYE::settings(summary_fields)		
-	setup_right_panel DYE_v3_bean "Beans" [::plugins::SDB::field_names "" "" {bean bean_batch}]
-	setup_right_panel DYE_v3_equipment "Equipment" [::plugins::SDB::field_names "" "" equipment]
-	setup_right_panel DYE_v3_extraction "Extraction" [::plugins::SDB::field_names "" "" extraction]
-	setup_right_panel DYE_v3_other "People & Others" [::plugins::SDB::field_names "" "" people]
+	setup_right_panel $page "Summary" $::plugins::DYE::settings(summary_fields)
+	setup_right_panel DYE_v3_bean "Beans" [metadata fields -domain shot -category description -section beans]
+	setup_right_panel DYE_v3_equipment "Equipment" [metadata fields -domain shot -category description -section equipment]
+	setup_right_panel DYE_v3_extraction "Extraction" [metadata fields -domain shot -category description -section extraction]
+	setup_right_panel DYE_v3_other "People & Others" [metadata fields -domain shot -category description -section people]
+	
+#	setup_right_panel DYE_v3_bean "Beans" [::plugins::SDB::field_names "" "" {bean bean_batch}]
+#	setup_right_panel DYE_v3_equipment "Equipment" [::plugins::SDB::field_names "" "" equipment]
+#	setup_right_panel DYE_v3_extraction "Extraction" [::plugins::SDB::field_names "" "" extraction]
+#	setup_right_panel DYE_v3_other "People & Others" [::plugins::SDB::field_names "" "" people]
 	setup_chart_page
 	setup_manage_page
 	setup_compare_page
 	setup_search_page
 	
 #	dui add variable $page 1890 500 -tags test_msg -font_size +2 -anchor center -justify center -width 1200
-#	dui add tk_text $page [expr {$x+$width+150+100}] 300 -tags text_right -canvas_width $width -canvas_height 1100 \
+#	dui add text $page [expr {$x+$width+150+100}] 300 -tags text_right -canvas_width $width -canvas_height 1100 \
 #		-yscrollbar yes -yscrollbar_width 100
 	
 	### BOTTOM BAR (common to all pages ###
@@ -3176,7 +3219,7 @@ proc ::dui::pages::DYE_v3::setup_right_side_title { page title {y {}} {tag {}} }
 	if { $tag eq "" } {
 		set tag "right_side_title"
 	}
-	dui add text $page $x $y -tags $tag -font_family notosansuibold -font_size +2 -fill black -anchor center \
+	dui add dtext $page $x $y -tags $tag -font_family notosansuibold -font_size +2 -fill black -anchor center \
 		-justify center -text [translate $title]
 }
 
@@ -3199,21 +3242,24 @@ proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
 			continue
 		}
 		
-		lassign [::plugins::SDB::field_lookup $field {name short_name data_type n_decimals min_value max_value 
-			default_value small_increment big_increment}] \
-			name short_name data_type n_decimals min max default smallinc biginc
+		lassign [metadata get $field name short_name data_type n_decimals min max default \
+				smallincrement bigincrement measure_unit length] \
+				name short_name data_type n_decimals min max default smallinc biginc measure_unit length
+#		lassign [::plugins::SDB::field_lookup $field {name short_name data_type n_decimals min_value max_value 
+#			default_value small_increment big_increment}] \
+#			name short_name data_type n_decimals min max default smallinc biginc
 		if { $name eq "" } {
 			msg -ERROR "setup_right_panel: summary field '$field' not recognized"
 			continue
 		}
 		set varname ${ns}::edited_shot($field)
 		
-		if { $data_type eq "numeric" } {
+		if { $data_type eq "number" } {
 			if { $field eq "espresso_enjoyment" } {
 				dui add drater $page $x_widget $y -tags $field -width $widget_width \
 					-label [translate $name] -label_pos [list $x_label $y] -variable $varname -min $min -max $max 
 			} else {
-				dui add text $page $x_label $y -text [translate $name] -tags [list ${field}_label ${field}*]
+				dui add dtext $page $x_label $y -text [translate $name] -tags [list ${field}_label ${field}*]
 				dui add dclicker $page $x_widget $y -tags $field -bwidth $widget_width -bheight [expr {$vspace-20}] \
 					-style dye_double -variable $varname -labelvariable "\$$varname" -default $default \
 					-n_decimals $n_decimals -min $min -max $max -smallincrement $smallinc -bigincrement $biginc -editor_page yes \
@@ -3270,15 +3316,15 @@ proc ::dui::pages::DYE_v3::setup_chart_page {} {
 	set vspace 100
 	
 	incr y 100
-	dui add text $page $x_start $y -tags start_label -text [translate Start] -anchor center -justify center
-	dui add text $page $x_min $y -tags min_label -text [translate Min] -anchor center -justify center
-	dui add text $page $x_avg $y -tags avg_label -text [translate Avg] -anchor center -justify center
-	dui add text $page $x_max $y -tags max_label -text [translate Max] -anchor center -justify center
-	dui add text $page $x_end $y -tags end_label -text [translate End] -anchor center -justify center
+	dui add dtext $page $x_start $y -tags start_label -text [translate Start] -anchor center -justify center
+	dui add dtext $page $x_min $y -tags min_label -text [translate Min] -anchor center -justify center
+	dui add dtext $page $x_avg $y -tags avg_label -text [translate Avg] -anchor center -justify center
+	dui add dtext $page $x_max $y -tags max_label -text [translate Max] -anchor center -justify center
+	dui add dtext $page $x_end $y -tags end_label -text [translate End] -anchor center -justify center
 		
 	foreach var {pressure flow flow_weight weight temperature_basket} {
 		incr y $vspace
-		dui add text $page $x_label $y -tags ${var}_label -text [translate $series($var)] -anchor w
+		dui add dtext $page $x_label $y -tags ${var}_label -text [translate $series($var)] -anchor w
 		
 		foreach stat {start min avg max end} {
 			dui add variable $page [subst \$x_$stat] $y -tags chart_stage_${var}_${stat} -anchor center -justify center 
@@ -3320,7 +3366,7 @@ proc ::dui::pages::DYE_v3::setup_manage_page {  } {
 	
 	incr y 275
 	setup_right_side_title $page Visualizer $y visualizer_title 
-	#dui add text $page 1890 $y -tags visualizer_title -font_size +2 -anchor center -justify center -text [translate Visualizer]
+	#dui add dtext $page 1890 $y -tags visualizer_title -font_size +2 -anchor center -justify center -text [translate Visualizer]
 	
 	incr y 75
 	dui add dbutton $page $x_label $y -tags upload_to_visualizer -style dye_action_half -label [translate "Upload"] \
@@ -3343,13 +3389,13 @@ proc ::dui::pages::DYE_v3::setup_compare_page {  } {
 	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
 	set x $page_coords(x_right_panel)
 	
-	dui add tk_text $page $x $page_coords(y_top_panel) -tags compare_summary -canvas_width $width \
+	dui add text $page $x $page_coords(y_top_panel) -tags compare_summary -canvas_width $width \
 		-canvas_height $page_coords(top_panel_height) -font_size -1 -wrap word \
 		-yscrollbar no -bg "#d7d9e6" -borderwidth 0 -highlightthickness 0 -relief flat
 	
 	# We need to handle the yscrollbar in a special way to manually hide the graph on top of the text widget,
 	# otherwise it overflows the space on top of the text widget when scrolling down (Androwish bug?) 
-	dui add tk_text $page $x $page_coords(y_main_panel) -tags compare_text -canvas_width $width \
+	dui add text $page $x $page_coords(y_main_panel) -tags compare_text -canvas_width $width \
 		-canvas_height $page_coords(main_panel_height) -font_size -1 -wrap word \
 		-yscrollbar yes -yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand [list ::dui::pages::DYE_v3::text_scale_scroll compare] \
 		-yscrollbar_command [list ::dui::pages::DYE_v3::text_scroll_moveto compare]
@@ -3781,7 +3827,7 @@ proc ::dui::pages::DYE_v3::field_compare_string { value compare {field {}} {data
 		lassign [::plugins::SDB::field_lookup $field {data_type n_decimals}] data_type n_decimals
 		if { $data_type eq "" } {
 			if { [string is double $value] && [string is double $compare] } {
-				set data_type "numeric"
+				set data_type "number"
 				if { [string is integer $value] && [string is integer $compare] } {
 					set n_decimals 0
 				} else {
@@ -3795,7 +3841,7 @@ proc ::dui::pages::DYE_v3::field_compare_string { value compare {field {}} {data
 	
 	if { $data_type eq "long_text" } {
 		set compare_text " "
-	} elseif { $data_type eq "numeric" } {
+	} elseif { $data_type eq "number" } {
 		if { $value == $compare } {
 			set compare_text "  ="
 		} else {
