@@ -317,10 +317,94 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	dui aspect set -theme $theme -type dclicker_symbol1 -style dye_single {pos {0.9 0.5} font_size 24 anchor center fill "#7f879a"} 
 	
 	# DYE v3
-	dui aspect set -theme $theme -type dbutton -style dyev3_nav_button { bwidth 100 bheight 120 symbol_pos {0.5 0.5} 
-		fill {} symbol_fill grey }
-	#symbol_fill "#7f879a" 
-
+	set bg_color [dui aspect get page bg_color -theme default]
+	set btn_spacing 100
+	set half_button_width [expr {int(($::dui::pages::DYE_v3::page_coords(panel_width)-$btn_spacing)/2)}]
+	
+	dui aspect set -theme default [subst { 
+		dbutton.bheight.dyev3_topnav 90 
+		dbutton.shape.dyev3_topnav rect 
+		dbutton_label.font_size.dyev3_topnav -1 
+		dbutton_label.pos.dyev3_topnav {0.5 0.5} 
+		dbutton_label.anchor.dyev3_topnav center 
+		dbutton_label.justify.dyev3_topnav center 
+	
+		dbutton.bwidth.dyev3_nav_button 100 
+		dbutton.bheight.dyev3_nav_button 120
+		dbutton.fill.dyev3_nav_button {} 		
+		dbutton.symbol_pos.dyev3_nav_button {0.5 0.5} 
+		dbutton.symbol_fill.dyev3_nav_button grey
+		
+		text.font_size.dyev3_top_panel_text -1
+		text.yscrollbar.dyev3_top_panel_text no
+		text.bg.dyev3_top_panel_text $bg_color
+		text.borderwidth.dyev3_top_panel_text 0
+		text.highlightthickness.dyev3_top_panel_text 0
+		text.relief.dyev3_top_panel_text flat
+		
+		text.font_size.dyev3_bottom_panel_text -1
+	
+		dtext.font_family.dyev3_right_panel_title notosansuibold 
+		dtext.font_size.dyev3_right_panel_title +2
+		dtext.fill.dyev3_right_panel_title black
+		dtext.anchor.dyev3_right_panel_title center
+		dtext.justify.dyev3_right_panel_title center
+		
+		graph.background.dyev3_text_graph white 
+		graph.plotbackground.dyev3_text_graph white 
+		graph.borderwidth.dyev3_text_graph 1 
+		graph.plotrelief.dyev3_text_graph flat
+		
+		dtext.font_size.dyev3_chart_stage_title +2 
+		dtext.anchor.dyev3_chart_stage_title center 
+		dtext.justify.dyev3_chart_stage_title center 
+		dtext.fill.dyev3_chart_stage_title black
+		
+		dtext.anchor.dyev3_chart_stage_colheader center 
+		dtext.justify.dyev3_chart_stage_colheader center
+		
+		dtext.anchor.dyev3_chart_stage_value center
+		dtext.justify.dyev3_chart_stage_value center
+		
+		dtext.anchor.dyev3_chart_stage_comp center
+		dtext.justify.dyev3_chart_stage_comp center
+		dtext.font_size.dyev3_chart_stage_comp -4
+		dtext.fill.dyev3_chart_stage_comp white
+	
+		line.fill.dyev3_chart_stage_line_sep grey
+				
+		dbutton.shape.dyev3_action_half round
+		dbutton.bwidth.dyev3_action_half $half_button_width
+		dbutton.bheight.dyev3_action_half 125
+		dbutton_symbol.pos.dyev3_action_half {0.2 0.5} 
+		dbutton_label.pos.dyev3_action_half {0.6 0.5}
+		dbutton_label.width.dyev3_action_half [expr {$half_button_width-75}]
+		
+		#text_tag.foregroud.which_shot black
+		text_tag.font.dyev3_which_shot "[dui font get notosansuibold 15]"
+		text_tag.justify.dyev3_which_shot center
+		
+		text_tag.justify.dyev3_profile_title center
+		
+		text_tag.foreground.dyev3_section black 
+		text_tag.font.dyev3_section "[dui font get notosansuibold 17]" 
+		text_tag.spacing1.dyev3_section [dui platform rescale_y 20]
+		
+		text_tag.foreground.dyev3_field "#7f879a" 
+		text_tag.lmargin1.dyev3_field [dui platform rescale_x 35] 
+		text_tag.lmargin2.dyev3_field [dui platform rescale_x 45]
+		
+		text_tag.foreground.dyev3_value blue
+		
+		text_tag.foreground.dyev3_compare grey
+		
+		text_tag.font.dyev3_field_highlighted "[dui font get notosansuibold 15]"
+		text_tag.background.dyev3_field_highlighted  pink
+		text_tag.font.dyev3_field_nonhighlighted "[dui font get notosansuiregular 15]"
+		text_tag.background.dyev3_field_nonhighlighted {}
+	}]
+	#text_tag.foreground.field brown
+	
 	#	foreach {a aval} [dui aspect list -theme default -type dbutton -style dsx_settings -values 1 -full_aspect 1]] {
 #		msg -DEBUG "setup_default_aspects, $a = $aval"
 #	}
@@ -2747,9 +2831,9 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth \
 		-command [list ::plugins::save_settings DYE]
 
-#	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
-#		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
-#		-command [list ::plugins::save_settings DYE]
+	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
+		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
+		-command [list ::plugins::save_settings DYE]
 	
 	# RIGHT SIDE
 	set x 1350; set y 250
@@ -3051,34 +3135,26 @@ proc ::dui::pages::DYE_v3::setup {} {
 	set btn_height 90
 	# Summary Chart Profile Beans Equipment Extraction Other | Compare Search
 	
-	dui aspect set -theme default -style dyev3_topnav [subst { dbutton.bwidth $btn_width dbutton.bheight $btn_height 
-		dubtton.shape rect dbutton_label.font_size -1 dbutton_label.pos {0.5 0.5} dbutton_label.anchor center 
-		dbutton_label.justify center }]
-	dui aspect set -theme default -type text -style dyev3_bottom_panel_text { font_size -1 }
-	set bg_color [dui aspect get page bg_color -theme default]
-	dui aspect set -theme default -type text -style dyev3_top_panel_text [subst { font_size -1 yscrollbar no
-		bg $bg_color borderwidth 0 highlightthickness 0 relief flat}]
-	
 	dui add dbutton $pages $x $y -tags nav_summary -style dyev3_topnav -label [translate Summary] \
-		-command {%NS::navigate_to summary} -shape round -bwidth [expr {$btn_width+75}] -label_pos {0.45 0.5}
+		-command {%NS::navigate_to summary} -shape round -bwidth [expr {$btn_width+60}] -label_pos {0.45 0.5}
 	set i 0
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_chart -style dyev3_topnav -label [translate Chart] \
-		-command {%NS::navigate_to chart} 
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_profile -style dyev3_topnav -label [translate Profile] \
-		-command {%NS::navigate_to profile} -label_fill "#ddd" 	
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_bean -style dyev3_topnav -label [translate Beans] \
-		-command {%NS::navigate_to bean}
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_equipment -style dyev3_topnav -label [translate Equipment] \
-		-command {%NS::navigate_to equipment} 
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_extraction -style dyev3_topnav -label [translate Extraction] \
-		-command {%NS::navigate_to extraction} 
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -tags nav_other -style dyev3_topnav -label [translate Other] \
-		-command {%NS::navigate_to other}
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_chart -style dyev3_topnav \
+		-label [translate Chart] -command {%NS::navigate_to chart} 
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_profile -style dyev3_topnav \
+		-label [translate Profile] -command {%NS::navigate_to profile} -label_fill "#ddd" 	
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_bean -style dyev3_topnav \
+		-label [translate Beans] -command {%NS::navigate_to bean}
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_equipment -style dyev3_topnav \
+		-label [translate Equipment] -command {%NS::navigate_to equipment} 
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_extraction -style dyev3_topnav \
+		-label [translate Extraction] -command {%NS::navigate_to extraction} 
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_other -style dyev3_topnav \
+		-label [translate Other] -command {%NS::navigate_to other}
 	
 	dui add dbutton $pages [expr {$x+$btn_width*($i+2)-75}] $y -tags nav_compare -style dyev3_topnav -label [translate Compare] \
-		-command {%NS::navigate_to compare} -shape round -bwidth [expr {$btn_width+75}] -label_pos {0.55 0.5}
-	dui add dbutton $pages [expr {$x+$btn_width*($i+1)}] $y -tags nav_manage -style dyev3_topnav -label [translate Manage] \
-		-command {%NS::navigate_to manage} 
+		-command {%NS::navigate_to compare} -shape round -bwidth [expr {$btn_width+60}] -label_pos {0.55 0.5}
+	dui add dbutton $pages [expr {$x+$btn_width*($i+1)}] $y -bwidth $btn_width -tags nav_manage -style dyev3_topnav \
+		-label [translate Manage] -command {%NS::navigate_to manage} 
 	
 	### LEFT PANEL (common to all pages) ###
 	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
@@ -3096,8 +3172,8 @@ proc ::dui::pages::DYE_v3::setup {} {
 	# Create graph (but don't add them, they'are added to the text widgets when shots are loaded) 
 	set widget [dui canvas].[string tolower $page]-edited_graph
 	set widgets(edited_graph) $widget
-	graph $widget -background white -plotbackground white -width [dui platform rescale_x [expr {$width-50}]] \
-		-height [dui platform rescale_y 600] -background white -plotbackground white -borderwidth 1 -plotrelief flat
+	graph $widget -width [dui platform rescale_x [expr {$width-10}]] -height [dui platform rescale_y 600] \
+		{*}[dui aspect list -type graph -style dyev3_text_graph -as_options yes] 
 	vectors::init
 	setup_graph $widget edited 1
 	bind $widget [dui platform button_press] [list ::dui::pages::DYE_v3::navigate_to chart]
@@ -3116,7 +3192,6 @@ proc ::dui::pages::DYE_v3::setup {} {
 	setup_chart_page
 	setup_manage_page
 	setup_compare_page
-	setup_search_page
 	
 #	dui add variable $page 1890 500 -tags test_msg -font_size +2 -anchor center -justify center -width 1200
 #	dui add text $page [expr {$x+$width+150+100}] 300 -tags text_right -canvas_width $width -canvas_height 1100 \
@@ -3239,18 +3314,15 @@ proc ::dui::pages::DYE_v3::setup_graph { widget {target edited} {create_axis 0} 
 	
 }
 
-proc ::dui::pages::DYE_v3::setup_right_side_title { page title {y {}} {tag {}} } {
+proc ::dui::pages::DYE_v3::setup_right_side_title { page title {y {}} {tag right_side_title} } {
 	variable page_coords
 	
 	set x [expr {int($page_coords(x_right_panel)+($page_coords(panel_width)-$page_coords(scrollbar_width))/2)}]	
 	if { $y eq "" } {
 		set y [expr {int($page_coords(y_top_panel)+$page_coords(top_panel_height)*0.4)}]
 	}
-	if { $tag eq "" } {
-		set tag "right_side_title"
-	}
-	dui add dtext $page $x $y -tags $tag -font_family notosansuibold -font_size +2 -fill black -anchor center \
-		-justify center -text [translate $title]
+	
+	dui add dtext $page $x $y -tags $tag -style dyev3_right_panel_title -text [translate $title]
 }
 
 proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
@@ -3338,9 +3410,9 @@ proc ::dui::pages::DYE_v3::setup_chart_page {} {
 #		-tags previous_chart_stage -style dyev3_nav_button -symbol_pos {0.5 0.5} -anchor w
 
 	set x [expr {int($page_coords(x_right_panel)+($page_coords(panel_width)-$page_coords(scrollbar_width))/2)}]	
-	dui add variable $page $x $y -tags chart_stage -font_size +2 -anchor center -justify center -fill black \
+	dui add variable $page $x $y -tags chart_stage -style dyev3_chart_stage_title \
 		-textvariable {$%NS::data(chart_stage_idx). $%NS::data(chart_stage)} 
-
+ 
 #	dui add dbutton $page [expr {$page_coords(x_right_panel)+$page_coords(panel_width)}] $y -bwidth 120 -bheight 120 \
 #		-symbol chevron-right -tags next_chart_stage -style dyev3_nav_button -symbol_pos {0.5 0.5} -anchor e
 	
@@ -3362,11 +3434,11 @@ proc ::dui::pages::DYE_v3::setup_chart_page {} {
 	set vspace 100
 	
 	incr y 100
-	dui add dtext $page $x_start $y -tags start_label -text [translate Start] -anchor center -justify center
-	dui add dtext $page $x_min $y -tags min_label -text [translate Min] -anchor center -justify center
-	dui add dtext $page $x_avg $y -tags avg_label -text [translate Avg] -anchor center -justify center
-	dui add dtext $page $x_max $y -tags max_label -text [translate Max] -anchor center -justify center
-	dui add dtext $page $x_end $y -tags end_label -text [translate End] -anchor center -justify center
+	dui add dtext $page $x_start $y -tags start_label -text [translate Start] -style dyev3_chart_stage_colheader
+	dui add dtext $page $x_min $y -tags min_label -text [translate Min] -style dyev3_chart_stage_colheader
+	dui add dtext $page $x_avg $y -tags avg_label -text [translate Avg] -style dyev3_chart_stage_colheader
+	dui add dtext $page $x_max $y -tags max_label -text [translate Max] -style dyev3_chart_stage_colheader
+	dui add dtext $page $x_end $y -tags end_label -text [translate End] -style dyev3_chart_stage_colheader
 
 	dui add canvas_item line $page $x_label [expr {$y+50}] [expr {$x_label+$page_coords(panel_width)}] [expr {$y+50}] -fill grey 
 	
@@ -3375,60 +3447,55 @@ proc ::dui::pages::DYE_v3::setup_chart_page {} {
 		dui add dtext $page $x_label $y -tags ${var}_label -text [translate $series($var)] -anchor w
 		
 		foreach stat {start min avg max end} {
-			dui add variable $page [subst \$x_$stat] $y -tags chart_stage_${var}_${stat} -anchor center -justify center 
-			dui add variable $page [subst \$x_$stat] [expr {$y+40}] -tags chart_stage_comp_${var}_${stat} -anchor center \
-				-justify center -font_size -4 -fill white
+			dui add variable $page [subst \$x_$stat] $y -tags chart_stage_${var}_${stat} -style dyev3_chart_stage_value 
+			dui add variable $page [subst \$x_$stat] [expr {$y+40}] -tags chart_stage_comp_${var}_${stat} \
+				-style dyev3_chart_stage_comp
 		}
 	}
-	
-	dui add canvas_item line $page $x_label [expr {$y+75}] [expr {$x_label+$page_coords(panel_width)}] [expr {$y+75}] -fill grey
+		
+	dui add canvas_item line $page $x_label [expr {$y+75}] [expr {$x_label+$page_coords(panel_width)}] [expr {$y+75}] \
+		-style dyev3_chart_stage_line_sep 
 }
 
 proc ::dui::pages::DYE_v3::setup_manage_page {  } {
 	variable page_coords
 	set page "DYE_v3_manage"
 	
-	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
 	set x_label $page_coords(x_right_panel)
 	set x_widget $page_coords(x_field_widget)
-	set widget_width $page_coords(field_widget_width)
-	set y $page_coords(y_main_panel)	
-	set vspace 100
-
+	#	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
+		
 	set btn_spacing 100
-	set btn_width [expr {int(($page_coords(panel_width)-$btn_spacing)/2)}]
-	set btn_height 125
+	set btn_width [dui aspect get dbutton bwidth -style dyev3_action_half]
+	set vspace 100
+	set y $page_coords(y_main_panel)
 	
 	setup_right_side_title $page "Manage shot"
+
+	dui add dbutton $page $x_label $y -tags archive_shot -style dyev3_action_half -label [translate "Archive"] \
+		-symbol archive
 	
-	dui aspect set -style dye_action_half [subst { dbutton.shape round dbutton.bwidth $btn_width dbutton.bheight $btn_height
-		dbutton_symbol.pos {0.2 0.5} dbutton_label.pos {0.6 0.5} dbutton_label.width [expr {$btn_width-75}]
-	}]
-	
-	dui add dbutton $page $x_label $y -tags archive_shot -style dye_action_half -label [translate "Archive"] \
-		-symbol archive -command yes
-	
-	dui add dbutton $page [expr {$x_label+$btn_width+$btn_spacing}] $y -tags delete_shot -style dye_action_half \
-		-label [translate "Delete"] -symbol trash -command yes
+	dui add dbutton $page [expr {$x_label+$btn_width+$btn_spacing}] $y -tags delete_shot -style dyev3_action_half \
+		-label [translate "Delete"] -symbol trash
 	
 	incr y 175
-	dui add dbutton $page $x_label $y -tags export_shot -style dye_action_half \
-		-label [translate "Export"] -symbol file-export -command yes
+	dui add dbutton $page $x_label $y -tags export_shot -style dyev3_action_half \
+		-label [translate "Export"] -symbol file-export
 	
 	incr y 275
 	setup_right_side_title $page Visualizer $y visualizer_title 
 	#dui add dtext $page 1890 $y -tags visualizer_title -font_size +2 -anchor center -justify center -text [translate Visualizer]
 	
 	incr y 75
-	dui add dbutton $page $x_label $y -tags upload_to_visualizer -style dye_action_half -label [translate "Upload"] \
-		-symbol cloud-upload -command yes
+	dui add dbutton $page $x_label $y -tags upload_to_visualizer -style dyev3_action_half -label [translate "Upload"] \
+		-symbol cloud-upload
 	
-	dui add dbutton $page [expr {$x_label+$btn_width+$btn_spacing}] $y -tags download_from_visualizer -style dye_action_half \
-		-label [translate "Download"] -symbol cloud-download -command yes
+	dui add dbutton $page [expr {$x_label+$btn_width+$btn_spacing}] $y -tags download_from_visualizer -style dyev3_action_half \
+		-label [translate "Download"] -symbol cloud-download
 		
 	incr y 175
-	dui add dbutton $page $x_label $y -tags visualizer_browse -style dye_action_half \
-		-label [translate "Browse"] -symbol eye -command yes
+	dui add dbutton $page $x_label $y -tags visualizer_browse -style dyev3_action_half \
+		-label [translate "Browse"] -symbol eye
 	
 }
 
@@ -3453,14 +3520,11 @@ proc ::dui::pages::DYE_v3::setup_compare_page {  } {
 	# Create graph (but don't add them, they'are added to the text widgets when shots are loaded) 
 	set widget [dui canvas].[string tolower $page]-compare_graph
 	set widgets(compare_graph) $widget
-	graph $widget -background white -plotbackground white -width [dui platform rescale_x [expr {$width-50}]] \
-		-height [dui platform rescale_y 600] -background white -plotbackground white -borderwidth 1 -plotrelief flat
+	graph $widget -width [dui platform rescale_x [expr {$width-15}]] \
+		-height [dui platform rescale_y 600] {*}[dui aspect list -type graph -style dyev3_text_graph -as_options yes]
 	setup_graph $widget compare 1
 }
 
-proc ::dui::pages::DYE_v3::setup_search_page {  } {
-
-}
 
 # Named arguments:
 # -which_shot 'last', 'next' or a shot clock or file. Default is 'last' 
@@ -3678,12 +3742,13 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 	unset -nocomplain shot
 
-	# Top panel (2-lines shot summary)
+	### TOP PANEL (2-lines shot summary) ###########################################################
 	$sw configure -state normal
 	$sw delete 1.0 end
-	
-	$sw tag configure which -foreground black -font [dui font get notosansuibold 15] -justify center
-	$sw tag configure profile_title -justify center
+		
+	#$sw tag configure which -foreground black -font [dui font get notosansuibold 15] -justify center	
+	$sw tag configure which {*}[dui aspect list -type text_tag -style dyev3_which_shot -as_options yes]
+	$sw tag configure profile_title {*}[dui aspect list -type text_tag -style dyev3_profile_title -as_options yes]
 	
 	if { $target eq "edited" } {
 		if { $data(which_shot) eq "next" } {
@@ -3709,7 +3774,11 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	} else {
 		$sw insert insert ": " {} $shot_array(date_time) "date_time" "\n"
 	}
-	$sw insert insert $shot_array(profile_title) "profile_title" " - "
+	if { $shot_array(profile_title) eq "" } {
+		$sw insert insert " " profile_title
+	} else {
+		$sw insert insert $shot_array(profile_title) "profile_title" " - "
+	}
 	
 	if { $shot_array(grinder_dose_weight) eq "" } {
 		set dose "?"
@@ -3736,7 +3805,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 
 	$sw configure -state disabled
 
-	# Main panel (shot full description)
+	### MAIN (BOTTOM) PANEL, full shot description ###########################################################
 	$tw configure -state normal
 	# First time this is run mark "chart:end" does not exist
 	set first_time 0
@@ -3748,11 +3817,15 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	#$tw delete chart:end end
 
 	# Tag styles
-	$tw tag configure section -foreground black -font [dui font get notosansuibold 17] -spacing1 [dui platform rescale_y 20]
-	$tw tag configure field -foreground brown -lmargin1 [dui platform rescale_x 35] -lmargin2 [dui platform rescale_x 45]  
-	$tw tag configure value -foreground blue
-	$tw tag configure compare -elide [expr {!$do_compare}]
+	$tw tag configure section {*}[dui aspect list -type text_tag -style dyev3_section -as_options yes]
+	$tw tag configure field {*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
+	$tw tag configure value {*}[dui aspect list -type text_tag -style dyev3_value -as_options yes]
+	$tw tag configure compare -elide [expr {!$do_compare}] {*}[dui aspect list -type text_tag -style dyev3_compare -as_options yes]
 
+#	$tw tag configure section -foreground black -font [dui font get notosansuibold 17] -spacing1 [dui platform rescale_y 20]
+#	$tw tag configure field -foreground brown -lmargin1 [dui platform rescale_x 35] -lmargin2 [dui platform rescale_x 45]  
+#	$tw tag configure value -foreground blue
+	
 #	# Add graph to the shot text widget
 	if { $first_time } {
 		foreach mark {summary summary:end chart} {
@@ -3763,8 +3836,46 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 		
 		$tw mark set chart:end insert
 		$tw mark gravity chart:end left
+		
 	}
 	
+	# Shot meta description
+	set sections [dict create beans Beans equipment Equipment extraction Extraction people People]
+	#bean_batch "Beans batch"
+	
+	foreach section [dict keys $sections] {
+		$tw mark set $section insert 
+		$tw mark gravity $section left
+		$tw insert insert [translate [dict get $sections $section]] [list section $section] "\n"
+		
+		foreach field [metadata fields -domain shot -category description -section $section] {
+			if { ![info exists shot_array($field)] } continue
+			lassign [metadata get $field {name data_type n_decimals}] name data_type n_decimals
+			$tw insert insert "[translate $name]: " [list field $field ${field}:n] 
+			# ": " [list colon $field]
+			
+			if { $shot_array($field) eq "" } {
+				$tw insert insert " " [list undef $field ${field}:v]
+			} else {
+				$tw insert insert $shot_array($field) [list value $field ${field}:v]
+			}
+
+			if { $do_compare } {
+				set compare_text [field_compare_string $shot_array($field) [value_or_default comp_array($field) ""] \
+					$field $data_type $n_decimals]
+				$tw insert insert $compare_text [list compare $field ${field}:c] "\n"
+			} else {
+				$tw insert insert "\n"
+			}
+
+			if { $target eq "edited" } {				
+				trace add variable ${ns}::edited_shot($field) write ${ns}::shot_variable_changed
+			}
+		}
+		$tw mark set ${section}:end insert
+		$tw mark gravity ${section}:end left 
+	}
+
 	# Shot management
 	set section manage
 	$tw mark set $section insert 
@@ -3834,42 +3945,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	$tw mark set ${section}:end insert
 	$tw mark gravity ${section}:end left 
 
-	# Shot meta description
-	set sections [dict create beans Beans equipment Equipment extraction Extraction people People]
-	#bean_batch "Beans batch"
-	
-	foreach section [dict keys $sections] {
-		$tw mark set $section insert 
-		$tw mark gravity $section left
-		$tw insert insert [translate [dict get $sections $section]] [list section $section] "\n"
-		
-		foreach field [metadata fields -domain shot -category description -section $section] {
-			if { ![info exists shot_array($field)] } continue			
-			lassign [metadata get $field {name data_type n_decimals}] name data_type n_decimals
-			$tw insert insert [translate $name] [list field $field ${field}:n] ": " [list colon $field]
-			
-			if { $shot_array($field) eq "" } {
-				$tw insert insert " " [list undef $field ${field}:v]
-			} else {
-				$tw insert insert $shot_array($field) [list value $field ${field}:v]
-			}
-
-			if { $do_compare } {
-				set compare_text [field_compare_string $shot_array($field) [value_or_default comp_array($field) ""] \
-					$field $data_type $n_decimals]
-				$tw insert insert $compare_text [list compare $field ${field}:c] "\n"
-			} else {
-				$tw insert insert "\n"
-			}
-
-			if { $target eq "edited" } {				
-				trace add variable ${ns}::edited_shot($field) write ${ns}::shot_variable_changed
-			}
-		}
-		$tw mark set ${section}:end insert
-		$tw mark gravity ${section}:end left 
-	}
-	
+	# Bind "clickable" tags 
 	if {$target eq "edited" } { 
 		$tw tag bind section [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
 		$tw tag bind field [dui platform button_press] [list + ${ns}::click_shot_text %W %x %y %X %Y]
@@ -3985,7 +4061,7 @@ proc ::dui::pages::DYE_v3::highlight_field { field {widget {}} } {
 		set data(field_being_edited) $field
 	}
 	
-	$widget tag configure $field -font [dui font get notosansuibold 15] -background pink
+	$widget tag configure $field {*}[dui aspect list -type text_tag -style dyev3_field_highlighted -as_options yes]
 	$widget see $field.first
 	$widget see $field.last
 }
@@ -4000,7 +4076,7 @@ proc ::dui::pages::DYE_v3::unhighlight_field { field {widget {}} } {
 		set field $data(field_being_edited)
 	}
 	
-	$widget tag configure $field -font [dui font get notosansuiregular 15] -background {}
+	$widget tag configure $field {*}[dui aspect list -type text_tag -style dyev3_field_nonhighlighted -as_options yes] 
 	
 	if { $field eq $data(field_being_edited) } {
 		set data(field_being_edited) ""
@@ -4388,27 +4464,6 @@ proc ::dui::pages::DYE_v3::hide { page_to_hide page_to_show } {
 		save_description
 		page_unload
 	}
-}
-
-### DYE v3 NUMBER EDITOR PAGE ##########################################################################################
-namespace eval ::dui::pages::DYE_v3_number_editor {
-	variable widgets
-	array set widgets {}
-	
-	variable data
-	array set data {}
-}
-
-
-proc ::dui::pages::DYE_v3_number_editor::setup { page_to_hide page_to_show args } {
-	
-	
-	
-}
-
-proc ::dui::pages::DYE_v3_number_editor::show { page_to_hide page_to_show } {
-	
-	
 }
 
 

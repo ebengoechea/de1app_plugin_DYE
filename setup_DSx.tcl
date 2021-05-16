@@ -197,6 +197,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		graph.plotpadx 10
 		
 		text.bg $::DSx_settings(bg_colour)
+		text.foreground $::DSx_settings(font_colour)
 		text.font_size $default_font_size
 		text.relief flat
 		text.highlightthickness 1
@@ -240,6 +241,106 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	dui aspect set -type dclicker_symbol -style dye_single {pos {0.1 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -type dclicker_symbol1 -style dye_single {pos {0.9 0.5} font_size 24 anchor center fill "#7f879a"} 
 			
+	### DUI V3 STYLES ####
+	# DYE v3
+	set bg_color $::DSx_settings(bg_colour)
+	#[dui aspect get page bg_color]
+	set btn_spacing 100
+	set half_button_width [expr {int(($::dui::pages::DYE_v3::page_coords(panel_width)-$btn_spacing)/2)}]
+	
+	dui aspect set -theme DSx [subst { 
+		dbutton.bheight.dyev3_topnav 90 
+		dbutton.shape.dyev3_topnav rect 
+		dbutton.fill.dyev3_topnav grey
+		dbutton_label.font_size.dyev3_topnav -1 
+		dbutton_label.pos.dyev3_topnav {0.5 0.5} 
+		dbutton_label.anchor.dyev3_topnav center 
+		dbutton_label.justify.dyev3_topnav center 
+	
+		dbutton.bwidth.dyev3_nav_button 100 
+		dbutton.bheight.dyev3_nav_button 120
+		dbutton.fill.dyev3_nav_button {} 		
+		dbutton.symbol_pos.dyev3_nav_button {0.5 0.5} 
+		dbutton.symbol_fill.dyev3_nav_button grey
+		
+		text.font_size.dyev3_top_panel_text -1
+		text.yscrollbar.dyev3_top_panel_text no
+		text.bg.dyev3_top_panel_text $bg_color
+		text.borderwidth.dyev3_top_panel_text 0
+		text.highlightthickness.dyev3_top_panel_text 0
+		text.relief.dyev3_top_panel_text flat
+		
+		text.font_size.dyev3_bottom_panel_text -1
+	
+		dtext.font_family.dyev3_right_panel_title $::DSx_settings(font_name) 
+		dtext.font_size.dyev3_right_panel_title +2
+		dtext.fill.dyev3_right_panel_title $::DSx_settings(font_colour)
+		dtext.anchor.dyev3_right_panel_title center
+		dtext.justify.dyev3_right_panel_title center
+		
+		graph.background.dyev3_text_graph $bg_color 
+		graph.plotbackground.dyev3_text_graph $bg_color 
+		graph.borderwidth.dyev3_text_graph 1 
+		graph.plotrelief.dyev3_text_graph flat
+		
+		dtext.font_size.dyev3_chart_stage_title +2 
+		dtext.anchor.dyev3_chart_stage_title center 
+		dtext.justify.dyev3_chart_stage_title center 
+		dtext.fill.dyev3_chart_stage_title $::DSx_settings(font_colour)
+		
+		dtext.anchor.dyev3_chart_stage_colheader center 
+		dtext.justify.dyev3_chart_stage_colheader center
+		
+		dtext.anchor.dyev3_chart_stage_value center
+		dtext.justify.dyev3_chart_stage_value center
+		
+		dtext.anchor.dyev3_chart_stage_comp center
+		dtext.justify.dyev3_chart_stage_comp center
+		dtext.font_size.dyev3_chart_stage_comp -4
+		dtext.fill.dyev3_chart_stage_comp white
+	
+		line.fill.dyev3_chart_stage_line_sep grey
+				
+
+		dbutton.shape.dyev3_action_half round
+		dbutton.fill.dyev3_action_half grey
+		dbutton.bwidth.dyev3_action_half $half_button_width
+		dbutton.bheight.dyev3_action_half 125
+		dbutton_symbol.pos.dyev3_action_half {0.2 0.5} 
+		dbutton_label.pos.dyev3_action_half {0.6 0.5}
+		dbutton_label.width.dyev3_action_half [expr {$half_button_width-75}]
+		
+		#text_tag.foregroud.which_shot black
+		text_tag.font.dyev3_which_shot "[dui font get $::DSx_settings(font_name) 15]"
+		text_tag.justify.dyev3_which_shot center
+		
+		text_tag.justify.dyev3_profile_title center
+		
+		text_tag.foreground.dyev3_section $::DSx_settings(font_colour)
+		text_tag.font.dyev3_section "[dui font get $::DSx_settings(font_name) 17]" 
+		text_tag.spacing1.dyev3_section [dui platform rescale_y 20]
+		
+		text_tag.foreground.dyev3_field $::DSx_settings(font_colour) 
+		text_tag.lmargin1.dyev3_field [dui platform rescale_x 35] 
+		text_tag.lmargin2.dyev3_field [dui platform rescale_x 45]
+		
+		text_tag.foreground.dyev3_value blue
+		
+		text_tag.foreground.dyev3_compare grey
+		
+		text_tag.font.dyev3_field_highlighted "[dui font get $::DSx_settings(font_name) 15]"
+		text_tag.background.dyev3_field_highlighted pink
+		text_tag.font.dyev3_field_nonhighlighted "[dui font get $::DSx_settings(font_name) 15]"
+		text_tag.background.dyev3_field_nonhighlighted {}	
+	}]
+
+#	dbutton.shape.dyev3_action_half outline
+#	dbutton.fill.dyev3_action_half {}
+#	dbutton.disabledfill.dyev3_action_half {}
+#	dbutton.outline.dyev3_action_half white
+#	dbutton.disabledoutline.dyev3_action_half $disabled_colour
+#	dbutton.width.dyev3_action_half 0	
+	
 	### DE1APP SPLASH PAGE ###
 	#	add_de1_variable "splash" 1280 1200 -justify center -anchor "center" -font [::plugins::DGUI::get_font $::plugins::DGUI::font 12] \
 	#		-fill $::plugins::DYE::settings(orange) -textvariable {$::plugins::DGUI::db_progress_msg}
