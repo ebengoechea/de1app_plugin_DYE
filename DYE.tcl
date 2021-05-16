@@ -3331,22 +3331,23 @@ proc ::dui::pages::DYE_v3::setup_chart_page {} {
 	
 	setup_right_side_title $page "Chart"
 	
-	dui add dbutton $page $page_coords(x_right_panel) $y -bwidth 120 -bheight 120 -symbol chevron-left \
-		-tags previous_chart_stage -style dye_main_nav_button -symbol_pos {0.5 0.5} -anchor w
+#	dui add dbutton $page $page_coords(x_right_panel) $y -bwidth 120 -bheight 120 -symbol chevron-left \
+#		-tags previous_chart_stage -style dyev3_nav_button -symbol_pos {0.5 0.5} -anchor w
 
 	set x [expr {int($page_coords(x_right_panel)+($page_coords(panel_width)-$page_coords(scrollbar_width))/2)}]	
 	dui add variable $page $x $y -tags chart_stage -font_size +2 -anchor center -justify center -fill black \
 		-textvariable {$%NS::data(chart_stage_idx). $%NS::data(chart_stage)} 
 
-	dui add dbutton $page [expr {$page_coords(x_right_panel)+$page_coords(panel_width)}] $y -bwidth 120 -bheight 120 \
-		-symbol chevron-right -tags next_chart_stage -style dye_main_nav_button -symbol_pos {0.5 0.5} -anchor e
+#	dui add dbutton $page [expr {$page_coords(x_right_panel)+$page_coords(panel_width)}] $y -bwidth 120 -bheight 120 \
+#		-symbol chevron-right -tags next_chart_stage -style dyev3_nav_button -symbol_pos {0.5 0.5} -anchor e
 	
 	array set series {
-		pressure Pressure
-		flow Flow
-		flow_weight "Flow weight"
-		weight Weight
-		temperature_basket "Temp.basket"
+		elapsed "Elapsed (sec)"
+		pressure "Pressure (bar)"
+		flow "Flow (mL/s)"
+		flow_weight "Flow weight (g)"
+		weight "Weight (g)"
+		temperature_basket "Temp.bkt (ºC)"
 	}
 	
 	set x_start [expr {$x_label+375}]
@@ -3363,16 +3364,21 @@ proc ::dui::pages::DYE_v3::setup_chart_page {} {
 	dui add dtext $page $x_avg $y -tags avg_label -text [translate Avg] -anchor center -justify center
 	dui add dtext $page $x_max $y -tags max_label -text [translate Max] -anchor center -justify center
 	dui add dtext $page $x_end $y -tags end_label -text [translate End] -anchor center -justify center
-		
-	foreach var {pressure flow flow_weight weight temperature_basket} {
+
+	dui add canvas_item line $page $x_label [expr {$y+50}] [expr {$x_label+$page_coords(panel_width)}] [expr {$y+50}] -fill grey 
+	
+	foreach var {elapsed pressure flow flow_weight weight temperature_basket} {
 		incr y $vspace
 		dui add dtext $page $x_label $y -tags ${var}_label -text [translate $series($var)] -anchor w
 		
 		foreach stat {start min avg max end} {
 			dui add variable $page [subst \$x_$stat] $y -tags chart_stage_${var}_${stat} -anchor center -justify center 
+			dui add variable $page [subst \$x_$stat] [expr {$y+40}] -tags chart_stage_comp_${var}_${stat} -anchor center \
+				-justify center -font_size -4 -fill white
 		}
 	}
 	
+	dui add canvas_item line $page $x_label [expr {$y+75}] [expr {$x_label+$page_coords(panel_width)}] [expr {$y+75}] -fill grey
 }
 
 proc ::dui::pages::DYE_v3::setup_manage_page {  } {
@@ -3536,11 +3542,11 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	array set original_shot $shot_list 
 	array set edited_shot $shot_list
 	load_graph edited
-	load_graph compare
 	
 	if { $data(compare_file) ne "" } {
 		set compare_list [::plugins::SDB::load_shot $data(compare_file)]
 		array set compare_shot $compare_list
+		load_graph compare
 		shot_to_text compare
 	}
 	
@@ -4111,25 +4117,47 @@ proc ::dui::pages::DYE_v3::click_shot_text { widget x y X Y } {
 
 proc ::dui::pages::DYE_v3::calc_chart_stage_stats { {stage_index 0} } {
 	variable data
-	set target "edited"
-	set ns [namespace current]::vectors::${target}
 
-	foreach var {pressure flow flow_weight weight temperature_basket} {
-		set vecname ${ns}::${var}
+	foreach var {elapsed pressure flow flow_weight weight temperature_basket} {
+		set evecname [namespace current]::vectors::edited::${var}
+		set cvecname [namespace current]::vectors::compare::${var}
 		
-		if { [info commands $vecname] eq $vecname } {
-			$vecname variable vec
-			set data(chart_stage_${var}_start) $vec(1)
-			set data(chart_stage_${var}_end) $vec(end)
-			set data(chart_stage_${var}_min) $vec(min)
-			set data(chart_stage_${var}_max) $vec(max)
-			set data(chart_stage_${var}_avg) [format {%.2f} [vector expr mean($vecname)]]
+		if { [info commands $evecname] eq $evecname && [$evecname length] > 1 } {
+			$evecname variable vec
+			set data(chart_stage_${var}_start) [format {%.2f} $vec(1)]
+			set data(chart_stage_${var}_end) [format {%.2f} $vec(end)]
+			if { $var ne "elapsed" } {
+				set data(chart_stage_${var}_min) [format {%.2f} $vec(min)]
+				set data(chart_stage_${var}_max) [format {%.2f} $vec(max)]
+				set data(chart_stage_${var}_avg) [format {%.2f} [vector expr mean($evecname)]]
+			}
 		} else {
 			set data(chart_stage_${var}_start) "-"
 			set data(chart_stage_${var}_end) "-"
-			set data(chart_stage_${var}_min) "-"
-			set data(chart_stage_${var}_max) "-"
-			set data(chart_stage_${var}_avg) "-"
+			if { $var ne "elapsed" } {
+				set data(chart_stage_${var}_min) "-"
+				set data(chart_stage_${var}_max) "-"
+				set data(chart_stage_${var}_avg) "-"
+			}
+		}
+		
+		if { [info commands $cvecname] eq $cvecname && [$cvecname length] > 1 } {
+			$cvecname variable vec
+			set data(chart_stage_comp_${var}_start) [format {%.2f} $vec(1)]
+			set data(chart_stage_comp_${var}_end) [format {%.2f} $vec(end)]
+			if { $var ne "elapsed" } {
+				set data(chart_stage_comp_${var}_min) [format {%.2f} $vec(min)]
+				set data(chart_stage_comp_${var}_max) [format {%.2f} $vec(max)]
+				set data(chart_stage_comp_${var}_avg) [format {%.2f} [vector expr mean($cvecname)]]
+			}
+		} else {
+			set data(chart_stage_comp_${var}_start) "-"
+			set data(chart_stage_comp_${var}_end) "-"
+			if { $var ne "elapsed" } {
+				set data(chart_stage_comp_${var}_min) "-"
+				set data(chart_stage_comp_${var}_max) "-"
+				set data(chart_stage_comp_${var}_avg) "-"
+			}
 		}
 	}
 }
