@@ -297,13 +297,13 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	dui aspect set -theme $theme -style dsx_midsize {dbutton.shape round dbutton.bwidth 220 dbutton.bheight 140
 		dbutton_label.pos {0.5 0.5} dbutton_symbol.font_size 30}
 	
-	set bold_font [dui aspect get text font_family -theme default -style bold]
+	set bold_font [dui aspect get dtext font_family -theme default -style bold]
 	dui aspect set -theme $theme -style dsx_done [list dbutton.shape round dbutton.bwidth 220 dbutton.bheight 140 \
 		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
 	
 	dui aspect set -theme $theme -type symbol -style dye_main_nav_button { font_size 24 fill "#35363d" }
 	
-	dui aspect set -theme $theme -type text -style section_header [list font_family $bold_font font_size 20]
+	dui aspect set -theme $theme -type dtext -style section_header [list font_family $bold_font font_size 20]
 	
 	dui aspect set -theme $theme -type dclicker -style dye_double {orient horizontal use_biginc 1 symbol chevron-double-left 
 		symbol1 chevron-left symbol2 chevron-right symbol3 chevron-double-right }
@@ -1846,7 +1846,7 @@ proc ::dui::pages::DYE::calc_ey_from_tds  {} {
 proc ::dui::pages::DYE::upload_to_visualizer {} {
 	variable data
 	variable widgets
-	set remark_color [dui aspect get text fill -style remark -default orange]
+	set remark_color [dui aspect get dtext fill -style remark -default orange]
 #	if { $::dui::pages::DYE::data(repository_links) ne {} } {
 #		say [translate "browsing"] $::settings(sound_button_in)
 #		if { [llength $::dui::pages::DYE::data(repository_links)] > 1 } {
@@ -2747,9 +2747,9 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth \
 		-command [list ::plugins::save_settings DYE]
 
-	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
-		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
-		-command [list ::plugins::save_settings DYE]
+#	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
+#		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
+#		-command [list ::plugins::save_settings DYE]
 	
 	# RIGHT SIDE
 	set x 1350; set y 250
@@ -3051,9 +3051,13 @@ proc ::dui::pages::DYE_v3::setup {} {
 	set btn_height 90
 	# Summary Chart Profile Beans Equipment Extraction Other | Compare Search
 	
-	dui aspect set -style dyev3_topnav [subst { dbutton.bwidth $btn_width dbutton.bheight $btn_height 
+	dui aspect set -theme default -style dyev3_topnav [subst { dbutton.bwidth $btn_width dbutton.bheight $btn_height 
 		dubtton.shape rect dbutton_label.font_size -1 dbutton_label.pos {0.5 0.5} dbutton_label.anchor center 
 		dbutton_label.justify center }]
+	dui aspect set -theme default -type text -style dyev3_bottom_panel_text { font_size -1 }
+	set bg_color [dui aspect get page bg_color -theme default]
+	dui aspect set -theme default -type text -style dyev3_top_panel_text [subst { font_size -1 yscrollbar no
+		bg $bg_color borderwidth 0 highlightthickness 0 relief flat}]
 	
 	dui add dbutton $pages $x $y -tags nav_summary -style dyev3_topnav -label [translate Summary] \
 		-command {%NS::navigate_to summary} -shape round -bwidth [expr {$btn_width+75}] -label_pos {0.45 0.5}
@@ -3080,14 +3084,13 @@ proc ::dui::pages::DYE_v3::setup {} {
 	set width [expr {$page_coords(panel_width)-$page_coords(scrollbar_width)}]
 	
 	dui add text $pages $x $page_coords(y_top_panel) -tags edited_summary -canvas_width $width \
-		-canvas_height $page_coords(top_panel_height) -font_size -1 -wrap word \
-		-yscrollbar no -bg "#d7d9e6" -borderwidth 0 -highlightthickness 0 -relief flat
+		-canvas_height $page_coords(top_panel_height) -style dyev3_top_panel_text
 	
 	# We need to handle the yscrollbar in a special way to manually hide the graph on top of the text widget,
 	# otherwise it overflows the space on top of the text widget when scrolling down (Androwish bug?) 
 	dui add text $pages $x $page_coords(y_main_panel) -tags edited_text -canvas_width $width \
-		-canvas_height $page_coords(main_panel_height) -font_size -1 -wrap word \
-		-yscrollbar yes -yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand [list ::dui::pages::DYE_v3::text_scale_scroll edited] \
+		-canvas_height $page_coords(main_panel_height) -style dyev3_bottom_panel_text -yscrollbar yes \
+		-yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand [list ::dui::pages::DYE_v3::text_scale_scroll edited] \
 		-yscrollbar_command [list ::dui::pages::DYE_v3::text_scroll_moveto edited]
 	
 	# Create graph (but don't add them, they'are added to the text widgets when shots are loaded) 
@@ -3438,14 +3441,13 @@ proc ::dui::pages::DYE_v3::setup_compare_page {  } {
 	set x $page_coords(x_right_panel)
 	
 	dui add text $page $x $page_coords(y_top_panel) -tags compare_summary -canvas_width $width \
-		-canvas_height $page_coords(top_panel_height) -font_size -1 -wrap word \
-		-yscrollbar no -bg "#d7d9e6" -borderwidth 0 -highlightthickness 0 -relief flat
+		-canvas_height $page_coords(top_panel_height) -style dyev3_top_panel_text
 	
 	# We need to handle the yscrollbar in a special way to manually hide the graph on top of the text widget,
 	# otherwise it overflows the space on top of the text widget when scrolling down (Androwish bug?) 
 	dui add text $page $x $page_coords(y_main_panel) -tags compare_text -canvas_width $width \
-		-canvas_height $page_coords(main_panel_height) -font_size -1 -wrap word \
-		-yscrollbar yes -yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand [list ::dui::pages::DYE_v3::text_scale_scroll compare] \
+		-canvas_height $page_coords(main_panel_height) -style dyev3_bottom_panel_text -yscrollbar yes \
+		-yscrollbar_width $page_coords(scrollbar_width) -yscrollcommand [list ::dui::pages::DYE_v3::text_scale_scroll compare] \
 		-yscrollbar_command [list ::dui::pages::DYE_v3::text_scroll_moveto compare]
 	
 	# Create graph (but don't add them, they'are added to the text widgets when shots are loaded) 

@@ -19,22 +19,22 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		font.font_family $::DSx_settings(font_name)
 		font.font_size $default_font_size
 		
-		text.font_family $::DSx_settings(font_name)
-		text.font_size $default_font_size
-		text.fill $::DSx_settings(font_colour)
-		text.disabledfill $disabled_colour
-		text.anchor nw
-		text.justify left
+		dtext.font_family $::DSx_settings(font_name)
+		dtext.font_size $default_font_size
+		dtext.fill $::DSx_settings(font_colour)
+		dtext.disabledfill $disabled_colour
+		dtext.anchor nw
+		dtext.justify left
 		
-		text.fill.remark $::DSx_settings(orange)
-		text.fill.error $::DSx_settings(red)
-		text.font_family.section_title $::DSx_settings(font_name)
+		dtext.fill.remark $::DSx_settings(orange)
+		dtext.fill.error $::DSx_settings(red)
+		dtext.font_family.section_title $::DSx_settings(font_name)
 		
-		text.font_family.page_title $::DSx_settings(font_name)
-		text.font_size.page_title 24
-		text.fill.page_title $::DSx_settings(heading_colour)
-		text.anchor.page_title center
-		text.justify.page_title center
+		dtext.font_family.page_title $::DSx_settings(font_name)
+		dtext.font_size.page_title 24
+		dtext.fill.page_title $::DSx_settings(heading_colour)
+		dtext.anchor.page_title center
+		dtext.justify.page_title center
 					
 		symbol.font_family "Font Awesome 5 Pro-Regular-400"
 		symbol.font_size 55
@@ -195,6 +195,11 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		graph.plotrelief raised
 		graph.plotpady 0 
 		graph.plotpadx 10
+		
+		text.bg $::DSx_settings(bg_colour)
+		text.font_size $default_font_size
+		text.relief flat
+		text.highlightthickness 1
 	}]
 	
 #	dui aspect set { dbutton.width 3 }
@@ -211,13 +216,13 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		canvas_anchor nw anchor nw dbutton.arc_offset 12 dbutton_label.pos {0.7 0.5} dbutton_label.font_size 14 
 		dbutton_symbol.font_size 24 dbutton_symbol.pos {0.3 0.5} }
 	
-	set bold_font [dui aspect get text font_family -theme default -style bold]
+	set bold_font [dui aspect get dtext font_family -theme default -style bold]
 	dui aspect set -style dsx_done [list dbutton.shape outline dbutton.bwidth 220 dbutton.bheight 140 dbutton.width 5 \
 		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
 	
 	dui aspect set -type symbol -style dye_main_nav_button { font_size 24 fill "#7f879a" }
 	
-	dui aspect set -type text -style section_header [list font_family $bold_font font_size 20]
+	dui aspect set -type dtext -style section_header [list font_family $bold_font font_size 20]
 	
 	dui aspect set -type dclicker -style dye_double [subst {shape {} fill $::DSx_settings(bg_colour) 
 		disabledfill $::DSx_settings(bg_colour) width 0 orient horizontal use_biginc 1 
