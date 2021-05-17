@@ -3293,9 +3293,7 @@ proc ::dui::pages::DYE_v3::setup_graph { widget {target edited} {create_axis 0} 
 	if { $create_axis } {
 		$widget axis create temp
 		$widget axis configure temp {*}[dui aspect list -type graph_axis -style hv_graph_axis -as_options yes]
-msg "XAXIS ARGS = [dui aspect list -type graph_xaxis -style hv_graph_axis -as_options yes]"		
 		$widget axis configure x {*}[dui aspect list -type graph_xaxis -style hv_graph_axis -as_options yes]
-msg "YAXIS ARGS = [dui aspect list -type graph_yaxis -style hv_graph_axis -as_options yes]"		
 		$widget axis configure y {*}[dui aspect list -type graph_yaxis -style hv_graph_axis -as_options yes]
 		$widget grid configure {*}[dui aspect list -type graph_grid -style hv_graph_grid -as_options yes]
 	}

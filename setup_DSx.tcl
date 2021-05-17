@@ -16,10 +16,10 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		page.bg_img {}
 		page.bg_color $::DSx_settings(bg_colour)
 		
-		font.font_family $::DSx_settings(font_name)
+		font.font_family "$::DSx_settings(font_name)"
 		font.font_size $default_font_size
 		
-		dtext.font_family $::DSx_settings(font_name)
+		dtext.font_family "$::DSx_settings(font_name)"
 		dtext.font_size $default_font_size
 		dtext.fill $::DSx_settings(font_colour)
 		dtext.disabledfill $disabled_colour
@@ -28,9 +28,9 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		
 		dtext.fill.remark $::DSx_settings(orange)
 		dtext.fill.error $::DSx_settings(red)
-		dtext.font_family.section_title $::DSx_settings(font_name)
+		dtext.font_family.section_title "$::DSx_settings(font_name)"
 		
-		dtext.font_family.page_title $::DSx_settings(font_name)
+		dtext.font_family.page_title "$::DSx_settings(font_name)"
 		dtext.font_size.page_title 24
 		dtext.fill.page_title $::DSx_settings(heading_colour)
 		dtext.anchor.page_title center
@@ -82,7 +82,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dbutton.arc_offset.insight_ok 20
 		dbutton.bwidth.insight_ok 480
 		dbutton.bheight.insight_ok 118
-		dbutton_label.font_family.insight_ok $::DSx_settings(font_name)
+		dbutton_label.font_family.insight_ok "$::DSx_settings(font_name)"
 		dbutton_label.font_size.insight_ok 19
 		
 		dclicker.fill $::DSx_settings(font_colour)
@@ -104,7 +104,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		multiline_entry.foreground $::DSx_settings(font_colour)
 		multiline_entry.bg $::DSx_settings(bg_colour)
 		multiline_entry.width 2
-		multiline_entry.font_family $::DSx_settings(font_name)
+		multiline_entry.font_family "$::DSx_settings(font_name)"
 		multiline_entry.font_size $default_font_size
 		multiline_entry.width 15
 		multiline_entry.height 5
@@ -112,7 +112,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dcombobox.relief sunken
 		dcombobox.bg $::DSx_settings(bg_colour)
 		dcombobox.width 2
-		dcombobox.font_family $::DSx_settings(font_name)
+		dcombobox.font_family "$::DSx_settings(font_name)"
 		dcombobox.font_size $default_font_size
 		
 		dcombobox_ddarrow.font_size 24
@@ -143,7 +143,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		listbox_label.anchor ne
 		listbox_label.justify right
 		
-		listbox_label.font_family.section_title $::DSx_settings(font_name)
+		listbox_label.font_family.section_title "$::DSx_settings(font_name)"
 		
 		scrollbar.orient vertical
 		scrollbar.width 120
@@ -359,7 +359,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		
 		text.font_size.dyev3_bottom_panel_text -1
 	
-		dtext.font_family.dyev3_right_panel_title $::DSx_settings(font_name) 
+		dtext.font_family.dyev3_right_panel_title "$::DSx_settings(font_name)" 
 		dtext.font_size.dyev3_right_panel_title +2
 		dtext.fill.dyev3_right_panel_title $::DSx_settings(font_colour)
 		dtext.anchor.dyev3_right_panel_title center
