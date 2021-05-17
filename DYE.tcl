@@ -3293,8 +3293,11 @@ proc ::dui::pages::DYE_v3::setup_graph { widget {target edited} {create_axis 0} 
 	if { $create_axis } {
 		$widget axis create temp
 		$widget axis configure temp {*}[dui aspect list -type graph_axis -style hv_graph_axis -as_options yes]
+msg "XAXIS ARGS = [dui aspect list -type graph_xaxis -style hv_graph_axis -as_options yes]"		
 		$widget axis configure x {*}[dui aspect list -type graph_xaxis -style hv_graph_axis -as_options yes]
+msg "YAXIS ARGS = [dui aspect list -type graph_yaxis -style hv_graph_axis -as_options yes]"		
 		$widget axis configure y {*}[dui aspect list -type graph_yaxis -style hv_graph_axis -as_options yes]
+		$widget grid configure {*}[dui aspect list -type graph_grid -style hv_graph_grid -as_options yes]
 	}
 
 	foreach lt {temperature_goal temperature_basket temperature_mix} {
@@ -3436,7 +3439,7 @@ proc ::dui::pages::DYE_v3::setup_chart_page {} {
 	incr y 100
 	dui add dtext $page $x_start $y -tags start_label -text [translate Start] -style dyev3_chart_stage_colheader
 	dui add dtext $page $x_min $y -tags min_label -text [translate Min] -style dyev3_chart_stage_colheader
-	dui add dtext $page $x_avg $y -tags avg_label -text [translate Avg] -style dyev3_chart_stage_colheader
+	dui add dtext $page $x_avg $y -tags avg_label -text [translate Mean] -style dyev3_chart_stage_colheader
 	dui add dtext $page $x_max $y -tags max_label -text [translate Max] -style dyev3_chart_stage_colheader
 	dui add dtext $page $x_end $y -tags end_label -text [translate End] -style dyev3_chart_stage_colheader
 
@@ -3444,10 +3447,15 @@ proc ::dui::pages::DYE_v3::setup_chart_page {} {
 	
 	foreach var {elapsed pressure flow flow_weight weight temperature_basket} {
 		incr y $vspace
-		dui add dtext $page $x_label $y -tags ${var}_label -text [translate $series($var)] -anchor w
+		if { $var eq "elapsed" } {
+			set color [dui aspect get dtext fill]
+		} else {
+			set color [dui aspect get graph_line color -style hv_${var}]
+		}
+		dui add dtext $page $x_label $y -tags ${var}_label -text [translate $series($var)] -anchor w -fill $color
 		
 		foreach stat {start min avg max end} {
-			dui add variable $page [subst \$x_$stat] $y -tags chart_stage_${var}_${stat} -style dyev3_chart_stage_value 
+			dui add variable $page [subst \$x_$stat] $y -tags chart_stage_${var}_${stat} -style dyev3_chart_stage_value -fill $color 
 			dui add variable $page [subst \$x_$stat] [expr {$y+40}] -tags chart_stage_comp_${var}_${stat} \
 				-style dyev3_chart_stage_comp
 		}
@@ -3617,7 +3625,8 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	}
 	
 	shot_to_text edited	
-	calc_chart_stage_stats
+	calc_chart_stage_stats edited
+	calc_chart_stage_stats compare
 	
 	return 1
 }
@@ -4193,48 +4202,50 @@ proc ::dui::pages::DYE_v3::click_shot_text { widget x y X Y } {
 	#after 1000 {set ::dui::pages::DYE_v3::data(test_msg) ""} 
 }
 
-proc ::dui::pages::DYE_v3::calc_chart_stage_stats { {stage_index 0} } {
+proc ::dui::pages::DYE_v3::calc_chart_stage_stats { {target edited} {stage_index 0} } {
 	variable data
 
+	if { $target eq "compare" } { 
+		set target_str "_comp"
+	} else {
+		set target_str ""
+		set target "edited"
+	}
+	vector create subvec
+	
 	foreach var {elapsed pressure flow flow_weight weight temperature_basket} {
-		set evecname [namespace current]::vectors::edited::${var}
-		set cvecname [namespace current]::vectors::compare::${var}
+		set vecname [namespace current]::vectors::${target}::${var}
 		
-		if { [info commands $evecname] eq $evecname && [$evecname length] > 1 } {
-			$evecname variable vec
-			set data(chart_stage_${var}_start) [format {%.2f} $vec(1)]
-			set data(chart_stage_${var}_end) [format {%.2f} $vec(end)]
+		if { [info commands $vecname] eq $vecname && [$vecname length] > 1 } {
+			#$vecname variable vec
+			if { [subvec length] > 0 } {
+				subvec delete 0:end
+			}
+			subvec append [$vecname range 1 end]
+			
+			if { $var eq "elapsed" } {
+				set start_idx 0
+			} else {
+				set start_idx 1
+			}
+			if { $var eq "elapsed" && $stage_index == 0 } {
+				set data(chart_stage${target_str}_${var}_start) 0.0
+			} else {
+				set data(chart_stage${target_str}_${var}_start) [format {%.2f} $subvec(0)]
+			}
+			set data(chart_stage${target_str}_${var}_end) [format {%.2f} $subvec(end)]
 			if { $var ne "elapsed" } {
-				set data(chart_stage_${var}_min) [format {%.2f} $vec(min)]
-				set data(chart_stage_${var}_max) [format {%.2f} $vec(max)]
-				set data(chart_stage_${var}_avg) [format {%.2f} [vector expr mean($evecname)]]
+				set data(chart_stage${target_str}_${var}_min) [format {%.2f} [vector expr min(subvec)]]
+				set data(chart_stage${target_str}_${var}_max) [format {%.2f} [vector expr max(subvec)]]
+				set data(chart_stage${target_str}_${var}_avg) [format {%.2f} [vector expr mean(subvec)]]
 			}
 		} else {
-			set data(chart_stage_${var}_start) "-"
-			set data(chart_stage_${var}_end) "-"
+			set data(chart_stage${target_str}_${var}_start) "-"
+			set data(chart_stage${target_str}_${var}_end) "-"
 			if { $var ne "elapsed" } {
-				set data(chart_stage_${var}_min) "-"
-				set data(chart_stage_${var}_max) "-"
-				set data(chart_stage_${var}_avg) "-"
-			}
-		}
-		
-		if { [info commands $cvecname] eq $cvecname && [$cvecname length] > 1 } {
-			$cvecname variable vec
-			set data(chart_stage_comp_${var}_start) [format {%.2f} $vec(1)]
-			set data(chart_stage_comp_${var}_end) [format {%.2f} $vec(end)]
-			if { $var ne "elapsed" } {
-				set data(chart_stage_comp_${var}_min) [format {%.2f} $vec(min)]
-				set data(chart_stage_comp_${var}_max) [format {%.2f} $vec(max)]
-				set data(chart_stage_comp_${var}_avg) [format {%.2f} [vector expr mean($cvecname)]]
-			}
-		} else {
-			set data(chart_stage_comp_${var}_start) "-"
-			set data(chart_stage_comp_${var}_end) "-"
-			if { $var ne "elapsed" } {
-				set data(chart_stage_comp_${var}_min) "-"
-				set data(chart_stage_comp_${var}_max) "-"
-				set data(chart_stage_comp_${var}_avg) "-"
+				set data(chart_stage${target_str}_${var}_min) "-"
+				set data(chart_stage${target_str}_${var}_max) "-"
+				set data(chart_stage${target_str}_${var}_avg) "-"
 			}
 		}
 	}

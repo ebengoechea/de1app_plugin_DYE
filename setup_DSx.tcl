@@ -203,6 +203,93 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		text.highlightthickness 1
 	}]
 	
+	# History Viewer styles
+	set smooth $::settings(live_graph_smoothing_technique)
+	dui aspect set -theme DSx [subst {
+		graph_axis.color.hv_graph_axis $::DSx_settings(x_axis_colour)
+		graph_axis.min.hv_graph_axis 0.0
+		graph_axis.max.hv_graph_axis [expr 12 * 10]
+		
+		graph_xaxis.color.hv_graph_axis $::DSx_settings(x_axis_colour) 
+		graph_xaxis.tickfont.hv_graph_axis "[DSx_font font 7]" 
+		graph_xaxis.min.hv_graph_axis 0.0
+			
+		graph_yaxis.color.hv_graph_axis "#008c4c"
+		graph_yaxis.tickfont.hv_graph_axis "[DSx_font font 7]"
+		graph_yaxis.min.hv_graph_axis 0.0 
+		graph_yaxis.max.hv_graph_axis $::DSx_settings(zoomed_y_axis_max)
+		graph_yaxis.subdivisions.hv_graph_axis 5 
+		graph_yaxis.majorticks.hv_graph_axis {0 1 2 3 4 5 6 7 8 9 10 11 12} 
+		graph_yaxis.hide.hv_graph_axis 0
+		
+		graph_y2axis.color.hv_graph_axis "#206ad4"
+		graph_y2axis.tickfont.hv_graph_axis "[DSx_font font 7]"
+		graph_y2axis.min.hv_graph_axis 0.0 
+		graph_y2axis.max.hv_graph_axis $::DSx_settings(zoomed_y2_axis_max)
+		graph_y2axis.subdivisions.hv_graph_axis 2 
+		graph_y2axis.majorticks.hv_graph_axis {0 1 2 3 4 5 6 7 8 9 10 11 12} 
+		graph_y2axis.hide.hv_graph_axis 0
+
+		graph_grid.color.hv_graph_grid $::DSx_settings(grid_colour)
+		
+		graph_line.linewidth.hv_temperature_goal $::DSx_settings(hist_temp_goal_curve) 
+		graph_line.color.hv_temperature_goal #ffa5a6 
+		graph_line.smooth.hv_temperature_goal $smooth 
+		graph_line.dashes.hv_temperature_goal {5 5}
+		
+		graph_line.linewidth.hv_temperature_basket $::DSx_settings(hist_temp_curve) 
+		graph_line.color.hv_temperature_basket #e73249
+		graph_line.smooth.hv_temperature_basket $smooth 
+		graph_line.dashes.hv_temperature_basket [list $::settings(chart_dashes_temperature)]
+
+		graph_line.linewidth.hv_temperature_mix $::DSx_settings(hist_temp_curve) 
+		graph_line.color.hv_temperature_mix #ff888c
+		graph_line.smooth.hv_temperature_mix $smooth 
+
+		graph_line.linewidth.hv_temperature_goal $::DSx_settings(hist_temp_goal_curve) 
+		graph_line.color.hv_temperature_goal #ffa5a6 
+		graph_line.smooth.hv_temperature_goal $smooth 
+		graph_line.dashes.hv_temperature_goal {5 5}
+
+		graph_line.linewidth.hv_pressure_goal $::DSx_settings(hist_goal_curve) 
+		graph_line.color.hv_pressure_goal #69fdb3
+		graph_line.smooth.hv_pressure_goal $smooth 
+		graph_line.dashes.hv_pressure_goal {5 5}
+
+		graph_line.linewidth.hv_flow_goal $::DSx_settings(hist_goal_curve) 
+		graph_line.color.hv_flow_goal #7aaaff
+		graph_line.smooth.hv_flow_goal $smooth 
+		graph_line.dashes.hv_flow_goal {5 5}
+			
+		graph_line.linewidth.hv_pressure [dui platform rescale_x 8] 
+		graph_line.color.hv_pressure #008c4c
+		graph_line.smooth.hv_pressure $smooth 
+		graph_line.dashes.hv_pressure [list $::settings(chart_dashes_pressure)]
+			
+		graph_line.linewidth.hv_flow [dui platform rescale_x 8] 
+		graph_line.color.hv_flow #4e85f4
+		graph_line.smooth.hv_flow $smooth 
+		graph_line.dashes.hv_flow [list $::settings(chart_dashes_flow)]
+
+		graph_line.linewidth.hv_flow_weight [dui platform rescale_x 8] 
+		graph_line.color.hv_flow_weight #a2693d
+		graph_line.smooth.hv_flow_weight $smooth 
+		graph_line.dashes.hv_flow_weight [list $::settings(chart_dashes_flow)]
+
+		graph_line.linewidth.hv_weight [dui platform rescale_x 8] 
+		graph_line.color.hv_weight #a2693d
+		graph_line.smooth.hv_weight $smooth 
+		graph_line.dashes.hv_weight [list $::settings(chart_dashes_espresso_weight)]
+
+		graph_line.linewidth.hv_state_change $::DSx_settings(hist_goal_curve) 
+		graph_line.color.hv_state_change #AAAAAA
+
+		graph_line.linewidth.hv_resistance $::DSx_settings(hist_resistance_curve) 
+		graph_line.color.hv_resistance #e5e500
+		graph_line.smooth.hv_resistance $smooth 
+		graph_line.dashes.hv_resistance {6 2}		
+	}]
+	
 #	dui aspect set { dbutton.width 3 }
 	# DUI-specific styles
 	dui aspect set -style dsx_settings {dbutton.shape outline dbutton.bwidth 384 dbutton.bheight 192 dbutton.width 3 
@@ -297,13 +384,16 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dtext.anchor.dyev3_chart_stage_comp center
 		dtext.justify.dyev3_chart_stage_comp center
 		dtext.font_size.dyev3_chart_stage_comp -4
-		dtext.fill.dyev3_chart_stage_comp white
+		dtext.fill.dyev3_chart_stage_comp grey
 	
 		line.fill.dyev3_chart_stage_line_sep grey
-				
 
-		dbutton.shape.dyev3_action_half round
-		dbutton.fill.dyev3_action_half grey
+		dbutton.shape.dyev3_action_half outline
+		dbutton.fill.dyev3_action_half {}
+		dbutton.disabledfill.dyev3_action_half {}
+		dbutton.width.dyev3_action_half [dui platform rescale_x 7]
+		dbutton.outline.dyev3_action_half white
+		dbutton.disabledoutline.dyev3_action_half $disabled_colour
 		dbutton.bwidth.dyev3_action_half $half_button_width
 		dbutton.bheight.dyev3_action_half 125
 		dbutton_symbol.pos.dyev3_action_half {0.2 0.5} 
@@ -324,23 +414,16 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		text_tag.lmargin1.dyev3_field [dui platform rescale_x 35] 
 		text_tag.lmargin2.dyev3_field [dui platform rescale_x 45]
 		
-		text_tag.foreground.dyev3_value blue
+		text_tag.foreground.dyev3_value #4e85f4
 		
 		text_tag.foreground.dyev3_compare grey
 		
 		text_tag.font.dyev3_field_highlighted "[dui font get $::DSx_settings(font_name) 15]"
-		text_tag.background.dyev3_field_highlighted pink
+		text_tag.background.dyev3_field_highlighted darkgrey
 		text_tag.font.dyev3_field_nonhighlighted "[dui font get $::DSx_settings(font_name) 15]"
 		text_tag.background.dyev3_field_nonhighlighted {}	
 	}]
 
-#	dbutton.shape.dyev3_action_half outline
-#	dbutton.fill.dyev3_action_half {}
-#	dbutton.disabledfill.dyev3_action_half {}
-#	dbutton.outline.dyev3_action_half white
-#	dbutton.disabledoutline.dyev3_action_half $disabled_colour
-#	dbutton.width.dyev3_action_half 0	
-	
 	### DE1APP SPLASH PAGE ###
 	#	add_de1_variable "splash" 1280 1200 -justify center -anchor "center" -font [::plugins::DGUI::get_font $::plugins::DGUI::font 12] \
 	#		-fill $::plugins::DYE::settings(orange) -textvariable {$::plugins::DGUI::db_progress_msg}
