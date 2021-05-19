@@ -395,7 +395,7 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 		text_tag.lmargin2.dyev3_field [dui platform rescale_x 45]
 		
 		text_tag.foreground.dyev3_value blue
-		
+		text_tag.foreground.dyev3_measure_unit blue
 		text_tag.foreground.dyev3_compare grey
 		
 		text_tag.font.dyev3_field_highlighted "[dui font get notosansuibold 15]"
@@ -3366,7 +3366,7 @@ proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
 			} else {
 				dui add dtext $page $x_label $y -text [translate $name] -tags [list ${field}_label ${field}*]
 				dui add dclicker $page $x_widget $y -tags $field -bwidth $widget_width -bheight [expr {$vspace-20}] \
-					-style dye_double -variable $varname -labelvariable "\$$varname" -label_width $label_width -default $default \
+					-style dye_double -variable $varname -labelvariable "\$$varname $measure_unit" -label_width $label_width -default $default \
 					-n_decimals $n_decimals -min $min -max $max -smallincrement $smallinc -bigincrement $biginc -editor_page yes \
 					-editor_page_title [translate "Enter $name"]
 			}
@@ -3827,6 +3827,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	$tw tag configure section {*}[dui aspect list -type text_tag -style dyev3_section -as_options yes]
 	$tw tag configure field {*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
 	$tw tag configure value {*}[dui aspect list -type text_tag -style dyev3_value -as_options yes]
+	$tw tag configure measure_unit {*}[dui aspect list -type text_tag -style dyev3_measure_unit -as_options yes]
 	$tw tag configure compare -elide [expr {!$do_compare}] {*}[dui aspect list -type text_tag -style dyev3_compare -as_options yes]
 
 #	$tw tag configure section -foreground black -font [dui font get notosansuibold 17] -spacing1 [dui platform rescale_y 20]
@@ -3857,7 +3858,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 		
 		foreach field [metadata fields -domain shot -category description -section $section] {
 			if { ![info exists shot_array($field)] } continue
-			lassign [metadata get $field {name data_type n_decimals}] name data_type n_decimals
+			lassign [metadata get $field {name data_type n_decimals measure_unit}] name data_type n_decimals measure_unit
 			$tw insert insert "[translate $name]: " [list field $field ${field}:n] 
 			# ": " [list colon $field]
 			
@@ -3865,6 +3866,9 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 				$tw insert insert " " [list undef $field ${field}:v]
 			} else {
 				$tw insert insert $shot_array($field) [list value $field ${field}:v]
+				if { $measure_unit ne "" } {
+					$tw insert insert " $measure_unit" [list measure_unit $field ${field}:mu]
+				}
 			}
 
 			if { $do_compare } {
@@ -3970,7 +3974,7 @@ proc ::dui::pages::DYE_v3::field_compare_string { value compare {field {}} {data
 	}
 
 	if { $field ne "" && ($data_type eq "" || $n_decimals eq "") } {
-		lassign [::plugins::SDB::field_lookup $field {data_type n_decimals}] data_type n_decimals
+		lassign [metadata get $field {data_type n_decimals}] data_type n_decimals
 		if { $data_type eq "" } {
 			if { [string is double $value] && [string is double $compare] } {
 				set data_type "number"
