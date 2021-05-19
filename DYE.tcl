@@ -134,7 +134,7 @@ proc ::plugins::DYE::preload {} {
 	check_settings
 	plugins save_settings DYE
 
-	#init_dye_metadata
+	init_dye_metadata
 	setup_default_aspects
 	dui page add DYE_settings -namespace true -theme default
 	return DYE_settings
@@ -232,7 +232,8 @@ proc ::plugins::DYE::check_settings {} {
 		}
 	}
 	
-	ifexists settings(summary_fields) {bean_brand bean_type roast_date grinder_setting espresso_notes espresso_enjoyment}
+	ifexists settings(summary_fields) {bean_brand bean_type roast_date "" grinder_setting "" espresso_notes "" espresso_enjoyment}
+	ifexists settings(next_summary_fields) {grinder_dose_weight drink_weight "" bean_brand bean_type roast_date "" grinder_setting espresso_notes}
 	
 #	ifexists settings(visualizer_url) "visualizer.coffee"
 #	ifexists settings(visualizer_endpoint) "api/shots/upload"
@@ -442,8 +443,130 @@ proc ::plugins::DYE::init_dye_metadata {} {
 		short_name_plural "Repo links"
 		propagate 0
 		data_type complex
-		required 1
+		required 0
 		length list
+		default_dui_widget dcombobox
+	}
+	
+	return 
+	
+	metadata add bean_variety {
+		domain shot
+		category description
+		section beans
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Beans variety"
+		name_plural "Beans varieties"
+		short_name "Variety" 
+		short_name_plural "Varieties"
+		propagate 1
+		data_type category
+		required 0
+		length list
+		default_dui_widget dcombobox
+	}
+	metadata add bean_country {
+		domain shot
+		category description
+		section beans
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Beans country"
+		name_plural "Beans countries"
+		short_name "Country" 
+		short_name_plural "Countries"
+		propagate 1
+		data_type category
+		required 0
+		length list
+		default_dui_widget dcombobox
+	}
+	metadata add bean_region {
+		domain shot
+		category description
+		section beans
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Beans region"
+		name_plural "Beans regions"
+		short_name "Region" 
+		short_name_plural "Regions"
+		propagate 1
+		data_type category
+		required 0
+		length list
+		default_dui_widget dcombobox
+	}
+	metadata add bean_region {
+		domain shot
+		category description
+		section beans
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Beans region"
+		name_plural "Beans regions"
+		short_name "Region" 
+		short_name_plural "Regions"
+		propagate 1
+		data_type category
+		required 0
+		length list
+		default_dui_widget dcombobox
+	}
+	metadata add bean_producer {
+		domain shot
+		category description
+		section beans
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Beans producer"
+		name_plural "Beans producers"
+		short_name "Producer" 
+		short_name_plural "Producers"
+		propagate 1
+		data_type category
+		required 0
+		length list
+		default_dui_widget dcombobox
+	}
+	metadata add bean_altitude {
+		domain shot
+		category description
+		section beans
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Beans altitude"
+		name_plural "Beans altitudes"
+		short_name "Altitude" 
+		short_name_plural "Altitudes"
+		propagate 1
+		data_type text
+		required 0
+		length 1
+		default_dui_widget entry
+	}	
+	metadata add bean_altitude {
+		domain shot
+		category description
+		section beans
+		subsection ""
+		owner_type plugin
+		owner DYE
+		name "Beans altitude"
+		name_plural "Beans altitudes"
+		short_name "Altitude" 
+		short_name_plural "Altitudes"
+		propagate 1
+		data_type category
+		required 0
+		length 1
 		default_dui_widget dcombobox
 	}
 }
@@ -3068,7 +3191,7 @@ namespace eval ::dui::pages::DYE_v3 {
 	}
 	
 	variable pages
-	set pages {DYE_v3 DYE_v3_bean DYE_v3_equipment DYE_v3_extraction DYE_v3_other DYE_v3_chart DYE_v3_manage DYE_v3_compare}
+	set pages {DYE_v3 DYE_v3_next DYE_v3_bean DYE_v3_equipment DYE_v3_extraction DYE_v3_other DYE_v3_chart DYE_v3_manage DYE_v3_compare}
 		
 	variable page_coords
 	array set page_coords {
@@ -3180,6 +3303,7 @@ proc ::dui::pages::DYE_v3::setup {} {
 		
 	### RIGHT PANELS ###
 	setup_right_panel $page "Summary" $::plugins::DYE::settings(summary_fields)
+	setup_right_panel DYE_v3_next "Summary" $::plugins::DYE::settings(next_summary_fields)
 	setup_right_panel DYE_v3_bean "Beans" [metadata fields -domain shot -category description -section beans]
 	setup_right_panel DYE_v3_equipment "Equipment" [metadata fields -domain shot -category description -section equipment]
 	setup_right_panel DYE_v3_extraction "Extraction" [metadata fields -domain shot -category description -section extraction]
@@ -3240,6 +3364,7 @@ proc ::dui::pages::DYE_v3::init_shot_arrays {} {
 # overflow the page space on top of the text widget when it is scrolled (which seems like a bug in Tk::Text or Androwish)
 proc ::dui::pages::DYE_v3::text_scale_scroll { {target edited} args } {
 	variable widgets
+	variable data
 	if { $target eq "compare" } {
 		set page "DYE_v3_compare"
 	} else {
@@ -3257,7 +3382,7 @@ proc ::dui::pages::DYE_v3::text_scale_scroll { {target edited} args } {
 	if { $ygraph ne "" } {
 		if { $ygraph < -1 } {
 			$widgets(${target}_graph) configure -height 0
-		} elseif { $ygraph >=0 } {
+		} elseif { $ygraph >=0 && $data(which_shot) ne "next" } {
 			$widgets(${target}_graph) configure -height [dui platform rescale_y 600]
 		}
 	}
@@ -3265,6 +3390,7 @@ proc ::dui::pages::DYE_v3::text_scale_scroll { {target edited} args } {
 
 proc ::dui::pages::DYE_v3::text_scroll_moveto { {target edited} args } {
 	variable widgets
+	variable data
 	if { $target eq "compare" } {
 		set page "DYE_v3_compare"
 	} else {
@@ -3282,7 +3408,7 @@ proc ::dui::pages::DYE_v3::text_scroll_moveto { {target edited} args } {
 	if { $ygraph ne "" } {
 		if { $ygraph < -1 } {
 			$widgets(${target}_graph) configure -height 0
-		} elseif { $ygraph >=0 } {
+		} elseif { $ygraph >=0 && $data(which_shot) ne "next" } {
 			$widgets(${target}_graph) configure -height [dui platform rescale_y 600]
 		}
 	}
@@ -3539,13 +3665,15 @@ proc ::dui::pages::DYE_v3::setup_compare_page {  } {
 # -callback_cmd
 proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	variable data
+	variable widgets
 	variable original_shot
 	variable edited_shot
 	variable compare_shot
 
 	array set opts $args
 	set page [namespace tail [namespace current]]
-
+	set orig_page_to_show $page_to_show
+	
 	array set original_shot {}
 	array set edited_shot {espresso_notes "" bean_notes ""}
 	array set compare_shot {espresso_notes "" bean_notes ""}
@@ -3561,23 +3689,37 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 		set data(which_shot) next
 		set data(clock) {}		
 		set data(shot_file) {}
-	} elseif { $which_shot in {last current} } {
-		set data(which_shot) "last"
-		set data(clock) $::settings(espresso_clock)
-		set data(shot_file) [::plugins::SDB::get_shot_file_path $data(clock)]
-	} elseif { [string is integer $which_shot] } {
-		if { $which_shot == $::settings(espresso_clock) } {
-			set data(which_shot) last
-		} else {			
-			set data(which_shot) past
+		$widgets(edited_graph) configure -height 0
+		if { $page_to_show eq "DYE_v3" } {
+			set page_to_show DYE_v3_next
 		}
-		set data(clock) $which_shot
-		set data(shot_file) [::plugins::SDB::get_shot_file_path $data(clock)]
 	} else {
-		set data(shot_file) [::plugins::SDB::get_shot_file_path $which_shot]
-		if { $data(shot_file) eq "" } {
-			msg -ERROR [namespace current] "'which_shot' value '$which_shot' is not valid"
-			return 0
+		if { $which_shot in {last current} } {
+			set data(which_shot) "last"
+			set data(clock) $::settings(espresso_clock)
+			set data(shot_file) [::plugins::SDB::get_shot_file_path $data(clock)]
+			if { $page_to_show eq "DYE_v3_next" } {
+				set page_to_show DYE_v3
+			}		
+		} elseif { [string is integer $which_shot] } {
+			if { $which_shot == $::settings(espresso_clock) } {
+				set data(which_shot) last
+			} else {			
+				set data(which_shot) past
+			}
+			set data(clock) $which_shot
+			set data(shot_file) [::plugins::SDB::get_shot_file_path $data(clock)]
+		} else {
+			set data(shot_file) [::plugins::SDB::get_shot_file_path $which_shot]
+			if { $data(shot_file) eq "" } {
+				msg -ERROR [namespace current] "'which_shot' value '$which_shot' is not valid"
+				return 0
+			}
+		}
+		
+		$widgets(edited_graph) configure -height [dui platform rescale_y 600]
+		if { $page_to_show eq "DYE_v3_next" } {
+			set page_to_show DYE_v3
 		}
 	}
 	
@@ -3626,7 +3768,11 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	calc_chart_stage_stats edited
 	calc_chart_stage_stats compare
 	
-	return 1
+	if { $page_to_show eq $orig_page_to_show } {
+		return 1
+	} else {
+		return $page_to_show
+	}
 }
 
 proc ::dui::pages::DYE_v3::load_graph { {target edited} } {
@@ -3690,6 +3836,8 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 }
 
 proc ::dui::pages::DYE_v3::menu_to_page { menu } {
+	variable data
+	
 	if { $menu eq "" } {
 		set menu"summary
 	} else {
@@ -3700,7 +3848,11 @@ proc ::dui::pages::DYE_v3::menu_to_page { menu } {
 	}
 	
 	if { $menu eq "summary" } {
-		set dest_page DYE_v3
+		if { $data(which_shot) eq "next" } {
+			set dest_page DYE_v3_next
+		} else {
+			set dest_page DYE_v3
+		}
 	} else {
 		set dest_page DYE_v3_$menu
 	}
@@ -3858,6 +4010,9 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 		
 		foreach field [metadata fields -domain shot -category description -section $section] {
 			if { ![info exists shot_array($field)] } continue
+			# Just make sure we don't have any remaining highlighted field (sometimes happen!) 
+			$tw tag configure $field {*}[dui aspect list -type text_tag -style dyev3_field_nonhighlighted -as_options yes]
+			
 			lassign [metadata get $field {name data_type n_decimals measure_unit}] name data_type n_decimals measure_unit
 			$tw insert insert "[translate $name]: " [list field $field ${field}:n] 
 			# ": " [list colon $field]
@@ -4408,7 +4563,7 @@ proc ::dui::pages::DYE_v3::save_description {} {
 		::plugins::DYE::define_next_shot_desc
 	} else {
 		if { $data(which_shot) eq "last" } {
-			foreach field [array names changes] {			
+			foreach field [array names changes] {
 				if { [info exists ::settings($field)] } {
 					set ::settings($field) $edited_shot($field)
 				}
@@ -4425,7 +4580,6 @@ proc ::dui::pages::DYE_v3::save_description {} {
 		}
 	}
 }
-
 
 proc ::dui::pages::DYE_v3::page_cancel {} {
 	variable data
