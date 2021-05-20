@@ -332,9 +332,11 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	
 		dbutton.bwidth.dyev3_nav_button 100 
 		dbutton.bheight.dyev3_nav_button 120
-		dbutton.fill.dyev3_nav_button {} 		
-		dbutton.symbol_pos.dyev3_nav_button {0.5 0.5} 
-		dbutton.symbol_fill.dyev3_nav_button grey
+		dbutton.fill.dyev3_nav_button {}
+		dbutton.disabledfill.dyev3_nav_button {}
+		dbutton_symbol.pos.dyev3_nav_button {0.5 0.5} 
+		dbutton_symbol.fill.dyev3_nav_button grey
+		dbutton_symbol.disabledfill.dyev3_nav_button #ccc
 		
 		text.font_size.dyev3_top_panel_text -1
 		text.yscrollbar.dyev3_top_panel_text no
@@ -3833,6 +3835,9 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 		$tw see summary:end
 		msg -WARNING [namespace current] "navigate_to: marks '$section' or '${section}:end' not found in text widget '$tw'"
 	}
+	
+	dui item enable_or_disable [expr {$data(which_shot) ne "next"}] $page_to_show {move_to_next* move_forward*}
+	
 }
 
 proc ::dui::pages::DYE_v3::menu_to_page { menu } {

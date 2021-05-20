@@ -346,9 +346,10 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	
 		dbutton.bwidth.dyev3_nav_button 100 
 		dbutton.bheight.dyev3_nav_button 120
-		dbutton.fill.dyev3_nav_button {} 		
-		dbutton.symbol_pos.dyev3_nav_button {0.5 0.5} 
-		dbutton.symbol_fill.dyev3_nav_button grey
+		dbutton.fill.dyev3_nav_button {} 
+		dbutton.disabled_fill.dyev3_nav_button {}
+		dbutton_symbol.pos.dyev3_nav_button {0.5 0.5} 
+		dbutton_symbol.fill.dyev3_nav_button #ccc
 		
 		text.font_size.dyev3_top_panel_text -1
 		text.yscrollbar.dyev3_top_panel_text no
