@@ -131,8 +131,6 @@ proc ::plugins::DYE::preload {} {
 	# Because DUI calls the page setup commands automatically we need to initialize stuff here
 	dui add image_dirs "[homedir]/[plugin_directory]/DYE/"
 
-	init_dye_metadata
-	
 	check_settings
 	plugins save_settings DYE
 	
@@ -421,163 +419,6 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 #	::logging::flush_log
 }
 
-proc ::plugins::DYE::init_dye_metadata {} {
-	metadata add drinker_name {
-		domain shot
-		category description
-		section people
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Drinker"
-		name_plural "Drinkers"
-		short_name "Drinker" 
-		short_name_plural "Drinkers"
-		propagate 1
-		data_type category
-		required 0
-		length 1
-		default_dui_widget dcombobox
-	}
-	metadata add repository_links {
-		domain shot
-		category description
-		section id
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Repository link"
-		name_plural "Repository links"
-		short_name "Repo link" 
-		short_name_plural "Repo links"
-		propagate 0
-		data_type complex
-		required 0
-		length list
-		default_dui_widget dcombobox
-	}
-	
-	metadata add bean_variety {
-		domain shot
-		category description
-		section beans
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Beans variety"
-		name_plural "Beans varieties"
-		short_name "Variety" 
-		short_name_plural "Varieties"
-		propagate 1
-		data_type category
-		required 0
-		length list
-		default_dui_widget dcombobox
-	}
-	metadata add bean_country {
-		domain shot
-		category description
-		section beans
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Beans country"
-		name_plural "Beans countries"
-		short_name "Country" 
-		short_name_plural "Countries"
-		propagate 1
-		data_type category
-		required 0
-		length list
-		default_dui_widget dcombobox
-	}
-	metadata add bean_region {
-		domain shot
-		category description
-		section beans
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Beans region"
-		name_plural "Beans regions"
-		short_name "Region" 
-		short_name_plural "Regions"
-		propagate 1
-		data_type category
-		required 0
-		length list
-		default_dui_widget dcombobox
-	}
-	metadata add bean_region {
-		domain shot
-		category description
-		section beans
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Beans region"
-		name_plural "Beans regions"
-		short_name "Region" 
-		short_name_plural "Regions"
-		propagate 1
-		data_type category
-		required 0
-		length list
-		default_dui_widget dcombobox
-	}
-	metadata add bean_producer {
-		domain shot
-		category description
-		section beans
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Beans producer"
-		name_plural "Beans producers"
-		short_name "Producer" 
-		short_name_plural "Producers"
-		propagate 1
-		data_type category
-		required 0
-		length list
-		default_dui_widget dcombobox
-	}
-	metadata add bean_altitude {
-		domain shot
-		category description
-		section beans
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Beans altitude"
-		name_plural "Beans altitudes"
-		short_name "Altitude" 
-		short_name_plural "Altitudes"
-		propagate 1
-		data_type text
-		required 0
-		length 1
-		default_dui_widget entry
-	}	
-	metadata add bean_altitude {
-		domain shot
-		category description
-		section beans
-		subsection ""
-		owner_type plugin
-		owner DYE
-		name "Beans altitude"
-		name_plural "Beans altitudes"
-		short_name "Altitude" 
-		short_name_plural "Altitudes"
-		propagate 1
-		data_type category
-		required 0
-		length 1
-		default_dui_widget dcombobox
-	}
-}
-
 # Update the current shot description from the "next" description when doing a new espresso, if it has been
 # modified by the user.
 # NOT INVOKED ANYMORE, EVERYTHING CAN BE DONE ON THE LEAVE EVENT
@@ -828,7 +669,7 @@ proc ::plugins::DYE::load_next_shot { } {
 		}
 	}
 	#[::plugins::SDB::field_names "numeric" "shot"]
-	foreach field_name [metadata fields -domain shot -category description -data_type number] {
+	foreach field_name [metadata fields -domain shot -category description -data_type "number boolean"] {
 		if { [info exists ::plugins::DYE::settings(next_$field_name)] && $::plugins::DYE::settings(next_$field_name) > 0 } {
 			set shot_data($field_name) $::plugins::DYE::settings(next_$field_name)
 		} else {
@@ -3204,7 +3045,8 @@ namespace eval ::dui::pages::DYE_v3 {
 	}
 	
 	variable pages
-	set pages {DYE_v3 DYE_v3_next DYE_v3_bean DYE_v3_equipment DYE_v3_extraction DYE_v3_other DYE_v3_chart DYE_v3_manage DYE_v3_compare}
+	set pages {DYE_v3 DYE_v3_next DYE_v3_bean DYE_v3_batch DYE_v3_equipment DYE_v3_extraction DYE_v3_beverage
+		DYE_v3_tasting DYE_v3_chart DYE_v3_manage DYE_v3_compare}
 		
 	variable page_coords
 	array set page_coords {
@@ -3267,7 +3109,7 @@ proc ::dui::pages::DYE_v3::setup {} {
 	set x $page_coords(margin_width)
 	set y 50
 	set bar_width [expr {$dui::_base_screen_width-$x*2}]
-	set btn_width [expr {int($bar_width/9)}]
+	set btn_width [expr {int($bar_width/11)}]
 	set btn_height 90
 	# Summary Chart Profile Beans Equipment Extraction Other | Compare Search
 	
@@ -3280,12 +3122,16 @@ proc ::dui::pages::DYE_v3::setup {} {
 		-label [translate Profile] -command {%NS::navigate_to profile} -label_fill "#ddd" 	
 	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_bean -style dyev3_topnav \
 		-label [translate Beans] -command {%NS::navigate_to bean}
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_batch -style dyev3_topnav \
+		-label [translate Batch] -command {%NS::navigate_to batch}
 	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_equipment -style dyev3_topnav \
 		-label [translate Equipment] -command {%NS::navigate_to equipment} 
 	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_extraction -style dyev3_topnav \
-		-label [translate Extraction] -command {%NS::navigate_to extraction} 
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_other -style dyev3_topnav \
-		-label [translate Other] -command {%NS::navigate_to other}
+		-label [translate Extraction] -command {%NS::navigate_to extraction}
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_beverage -style dyev3_topnav \
+	-label [translate Beverage] -command {%NS::navigate_to beverage}	
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_tasting -style dyev3_topnav \
+		-label [translate Tasting] -command {%NS::navigate_to tasting} 	
 	
 	dui add dbutton $pages [expr {$x+$btn_width*($i+2)-75}] $y -tags nav_compare -style dyev3_topnav -label [translate Compare] \
 		-command {%NS::navigate_to compare} -shape round -bwidth [expr {$btn_width+60}] -label_pos {0.55 0.5}
@@ -3317,10 +3163,13 @@ proc ::dui::pages::DYE_v3::setup {} {
 	### RIGHT PANELS ###
 	setup_right_panel $page "Summary" $::plugins::DYE::settings(summary_fields)
 	setup_right_panel DYE_v3_next "Summary" $::plugins::DYE::settings(next_summary_fields)
-	setup_right_panel DYE_v3_bean "Beans" [metadata fields -domain shot -category description -section beans]
+	setup_right_panel DYE_v3_bean "Beans" [metadata fields -domain shot -category description -section beans -subsection beans_desc]
+	setup_right_panel DYE_v3_batch "Beans batch" [metadata fields -domain shot -category description -section beans -subsection beans_batch]
 	setup_right_panel DYE_v3_equipment "Equipment" [metadata fields -domain shot -category description -section equipment]
 	setup_right_panel DYE_v3_extraction "Extraction" [metadata fields -domain shot -category description -section extraction]
-	setup_right_panel DYE_v3_other "People & Others" [metadata fields -domain shot -category description -section people]
+	setup_right_panel DYE_v3_beverage "People & Beverage" [metadata fields -domain shot -category description -section {beverage people}]
+	setup_right_panel DYE_v3_tasting "Tasting" [metadata fields -domain shot -category description -section tasting]
+	
 	
 #	setup_right_panel DYE_v3_bean "Beans" [::plugins::SDB::field_names "" "" {bean bean_batch}]
 #	setup_right_panel DYE_v3_equipment "Equipment" [::plugins::SDB::field_names "" "" equipment]
