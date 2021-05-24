@@ -3160,20 +3160,15 @@ proc ::dui::pages::DYE_v3::setup {} {
 	bind $widget [dui platform button_press] [list ::dui::pages::DYE_v3::navigate_to chart]
 		
 	### RIGHT PANELS ###
-	setup_right_panel $page "Summary" $::plugins::DYE::settings(summary_fields)
-	setup_right_panel DYE_v3_next "Summary" $::plugins::DYE::settings(next_summary_fields)
-	setup_right_panel DYE_v3_beans_desc "Beans" [metadata fields -domain shot -category description -section beans -subsection beans_desc]
-	setup_right_panel DYE_v3_beans_batch "Beans batch" [metadata fields -domain shot -category description -section beans -subsection beans_batch]
-	setup_right_panel DYE_v3_equipment "Equipment" [metadata fields -domain shot -category description -section equipment]
-	setup_right_panel DYE_v3_extraction "Extraction" [metadata fields -domain shot -category description -section extraction]
-	setup_right_panel DYE_v3_beverage "People & Beverage" [metadata fields -domain shot -category description -section {beverage people}]
-	setup_right_panel DYE_v3_tasting "Tasting" [metadata fields -domain shot -category description -section tasting]
+	setup_right_panel $page "Summary" [page_fields $page]
+	setup_right_panel DYE_v3_next "Summary" [page_fields DYE_v3_next]
+	setup_right_panel DYE_v3_beans_desc "Beans" [page_fields DYE_v3_beans_desc]
+	setup_right_panel DYE_v3_beans_batch "Beans batch" [page_fields DYE_v3_beans_batch]
+	setup_right_panel DYE_v3_equipment "Equipment" [page_fields DYE_v3_equipment]
+	setup_right_panel DYE_v3_extraction "Extraction" [page_fields DYE_v3_extraction]
+	setup_right_panel DYE_v3_beverage "People & Beverage" [page_fields DYE_v3_beverage]
+	setup_right_panel DYE_v3_tasting "Tasting" [page_fields DYE_v3_tasting]
 	
-	
-#	setup_right_panel DYE_v3_bean "Beans" [::plugins::SDB::field_names "" "" {bean bean_batch}]
-#	setup_right_panel DYE_v3_equipment "Equipment" [::plugins::SDB::field_names "" "" equipment]
-#	setup_right_panel DYE_v3_extraction "Extraction" [::plugins::SDB::field_names "" "" extraction]
-#	setup_right_panel DYE_v3_other "People & Others" [::plugins::SDB::field_names "" "" people]
 	setup_chart_page
 	setup_manage_page
 	setup_compare_page
@@ -3701,13 +3696,36 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 	
 	dui item enable_or_disable [expr {$data(which_shot) ne "next"}] DYE_v3 {move_to_next* move_forward*}
 
-	# Disable field widgets that shouldn't be editable in "next" shot plan (those that don't propagate) 
-	foreach field [metadata fields -domain shot -category description -propagate 0] {
-		if { $field ne "espresso_notes" && [dui page has_item $page_to_show $field] } {
+#	# Disable field widgets that shouldn't be editable in "next" shot plan (those that don't propagate) 
+#	foreach field [metadata fields -domain shot -category description -propagate 0] {
+#		if { $field ne "espresso_notes" && [dui page has_item $page_to_show $field] } {
+#			dui item enable_or_disable [expr {$data(which_shot) ne "next"}] $page_to_show ${field}*
+#			# Force redrawing stars after enabling
+#			if { $field eq "espresso_enjoyment" && $data(which_shot) ne "next" } {
+#				set edited_shot(espresso_enjoyment) $edited_shot(espresso_enjoyment)
+#			}
+#		}
+#	}
+	
+	foreach field [page_fields $page_to_show] {
+		# Disable field widgets that shouldn't be editable in "next" shot plan (those that don't propagate)
+		if { [metadata get $field propagate] == 0 && $field ne "espresso_notes" && [dui page has_item $page_to_show $field] } {
 			dui item enable_or_disable [expr {$data(which_shot) ne "next"}] $page_to_show ${field}*
 			# Force redrawing stars after enabling
 			if { $field eq "espresso_enjoyment" && $data(which_shot) ne "next" } {
 				set edited_shot(espresso_enjoyment) $edited_shot(espresso_enjoyment)
+			}
+		}
+		
+		# If there are category fields whose dropdown depends on another category, enable or disable its dropdown arrow
+		set related_fields [metadata fields -domain shot -category description -sdb_type_column1 $field]
+		append related_fields [metadata fields -domain shot -category description -sdb_type_column2 $field]
+		if { [llength $related_fields] > 0 } {
+			set value $edited_shot($field)
+			foreach rel_field $related_fields {
+				if { [metadata get $rel_field data_type] eq "category" && [dui page has_item $page_to_show ${rel_field}-dda] } {
+					dui item enable_or_disable [expr {$value ne ""}] [dui page current] ${rel_field}-dda
+				}
 			}
 		}
 	}
@@ -3755,6 +3773,29 @@ proc ::dui::pages::DYE_v3::navigate_to { dest {change_page 1} } {
 		}
 	}
 } 
+
+# Returns a list with the set of fields (=widgets) that can be (potentially?) edited in the current page 
+proc ::dui::pages::DYE_v3::page_fields { {page {}} } {
+	if { $page eq "" } {
+		set page [dui page current]
+	}
+	if { [string range $page 0 5] ne "DYE_v3" } {
+		return {}
+	}
+	set page_suffix [string range $page 7 end]
+	
+	if { $page_suffix eq "" } {
+		return $::plugins::DYE::settings(summary_fields)
+	} elseif { $page_suffix eq "next" } {
+		return $::plugins::DYE::settings(next_summary_fields)
+	} elseif { $page_suffix in {beans_desc beans_batch} } {
+		return [metadata fields -domain shot -category description -section beans -subsection $page_suffix]
+	} elseif { $page_suffix eq "beverage" } {
+		return [metadata fields -domain shot -category description -section {beverage people}]
+	} else {
+		return [metadata fields -domain shot -category description -section $page_suffix]
+	}
+}
 
 proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	variable widgets
@@ -4101,6 +4142,17 @@ proc ::dui::pages::DYE_v3::shot_variable_changed { arrname varname op } {
 #	if { $edited_shot($varname) ne $original_shot($varname) } {
 #		set data(shot_modified) 1
 #	}
+	
+	set related_fields [metadata fields -domain shot -category description -sdb_type_column1 $varname]
+	append related_fields [metadata fields -domain shot -category description -sdb_type_column2 $varname]
+	if { [llength $related_fields] > 0 } {
+		set value [subst \$${arrname}(${varname})]
+		foreach field $related_fields {
+			if { [metadata get $field data_type] eq "category" && [dui page has_item [dui page current] ${field}-dda] } {
+				dui item enable_or_disable [expr {$value ne ""}] [dui page current] ${field}-dda
+			}
+		}
+	}
 	
 	if { $data(which_shot) eq "next" && $edited_shot($varname) ne $original_shot($varname) } {
 		#if { $::plugins::DYE::settings(next_modified) != 1 } {
