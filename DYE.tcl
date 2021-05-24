@@ -42,7 +42,6 @@
 ### By Enrique Bengoechea <enri.bengoechea@gmail.com> 
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
-
 #set ::skindebug 1 
 #plugins enable DYE
 fconfigure $::logging::_log_fh -buffering line
@@ -3045,7 +3044,7 @@ namespace eval ::dui::pages::DYE_v3 {
 	}
 	
 	variable pages
-	set pages {DYE_v3 DYE_v3_next DYE_v3_bean DYE_v3_batch DYE_v3_equipment DYE_v3_extraction DYE_v3_beverage
+	set pages {DYE_v3 DYE_v3_next DYE_v3_beans_desc DYE_v3_beans_batch DYE_v3_equipment DYE_v3_extraction DYE_v3_beverage
 		DYE_v3_tasting DYE_v3_chart DYE_v3_manage DYE_v3_compare}
 		
 	variable page_coords
@@ -3120,10 +3119,10 @@ proc ::dui::pages::DYE_v3::setup {} {
 		-label [translate Chart] -command {%NS::navigate_to chart} 
 	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_profile -style dyev3_topnav \
 		-label [translate Profile] -command {%NS::navigate_to profile} -label_fill "#ddd" 	
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_bean -style dyev3_topnav \
-		-label [translate Beans] -command {%NS::navigate_to bean}
-	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_batch -style dyev3_topnav \
-		-label [translate Batch] -command {%NS::navigate_to batch}
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_beans_desc -style dyev3_topnav \
+		-label [translate Beans] -command {%NS::navigate_to beans_desc}
+	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_beans_batch -style dyev3_topnav \
+		-label [translate Batch] -command {%NS::navigate_to beans_batch}
 	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_equipment -style dyev3_topnav \
 		-label [translate Equipment] -command {%NS::navigate_to equipment} 
 	dui add dbutton $pages [expr {$x+$btn_width*[incr i]}] $y -bwidth $btn_width -tags nav_extraction -style dyev3_topnav \
@@ -3163,8 +3162,8 @@ proc ::dui::pages::DYE_v3::setup {} {
 	### RIGHT PANELS ###
 	setup_right_panel $page "Summary" $::plugins::DYE::settings(summary_fields)
 	setup_right_panel DYE_v3_next "Summary" $::plugins::DYE::settings(next_summary_fields)
-	setup_right_panel DYE_v3_bean "Beans" [metadata fields -domain shot -category description -section beans -subsection beans_desc]
-	setup_right_panel DYE_v3_batch "Beans batch" [metadata fields -domain shot -category description -section beans -subsection beans_batch]
+	setup_right_panel DYE_v3_beans_desc "Beans" [metadata fields -domain shot -category description -section beans -subsection beans_desc]
+	setup_right_panel DYE_v3_beans_batch "Beans batch" [metadata fields -domain shot -category description -section beans -subsection beans_batch]
 	setup_right_panel DYE_v3_equipment "Equipment" [metadata fields -domain shot -category description -section equipment]
 	setup_right_panel DYE_v3_extraction "Extraction" [metadata fields -domain shot -category description -section extraction]
 	setup_right_panel DYE_v3_beverage "People & Beverage" [metadata fields -domain shot -category description -section {beverage people}]
@@ -3363,6 +3362,9 @@ proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
 				-label [translate $name] -label_pos [list $x_label $y] -label_width $label_width \
 				-values "\[::plugins::SDB::available_categories $field\]" -page_title [translate "Select the $name"]]
 			bind $w <FocusIn> [list + ${ns}::highlight_field $field]
+		} elseif { $data_type eq "boolean" } {
+			dui add dcheckbox $page $x_label $y -textvariable $varname -tags [list ${field}_label ${field}*] \
+				-label [translate $name] -command [list ${ns}::highlight_field $field]
 		} elseif { $data_type eq "long_text" } {
 			set w [dui add multiline_entry $page [expr {$x_widget-200}] $y -tags $field -canvas_width [expr {$widget_width+200}] \
 				-canvas_height 170 -label [translate $name] -label_pos [list $x_label $y] -label_width [expr {$label_width-200}] \
@@ -3683,8 +3685,8 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 	unhighlight_field "" $tw
 	if { $data(menu) eq "" } {
 		set section "summary"
-	} elseif { $data(menu) eq "other" } {
-		set section "people"
+	} elseif { $data(menu) eq "people" } {
+		set section "beverage"
 	} else {
 		set section $data(menu)
 	}
@@ -3718,10 +3720,10 @@ proc ::dui::pages::DYE_v3::menu_to_page { menu } {
 		set menu"summary
 	} else {
 		switch $menu {
-			bean_batch {set menu bean} 
-			people {set menu other}
+			people {set menu beverage}
 		}
 	}
+#			bean_batch {set menu bean} 
 	
 	if { $menu eq "summary" } {
 		if { $data(which_shot) eq "next" } {
@@ -3881,15 +3883,28 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 	
 	# Shot meta description
-	set sections [dict create beans Beans equipment Equipment extraction Extraction people People]
+	set sections [dict create beans:beans_desc Beans beans:beans_batch "Beans batch" equipment Equipment \
+		extraction Extraction people People beverage Beverage tasting Tasting]
 	#bean_batch "Beans batch"
 	
-	foreach section [dict keys $sections] {
-		$tw mark set $section insert 
-		$tw mark gravity $section left
-		$tw insert insert [translate [dict get $sections $section]] [list section $section] "\n"
+	foreach section_key [dict keys $sections] {
+		set section_parts [split $section_key :]
+		if { [llength $section_parts] > 1 } {
+			set section [lindex $section_parts 0]
+			set subsection [lindex $section_parts 1]
+			set section_tag $subsection
+			set fields [metadata fields -domain shot -category description -section $section -subsection $subsection]
+		} else {
+			set section $section_key
+			set section_tag $section
+			set subsection ""
+			set fields [metadata fields -domain shot -category description -section $section]
+		}
+		$tw mark set $section_tag insert 
+		$tw mark gravity $section_tag left
+		$tw insert insert [translate [dict get $sections $section_key]] [list section $section_tag] "\n"
 		
-		foreach field [metadata fields -domain shot -category description -section $section] {
+		foreach field $fields {
 			if { ![info exists shot_array($field)] } continue
 			# Just make sure we don't have any remaining highlighted field (sometimes happen!) 
 			$tw tag configure $field {*}$non_highlighted_aspects
@@ -3919,8 +3934,8 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 				trace add variable ${ns}::edited_shot($field) write ${ns}::shot_variable_changed
 			}
 		}
-		$tw mark set ${section}:end insert
-		$tw mark gravity ${section}:end left 
+		$tw mark set ${section_tag}:end insert
+		$tw mark gravity ${section_tag}:end left 
 	}
 
 	# Shot management
