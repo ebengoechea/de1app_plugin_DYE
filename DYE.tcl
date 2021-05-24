@@ -4094,7 +4094,7 @@ proc ::dui::pages::DYE_v3::field_compare_string { value compare {field {}} {data
 			}
 		}
 	} else {
-		#{text category date}
+		#{text category date boolean}
 		if { $value eq $compare } {
 			set compare_text "  ="
 		} else {
@@ -4209,7 +4209,9 @@ proc ::dui::pages::DYE_v3::change_text_shot_field { field var {widget {}} } {
 	variable data
 	variable edited_shot
 	variable compare_shot
-	if { $widget eq "" } { set widget $widgets(edited_text) }
+	if { $widget eq "" } { 
+		set widget $widgets(edited_text)
+	}
 	set value [subst \$$var]
 	set start_index [$widget index ${field}:v.first]
 	
@@ -4224,18 +4226,18 @@ proc ::dui::pages::DYE_v3::change_text_shot_field { field var {widget {}} } {
 	set mu_start ""
 	catch { set mu_start [$widget index ${field}:mu.first] }
 	if { $value ne "" && $mu_start eq "" } {
-		set measure_unit [metadata get $field measure_unit]
+		set measure_unit [lindex [metadata get $field measure_unit] 0]
 		if { $measure_unit ne "" } {
 			$widget configure -state normal
 			$widget insert [$widget index ${field}:v.last] " $measure_unit" [list measure_unit $field ${field}:mu]
 			$widget configure -state disabled
 		}
 	}
-
+	
 	if { $data(which_compare) ne "" } {
 		set compare [value_or_default compare_shot($field) ""]
 		set compare_text [field_compare_string $value $compare $field]
-		modify_text_tag $widget ${field}:c $compare_text
+		modify_text_tag $widget ${field}:c "$compare_text"
 	}	
 
 	# Some fields need to be modified on the summary top panel too
@@ -4270,13 +4272,14 @@ proc ::dui::pages::DYE_v3::modify_text_tag { widget tag new_value } {
 		msg -ERROR [namespace current] "modify_text_tag: can't find tag '$tag' in text widget '$widget'"
 	}
 	if { $new_value eq "" } {
-		# An empty string would make the field tag dissapear
+		# An empty string would make the field tag disappear
 		set new_value " "
 	}
 	if { $start_index ne "" } {
 		set tags [$widget tag names ${tag}.first]
 		$widget configure -state normal 
 		$widget delete $start_index ${tag}.last
+msg "MODIFY_TEXT_TAG tag='$tag', new_value='$new_value', tags='$tags'"		
 		$widget insert $start_index $new_value $tags
 		$widget configure -state disabled
 	}
