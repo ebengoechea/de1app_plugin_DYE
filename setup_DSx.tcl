@@ -347,7 +347,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dbutton.bwidth.dyev3_nav_button 100 
 		dbutton.bheight.dyev3_nav_button 120
 		dbutton.fill.dyev3_nav_button {} 
-		dbutton.disabled_fill.dyev3_nav_button {}
+		dbutton.disabledfill.dyev3_nav_button {}
 		dbutton_symbol.pos.dyev3_nav_button {0.5 0.5} 
 		dbutton_symbol.fill.dyev3_nav_button #ccc
 		

@@ -3370,11 +3370,15 @@ proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
 			set vspace 225
 		} else {
 			set w [dui add entry $page $x_widget $y -tags $field -canvas_width $widget_width -label $name -label_pos [list $x_label $y] \
-				-textvariable $varname]
+				-textvariable $varname -data_type $data_type]
 			bind $w <FocusIn> [list + ${ns}::highlight_field $field]
 		}
 		
 		incr y $vspace
+	}
+	
+	if { $page eq "DYE_v3_beans_batch" } {
+		#dui add variable DYE_v3_beans_batch $x_label [incr y 50] -textvariable days_offroast_string -width $width
 	}
 }
 
@@ -3611,6 +3615,7 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	} else {
 		set shot_list [::plugins::SDB::load_shot $data(shot_file)]
 	}
+	#calc_derived_shot_values
 	
 	array set original_shot $shot_list 
 	array set edited_shot $shot_list
@@ -3661,7 +3666,8 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 	variable data
 	variable widgets
 	variable edited_shot
-	
+
+	# Highlight current page menu on the top menu bar
 	if { $data(menu) ne "" } {
 		dui item config DYE_v3 nav_$data(menu)-btn -fill [dui aspect get dbutton fill -style dyev3_topnav]
 	}
@@ -3676,6 +3682,7 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 		dui item config DYE_v3 nav_$data(menu)-btn -fill grey
 	}
 	
+	# Scroll the text widget to the current section
 	set tw $widgets(edited_text)
 	unhighlight_field "" $tw
 	if { $data(menu) eq "" } {
@@ -3694,18 +3701,8 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 		msg -WARNING [namespace current] "navigate_to: marks '$section' or '${section}:end' not found in text widget '$tw'"
 	}
 	
+	# Enable or disable navigation arrows (botton left) depending on whether it's the "next shot" plan 
 	dui item enable_or_disable [expr {$data(which_shot) ne "next"}] DYE_v3 {move_to_next* move_forward*}
-
-#	# Disable field widgets that shouldn't be editable in "next" shot plan (those that don't propagate) 
-#	foreach field [metadata fields -domain shot -category description -propagate 0] {
-#		if { $field ne "espresso_notes" && [dui page has_item $page_to_show $field] } {
-#			dui item enable_or_disable [expr {$data(which_shot) ne "next"}] $page_to_show ${field}*
-#			# Force redrawing stars after enabling
-#			if { $field eq "espresso_enjoyment" && $data(which_shot) ne "next" } {
-#				set edited_shot(espresso_enjoyment) $edited_shot(espresso_enjoyment)
-#			}
-#		}
-#	}
 	
 	foreach field [page_fields $page_to_show] {
 		# Disable field widgets that shouldn't be editable in "next" shot plan (those that don't propagate)
@@ -3729,6 +3726,7 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 			}
 		}
 	}
+	
 }
 
 proc ::dui::pages::DYE_v3::menu_to_page { menu } {
@@ -4130,6 +4128,50 @@ proc ::dui::pages::DYE_v3::calc_ratio { {dose {}} {yield {}} {target edited} } {
 	return $ratio
 }
 
+proc ::dui::pages::DYE_v3::calc_days_offroast { {espresso_clock {}} {roast_date {}} {freeze_date {}} {unfreeze_date {}} {target edited} } {
+	variable edited_shot
+	variable compare_shot
+	variable data
+	set days_offroast ""
+	
+	if { $espresso_clock eq "" && $target ni {edited compare} } {
+		msg -WARNING [namesapce current] "calc_days_offroast: target '$target' not recognized, must be one of {target edited}. Assuming 'edited'"
+		set target "edited"
+	}
+	
+	if { $espresso_clock eq "" } {
+		if { $target eq "edited" && $data(which_shot) eq "next" } {
+			set espresso_clock [clock seconds]
+		} else {
+			set espresso_clock [subst \$${target}_shot(clock)]
+		}
+	}
+	set date_format [dui cget date_input_format]
+	if { $date_format eq "" } {
+		set date_format "%d/%m/%Y"
+	}
+	
+	foreach fn { roast_date freeze_date unfreeze_date } { 
+		if { [subst \$$fn] eq "" } {
+			set $fn [subst \$${target}_shot(bean_$fn)]
+		}
+		set dt [subst \$$fn]
+		if { $dt ne "" && ![string is integer $dt] } {
+			try {
+				set $fn [clock scan $dt -format $date_format]
+			} on error err {
+				set $fn ""
+			}
+		}
+	}
+	
+	if { [string is integer -strict $roast_date] } {
+		set days_offroast [expr {round(($espresso_clock - $roast_date) / double(60*60*24))}]
+	}
+	
+	return $days_offroast
+}
+
 proc ::dui::pages::DYE_v3::shot_variable_changed { arrname varname op } {
 	if { $arrname ne "::dui::pages::DYE_v3::edited_shot" } return
 	if { $op ne "write" } return
@@ -4278,8 +4320,7 @@ proc ::dui::pages::DYE_v3::modify_text_tag { widget tag new_value } {
 	if { $start_index ne "" } {
 		set tags [$widget tag names ${tag}.first]
 		$widget configure -state normal 
-		$widget delete $start_index ${tag}.last
-msg "MODIFY_TEXT_TAG tag='$tag', new_value='$new_value', tags='$tags'"		
+		$widget delete $start_index ${tag}.last	
 		$widget insert $start_index $new_value $tags
 		$widget configure -state disabled
 	}
