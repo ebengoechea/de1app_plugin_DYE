@@ -49,7 +49,7 @@ fconfigure $::logging::_log_fh -buffering line
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.03
+	variable version 2.05
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -205,8 +205,16 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(propagate_previous_shot_desc) 1
 	ifexists settings(backup_modified_shot_files) 0
 	ifexists settings(use_stars_to_rate_enjoyment) 1
-	ifexists settings(next_shot_DSx_home_coords) {500 1165}
-	ifexists settings(last_shot_DSx_home_coords) {2120 1165}
+	if { [info exists ::DSx_settings(next_shot_DSx_home_coords)] } {
+		set settings(next_shot_DSx_home_coords) $::DSx_settings(next_shot_DSx_home_coords)
+	} else {
+		ifexists settings(next_shot_DSx_home_coords) {500 1165}
+	}
+	if { [info exists ::DSx_settings(last_shot_DSx_home_coords)] } {
+		set settings(last_shot_DSx_home_coords) $::DSx_settings(last_shot_DSx_home_coords)
+	} else {
+		ifexists settings(last_shot_DSx_home_coords) {2120 1165}
+	}
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
 	ifexists settings(use_dye_v3) 0
 	
