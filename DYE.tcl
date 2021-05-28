@@ -3177,6 +3177,9 @@ proc ::dui::pages::DYE_v3::setup {} {
 	setup_right_panel DYE_v3_beverage "People & Beverage" [page_fields DYE_v3_beverage]
 	setup_right_panel DYE_v3_tasting "Tasting" [page_fields DYE_v3_tasting]
 	
+	dui add symbol DYE_v3_beans_desc 10000 245 -tags beans_select_dda -symbol sort-down -font_size 24
+	dui add dbutton DYE_v3_beans_desc 1500 175 2200 275 -tags beans_select_btn -command select_beans
+	
 	setup_chart_page
 	setup_manage_page
 	setup_compare_page
@@ -3349,7 +3352,24 @@ proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
 		}
 		set varname ${ns}::edited_shot($field)
 		
-		if { $data_type eq "number" } {
+		if { [string range $field 0 7] eq "tasting_" } {
+			if { [string range $field end-7 end] eq "_quality" } {
+				set tasting_type [lindex [split $field _] 1]
+				set tasting_name [lindex [split $name " "] 0]
+
+				dui add drater $page [expr {$x_widget-200}] $y -tags $field -width [expr {100+$widget_width/2}] -variable $varname \
+					-label [translate $tasting_name] -label_pos [list $x_label $y] -label_width [expr {$label_width-200}] \
+					-min $min -max $max -use_halfs 0
+				dui add drater $page [expr {$x_widget-50+$widget_width/2}] $y -tags tasting_${tasting_type}_intensity \
+					-width [expr {100+$widget_width/2}] -variable ${ns}::edited_shot(tasting_${tasting_type}_intensity) \
+					-min $min -max $max -use_halfs 0
+				dui add symbol $page [expr {$x_widget+$widget_width+90}] $y -tags tasting_${tasting_type}_notes_btn \
+					-symbol comment-alt-dots -font_size 24
+				
+				
+				incr y [expr {-$vspace*2}]
+			}
+		} elseif { $data_type eq "number" } {
 			if { $field eq "espresso_enjoyment" } {
 				dui add drater $page $x_widget $y -tags $field -width $widget_width -variable $varname \
 					-label [translate $name] -label_pos [list $x_label $y] -label_width $label_width -min $min -max $max 
@@ -3363,7 +3383,7 @@ proc ::dui::pages::DYE_v3::setup_right_panel { page title fields } {
 		} elseif { $data_type eq "category" } {
 			set w [dui add dcombobox $page $x_widget $y -tags $field -canvas_width $widget_width -textvariable $varname \
 				-label [translate $name] -label_pos [list $x_label $y] -label_width $label_width \
-				-values "\[::plugins::SDB::available_categories $field\]" -page_title [translate "Select the $name"]]
+				-command [list %NS::select_category $field]]
 			bind $w <FocusIn> [list + ${ns}::highlight_field $field]
 		} elseif { $data_type eq "boolean" } {
 			dui add dcheckbox $page $x_label $y -textvariable $varname -tags [list ${field}_label ${field}*] \
@@ -3717,8 +3737,8 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 		if { [metadata get $field propagate] == 0 && $field ne "espresso_notes" && [dui page has_item $page_to_show $field] } {
 			dui item enable_or_disable [expr {$data(which_shot) ne "next"}] $page_to_show ${field}*
 			# Force redrawing stars after enabling
-			if { $field eq "espresso_enjoyment" && $data(which_shot) ne "next" } {
-				set edited_shot(espresso_enjoyment) $edited_shot(espresso_enjoyment)
+			if { [metadata get $field default_dui_widget] eq "drater" && $data(which_shot) ne "next" } {
+				set edited_shot($field) $edited_shot($field)
 			}
 		}
 		
@@ -3735,6 +3755,9 @@ proc ::dui::pages::DYE_v3::show { page_to_hide page_to_show args } {
 		}
 	}
 	
+	if { $page_to_show eq "DYE_v3_beans_desc" } {
+		dui item relocate_text_wrt $page_to_show beans_select_dda right_side_title e 25 -8 w	
+	}
 }
 
 proc ::dui::pages::DYE_v3::menu_to_page { menu } {
@@ -3795,11 +3818,11 @@ proc ::dui::pages::DYE_v3::page_fields { {page {}} } {
 	} elseif { $page_suffix eq "next" } {
 		return $::plugins::DYE::settings(next_summary_fields)
 	} elseif { $page_suffix in {beans_desc beans_batch} } {
-		return [metadata fields -domain shot -category description -section beans -subsection $page_suffix]
+		return [metadata fields -domain shot -category description -section beans -subsection $page_suffix -source user]
 	} elseif { $page_suffix eq "beverage" } {
-		return [metadata fields -domain shot -category description -section {beverage people}]
+		return [metadata fields -domain shot -category description -section {beverage people} -source user]
 	} else {
-		return [metadata fields -domain shot -category description -section $page_suffix]
+		return [metadata fields -domain shot -category description -section $page_suffix -source user]
 	}
 }
 
@@ -3957,26 +3980,57 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 			$tw tag configure $field {*}$non_highlighted_aspects
 			
 			lassign [metadata get $field {name data_type n_decimals measure_unit}] name data_type n_decimals measure_unit
-			$tw insert insert "[translate $name]: " [list field $field ${field}:n] 
-			# ": " [list colon $field]
 			
-			if { $shot_array($field) eq "" } {
-				$tw insert insert " " [list value $field ${field}:v]
+			if { [string range $field 0 7] eq "tasting_" } {
+				if { [string range $field end-7 end] eq "_quality" } {
+					set tasting_type [lindex [split $field _] 1]
+					set tasting_name [lindex [split $name " "] 0]
+					
+					$tw insert insert "[translate $tasting_name]: " [list field $tasting_type ${tasting_type}:n]
+					
+					if { $shot_array(tasting_${tasting_type}_quality) in {"" "-"} } {
+						$tw insert insert "-" [list value tasting_${tasting_type}_quality tasting_${tasting_type}_quality:v] " "
+					} else {
+						$tw insert insert "$shot_array(tasting_${tasting_type}_quality)/5" \
+							[list value tasting_${tasting_type}_quality tasting_${tasting_type}_quality:v] " "
+					}
+					if { $shot_array(tasting_${tasting_type}_intensity) in {"" "-"} } {
+						$tw insert insert "-" [list value tasting_${tasting_type}_intensity tasting_${tasting_type}_intensity:v] "  "
+					} else {
+						$tw insert insert "$shot_array(tasting_${tasting_type}_intensity)/5" \
+							[list value tasting_${tasting_type}_intensity tasting_${tasting_type}_intensity:v] "  "
+					}
+					if { $shot_array(tasting_${tasting_type}_notes) eq "" } {
+						$tw insert insert " " [list value tasting_${tasting_type}_notes tasting_${tasting_type}_notes:v]
+					} else {
+						$tw insert insert "\n" 
+						$tw insert insert $shot_array(tasting_${tasting_type}_notes) \
+							[list value tasting_${tasting_type}_notes tasting_${tasting_type}_notes:v]
+					}
+					
+					$tw insert insert "\n"
+				}
 			} else {
-				$tw insert insert $shot_array($field) [list value $field ${field}:v]
-				if { $measure_unit ne "" } {
-					$tw insert insert " $measure_unit" [list measure_unit $field ${field}:mu]
+				$tw insert insert "[translate $name]: " [list field $field ${field}:n] 
+				
+				if { $shot_array($field) eq "" } {
+					$tw insert insert " " [list value $field ${field}:v]
+				} else {
+					$tw insert insert $shot_array($field) [list value $field ${field}:v]
+					if { $measure_unit ne "" } {
+						$tw insert insert " $measure_unit" [list measure_unit $field ${field}:mu]
+					}
+				}
+	
+				if { $do_compare } {
+					set compare_text [field_compare_string $shot_array($field) [value_or_default comp_array($field) ""] \
+						$field $data_type $n_decimals]
+					$tw insert insert $compare_text [list compare $field ${field}:c] "\n"
+				} else {
+					$tw insert insert "\n"
 				}
 			}
-
-			if { $do_compare } {
-				set compare_text [field_compare_string $shot_array($field) [value_or_default comp_array($field) ""] \
-					$field $data_type $n_decimals]
-				$tw insert insert $compare_text [list compare $field ${field}:c] "\n"
-			} else {
-				$tw insert insert "\n"
-			}
-
+			
 			if { $target eq "edited" } {
 				trace add variable ${ns}::edited_shot($field) write ${ns}::shot_variable_changed
 			}
@@ -4222,10 +4276,10 @@ proc ::dui::pages::DYE_v3::highlight_field { field {widget {}} } {
 		set is_edited_shot 1
 	}
 	if { $is_edited_shot } {
-		if { $data(field_being_edited) eq $field } {
-			return
-		}
-		if { $data(field_being_edited) ne "" } {
+#		if { $data(field_being_edited) eq $field } {
+#			return
+#		}
+		if { $data(field_being_edited) ne "" && $data(field_being_edited) ne $field } {
 			unhighlight_field $data(field_being_edited) $widget
 		}
 		set data(field_being_edited) $field
@@ -4236,7 +4290,7 @@ proc ::dui::pages::DYE_v3::highlight_field { field {widget {}} } {
 	$widget see $field.last
 }
 
-proc ::dui::pages::DYE_v3::unhighlight_field { field {widget {}} } { 	
+proc ::dui::pages::DYE_v3::unhighlight_field { {field {}} {widget {}} } { 	
 	variable data
 	if { $widget eq "" } {
 		variable widgets
@@ -4245,7 +4299,7 @@ proc ::dui::pages::DYE_v3::unhighlight_field { field {widget {}} } {
 	if { $field eq "" } {
 		set field $data(field_being_edited)
 	}
-	
+		
 	$widget tag configure $field {*}[dui aspect list -type text_tag -style dyev3_field_nonhighlighted -as_options yes] 
 	
 	if { $field eq $data(field_being_edited) } {
@@ -4477,6 +4531,86 @@ proc ::dui::pages::DYE_v3::move_forward {} {
 		set next_clock [::plugins::SDB::next_shot $data(clock)]
 		if { $next_clock ne "" && $next_clock > 0} {
 			dui page load [dui page current] -which_shot $next_clock -reload yes
+		}
+	}
+}
+
+proc ::dui::pages::DYE_v3::select_category { field } {
+	variable edited_shot
+	dui sound make button_in
+	
+	lassign [metadata get $field name sdb_type_column1 sdb_type_column2] field_name type_col1 type_col2
+	
+	#-values "\[::plugins::SDB::available_categories $field\]" -page_title [translate "Select the $field_name"]]
+	if { $type_col1 eq "" } {
+		set values [::plugins::SDB::available_categories $field]
+	} else {
+		set type1 $edited_shot($type_col1)
+		if { $type1 eq "" } return
+		set filter_parts {}
+		lappend filter_parts "${type_col1}=[::plugins::SDB::string2sql $type1]"
+		
+		if { $type_col2 ne "" } {
+			set type2 $edited_shot($type_col2)
+			if { $type2 eq "" } return
+			lappend filter_parts "${type_col2}=[::plugins::SDB::string2sql $type2]"
+		}
+		
+		set filter [join $filter_parts { AND }]
+		array set arr_values [::plugins::SDB::available_categories $field -filter $filter]
+		set values $arr_values($field)
+	}
+	
+	dui page load dui_item_selector "[namespace current]::edited_shot($field)" $values -category_name $field \
+		-page_title [translate "Select the $field_name"]] -callback_cmd [namespace current]::select_category_callback
+}
+
+proc ::dui::pages::DYE_v3::select_category_callback { selected_value selected_id field args } {
+	variable data
+	dui page show [menu_to_page $data(menu)]
+	
+	if { [llength $selected_value] > 0 } {
+		# Assigning the not-fully-qualified variable name does not trigger the variable trace...
+		set [namespace current]::edited_shot($field) $selected_value
+		# We need to do this after idle because unhighlight_field is called on page show (and is also run after idle)
+		after idle [namespace current]::highlight_field $field
+	}
+}
+
+proc ::dui::pages::DYE_v3::select_beans {} {
+	variable edited_shot
+	dui sound make button_in
+	
+	set selected [string trim "$edited_shot(bean_brand) $edited_shot(bean_type) $edited_shot(roast_date)"]
+	regsub -all " +" $selected " " selected
+
+	dui page load dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
+		-page_title "Select the beans batch" -selected $selected -callback_cmd [namespace current]::select_beans_callback \
+		-listbox_width 1700
+}
+
+# Callback procedure returning control from the item_selection page to the describe_espresso page, to select the 
+# full beans definition item from the list of previously entered values. 
+proc ::dui::pages::DYE_v3::select_beans_callback { clock bean_desc item_type } {
+	variable data
+	variable edited_shot
+	set ns [namespace current]
+	dui page show DYE_v3_beans_desc
+		
+	set bean_fields [metadata fields -domain shot -category description -section beans -source user]
+	set sql "SELECT [join $bean_fields ,] FROM V_shot WHERE clock=(SELECT MAX(clock) FROM V_shot WHERE bean_desc=[::plugins::SDB::string2sql $bean_desc])"
+	
+	if { $bean_desc ne "" } {
+		set db ::plugins::SDB::get_db
+		db eval "$sql" {
+			foreach field $bean_fields {
+				set ${ns}::edited_shot($field) "[subst \$$field]"
+			}
+#			set ${ns}::edited_shot(bean_brand) $bean_brand
+#			set ${ns}::edited_shot(bean_type) $bean_type
+#			set ${ns}::edited_shot(roast_date) $roast_date
+#			set ${ns}::edited_shot(roast_level) $roast_level
+#			set ${ns}::edited_shot(bean_notes) $bean_notes
 		}
 	}
 }
