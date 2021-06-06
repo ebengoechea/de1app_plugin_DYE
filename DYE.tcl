@@ -668,15 +668,29 @@ proc ::plugins::DYE::load_next_shot { } {
 	}
 		
 	#set text_fields [::plugins::SDB::field_names "category text long_text date" "shot"]
-	foreach field_name [metadata fields -domain shot -category description -data_type "category text long_text complex"] {
+	foreach field_name [metadata fields -domain shot -category description -data_type {text long_text date complex boolean}] {
 		if { [info exists ::plugins::DYE::settings(next_$field_name)] } {
 			set shot_data($field_name) [string trim $::plugins::DYE::settings(next_$field_name)]
 		} else {
 			set shot_data($field_name) {}
 		}
 	}
+	
+	foreach field_name [metadata fields -domain shot -category description -data_type category] {
+		set len [metadata get $field_name length]
+		if { [info exists ::plugins::DYE::settings(next_$field_name)] } {
+			if { ([string is integer $len] && $len > 1) || [string trim $len] in {n list} } {
+				set shot_data($field_name) [join $::plugins::DYE::settings(next_$field_name) ";"]
+			} else {
+				set shot_data($field_name) [string trim $::plugins::DYE::settings(next_$field_name)]
+			}
+		} else {
+			set shot_data($field_name) {}
+		}
+	}
+	
 	#[::plugins::SDB::field_names "numeric" "shot"]
-	foreach field_name [metadata fields -domain shot -category description -data_type "number boolean"] {
+	foreach field_name [metadata fields -domain shot -category description -data_type number] {
 		if { [info exists ::plugins::DYE::settings(next_$field_name)] && $::plugins::DYE::settings(next_$field_name) > 0 } {
 			set shot_data($field_name) $::plugins::DYE::settings(next_$field_name)
 		} else {
@@ -4539,7 +4553,7 @@ proc ::dui::pages::DYE_v3::select_category { field } {
 	variable edited_shot
 	dui sound make button_in
 	
-	lassign [metadata get $field name sdb_type_column1 sdb_type_column2] field_name type_col1 type_col2
+	lassign [metadata get $field name sdb_type_column1 sdb_type_column2 length] field_name type_col1 type_col2 len
 	
 	#-values "\[::plugins::SDB::available_categories $field\]" -page_title [translate "Select the $field_name"]]
 	if { $type_col1 eq "" } {
@@ -4561,17 +4575,32 @@ proc ::dui::pages::DYE_v3::select_category { field } {
 		set values $arr_values($field)
 	}
 	
+	if { ([string is integer $len] && $len > 1) || [string tolower $len] in {n list} } {
+		set selectmode multiple
+	} else {
+		set selectmode browse
+	}
+	
 	dui page load dui_item_selector "[namespace current]::edited_shot($field)" $values -category_name $field \
-		-page_title [translate "Select the $field_name"]] -callback_cmd [namespace current]::select_category_callback
+		-page_title [translate "Select the $field_name"]] -callback_cmd [namespace current]::select_category_callback \
+		-selectmode $selectmode
 }
 
 proc ::dui::pages::DYE_v3::select_category_callback { selected_value selected_id field args } {
 	variable data
 	dui page show [menu_to_page $data(menu)]
 	
+	lassign [metadata get $field sdb_type_column1 sdb_type_column2 length] type_col1 type_col2 len
+	
+msg "SELECT_CATEGORY_CALLBACK: selected_value='$selected_value', llen=[llength $selected_value], len=$len,join='[join $selected_value ;]'"	
 	if { [llength $selected_value] > 0 } {
-		# Assigning the not-fully-qualified variable name does not trigger the variable trace...
-		set [namespace current]::edited_shot($field) $selected_value
+		if { ([string is integer $len] && $len > 1) || [string tolower $len] in {n list} } {
+			set [namespace current]::edited_shot($field) [join $selected_value ";"]
+		} else {
+			# Assigning the not-fully-qualified variable name does not trigger the variable trace...
+			set [namespace current]::edited_shot($field) $selected_value
+		}
+		
 		# We need to do this after idle because unhighlight_field is called on page show (and is also run after idle)
 		after idle [namespace current]::highlight_field $field
 	}
@@ -4694,8 +4723,19 @@ proc ::dui::pages::DYE_v3::save_description {} {
 	array set changes {}
 	
 	foreach field [metadata fields -domain shot -category description] {
+		set len [metadata get $field length]
+		
+		# [ifexists original_shot($field) ""]
 		if { $edited_shot($field) ne $original_shot($field) } {
-			set changes($field) $edited_shot($field)
+			if { ([string is integer $len] && $len > 1) || [string tolower $len] in {list n} } {
+				set edited [list]
+				foreach part [split $edited_shot($field) ";"] {
+					lappend edited [string trim $part]
+				}
+				set changes($field) $edited
+			} else {
+				set changes($field) $edited_shot($field)
+			}
 		}
 	}	
 	if { [array size changes] == 0 } {
@@ -4705,7 +4745,7 @@ proc ::dui::pages::DYE_v3::save_description {} {
 	if { $data(which_shot) eq "next" } {
 		foreach field [array names changes] {
 			if { [info exists ::plugins::DYE::settings(next_$field)] } {
-				set ::plugins::DYE::settings(next_$field) $edited_shot($field)
+				set ::plugins::DYE::settings(next_$field) $changes($field)
 			}
 		}
 		plugins save_settings DYE
@@ -4714,7 +4754,7 @@ proc ::dui::pages::DYE_v3::save_description {} {
 		if { $data(which_shot) eq "last" } {
 			foreach field [array names changes] {
 				if { [info exists ::settings($field)] } {
-					set ::settings($field) $edited_shot($field)
+					set ::settings($field) $changes($field)
 				}
 			}
 			::save_settings
