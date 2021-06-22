@@ -44,12 +44,12 @@
 ########################################################################################################################
 #set ::skindebug 1 
 #plugins enable DYE
-fconfigure $::logging::_log_fh -buffering line
+#fconfigure $::logging::_log_fh -buffering line
 
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.05
+	variable version 2.06
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
