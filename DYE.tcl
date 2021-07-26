@@ -434,8 +434,8 @@ proc ::plugins::DYE::reset_gui_starting_espresso_enter_hook { args } {
 	set propagate $::plugins::DYE::settings(propagate_previous_shot_desc)
 	
 #	if { $::plugins::DYE::settings(next_modified) == 1 } {
-		foreach f $::plugins::DYE::propagated_fields {
-			set ::settings($f) $::plugins::DYE::settings(next_$f)
+		foreach field [metadata fields -domain shot -category description -propagate 1] {
+			set ::settings($field) $::plugins::DYE::settings(next_$field)
 #			if { $propagate == 0 } {
 #				set ::plugins::DYE::settings(next_$f) {}
 #			}
@@ -452,13 +452,14 @@ proc ::plugins::DYE::reset_gui_starting_espresso_enter_hook { args } {
 # Reset the "next" description and update the current shot summary description
 proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	variable settings
-#	msg "DYE: reset_gui_starting_espresso_leave_hook, ::android=$::android, ::undroid=$::undroid"	
-#	msg "DYE: reset_gui_starting_espresso_leave - DSx settings bean_weight=$::DSx_settings(bean_weight), settings grinder_dose_weight=$::settings(grinder_dose_weight), DSx_settings live_graph_beans=$::DSx_settings(live_graph_beans)"
-#	msg "DYE: reset_gui_starting_espresso_leave - settings drink_weight=$::settings(drink_weight), DSx_settings saw=$::DSx_settings(saw), settings final_desired_shot_weight=$::settings(final_desired_shot_weight), DSx_settings live_graph_weight=$::DSx_settings(live_graph_weight), DE1 scale_sensor_weight $::de1(scale_sensor_weight)"
-#	msg "DYE: reset_gui_starting_espresso_leave - DYE_settings next_modified=$::plugins::DYE::settings(next_modified)"
 	
 	foreach field [concat [metadata fields -domain shot -category description -propagate 1] espresso_notes] {
-		set ::settings($field) $settings(next_$field)
+		set type [metadata get $field data_type]
+		if { $type eq "number" && $settings(next_$field) eq "" } {
+			set ::settings($field) 0
+		} else {
+			set ::settings($field) $settings(next_$field)
+		}
 	}
 	
 ##	if { $::plugins::DYE::settings(next_modified) == 1 } {
@@ -2806,6 +2807,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-textvariable ::plugins::DYE::settings(describe_from_sleep) \
 		-label [translate "Icon on screensaver to describe last shot without waking up the DE1"] -label_width $lwidth
 
+	
 	dui add dcheckbox $page $x [incr y $vspace] -tags backup_modified_shot_files -command backup_modified_shot_files_change \
 		-textvariable ::plugins::DYE::settings(backup_modified_shot_files) \
 		-label [translate "Backup past shot files when they are modified (.bak)"] -label_width $lwidth
