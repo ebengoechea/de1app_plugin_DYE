@@ -1604,10 +1604,13 @@ proc ::dui::pages::DYE::save_description {} {
 	
 	set is_past_edition_of_current 0
 	if { $::settings(skin) eq "DSx" } {
+msg "COMPARING. data(describe_which_shot)=$data(describe_which_shot), DSX_settings(past_clock)=$::DSx_settings(past_clock), last_clock=$last_clock"		
 		if { ($data(describe_which_shot) eq "DSx_past" && $::DSx_settings(past_clock) == $last_clock) || \
 				($data(describe_which_shot) eq "DSx_past2" && $::DSx_settings(past_clock2) == $last_clock) } {
 			set is_past_edition_of_current 1
+					
 		}
+msg "is_past_edition_of_current=$is_past_edition_of_current"
 	}
 	
 	if { $::settings(skin) eq "DSx" && ($data(describe_which_shot) eq "DSx_past" || $data(describe_which_shot) eq "DSx_past2")} {
@@ -1694,9 +1697,9 @@ proc ::dui::pages::DYE::save_description {} {
 			
 			::save_DSx_settings
 			msg "DYE: Save past espresso to history"
+			
+			return 1
 		}
-		
-		return 1
 	} 
 	
 	if { $data(describe_which_shot) eq "current" || $is_past_edition_of_current == 1 } {
