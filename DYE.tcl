@@ -87,15 +87,15 @@ proc ::plugins::DYE::main {} {
 	set skin $::settings(skin)
 	set skin_src_fn "[plugin_directory]/DYE/setup_${skin}.tcl"
 	if { [file exists $skin_src_fn] } { source $skin_src_fn }
-	
+		
 	if { [namespace which -command "::plugins::DYE::setup_ui_$::settings(skin)"] ne "" } {
 		::plugins::DYE::setup_ui_$::settings(skin)
 	}
 	foreach page {DYE DYE_fsh} {
-		dui page add $page -namespace true
+		dui page add $page -namespace true -type fpdialog
 	}
 	foreach page $::dui::pages::DYE_v3::pages {
-		dui page add $page -namespace ::dui::pages::DYE_v3
+		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
 	}
 	
 	# Update/propagate the describe settings when the a shot is started 
@@ -134,7 +134,7 @@ proc ::plugins::DYE::preload {} {
 	plugins save_settings DYE
 	
 	setup_default_aspects
-	dui page add DYE_settings -namespace true -theme default
+	dui page add DYE_settings -namespace true -theme default -type fpdialog
 	return DYE_settings
 }
 
@@ -332,7 +332,8 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	# DYE v3
 	set bg_color [dui aspect get page bg_color -theme default]
 	set btn_spacing 100
-	set half_button_width [expr {int(($::dui::pages::DYE_v3::page_coords(panel_width)-$btn_spacing)/2)}]
+	set half_button_width [expr {int(($::dui::pages::DYE_v3::page_coords(panel_width)-$btn_spacing)/2)}]	
+	set half_button_width 200
 	
 	dui aspect set -theme default [subst { 
 		dbutton.bheight.dyev3_topnav 90 
@@ -835,12 +836,12 @@ namespace eval ::dui::pages::DYE {
 	# Widgets in the page bind to variables in this data array, not to the actual global variables behind, so they 
 	# can be changed dynamically to load and save to different shots (last, next or those selected in the left or 
 	# right of the history viewer). Values are actually saved only when tapping the "Done" button.
+	# describe_which_shot: next / current / past / DSx_past / DSx_past2	
 	variable data
 	array set data {
 		page_painted 0
-		previous_page {}
+		close_action {}
 		page_title {translate {Describe your espresso}}
-		# next / current / past / DSx_past / DSx_past2
 		describe_which_shot {current}
 		read_from_status "last"
 		read_from_last_text "Read from\rlast shot" 
@@ -1089,16 +1090,17 @@ proc ::dui::pages::DYE::setup {} {
 proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } {
 	variable data
 	# If reloading the page (to show a different shot data), remember the original page we came from
-	if { $page_to_hide ne "DYE" } {
-		set data(previous_page) $page_to_hide
-	}
+#	if { $page_to_hide ne "DYE" } {
+#		set data(previous_page) $page_to_hide
+#	}
+	set data(close_action) {}
 	
 	if { [info exists ::settings(espresso_clock)] && $::settings(espresso_clock) ne "" && $::settings(espresso_clock) > 0} {
 		set current_clock $::settings(espresso_clock)
 	} else {	
 		set current_clock 0
 	}
-	
+		
 	set data(describe_which_shot) $which_shot
 	if { [string is integer $which_shot] && $which_shot > 0 } {
 		if { $which_shot == $current_clock } {
@@ -1187,24 +1189,27 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 	calc_ey_from_tds
 	update_visualizer_button 0
 }
-	
-proc ::dui::pages::DYE::unload_page {} {
-	variable data
 
-	if { $data(previous_page) eq "sleep" } {
-		set_next_page off off
-		set ::current_espresso_page "off"
-		start_sleep				
-	} elseif { $data(previous_page) ne "" } {
-		dui page load $data(previous_page)
-	} else {
-		dui page load off
-	}	
+# TO BE REMOVED, NO LONGER CALLED WITH DUI FPDIALOGS
+proc ::dui::pages::DYE::unload_page {} {
+	#variable data
+
+	dui page close_dialog
+#	if { $data(previous_page) eq "sleep" } {
+#		set_next_page off off
+#		set ::current_espresso_page "off"
+#		start_sleep				
+#	} elseif { $data(previous_page) ne "" } {
+#		dui page load $data(previous_page)
+#	} else {
+#		dui page load off
+#	}	
 }	
 
 proc ::dui::pages::DYE::move_backward {} {
 	variable data
-	if { [ask_to_save_if_needed] eq "cancel" } return
+	#if { [ask_to_save_if_needed move_backward] eq "cancel" } return
+	if { ![ask_to_save_if_needed move_backward] } return
 
 	if { $data(describe_which_shot) eq "next" } {
 		dui page load DYE current -reload yes		
@@ -1220,7 +1225,8 @@ proc ::dui::pages::DYE::move_forward {} {
 	variable data
 	
 	if { $data(describe_which_shot) eq "next" } return
-	if { [ask_to_save_if_needed] eq "cancel" } return
+	#if { [ask_to_save_if_needed] eq "cancel" } return
+	if { ![ask_to_save_if_needed move_forward] } return
 	
 	if { $data(describe_which_shot) eq "current" || $data(clock) == $::settings(espresso_clock) } {
 		dui page load DYE next -reload yes
@@ -1234,8 +1240,9 @@ proc ::dui::pages::DYE::move_forward {} {
 
 proc ::dui::pages::DYE::move_to_next {} {
 	variable data
-	if { $data(describe_which_shot) eq "next" } return	
-	if { [ask_to_save_if_needed] eq "cancel" } return
+	if { $data(describe_which_shot) eq "next" } return
+	#if { [ask_to_save_if_needed] eq "cancel" } return
+	if { ![ask_to_save_if_needed move_to_next] } return
 	
 	dui page load DYE next -reload yes
 }
@@ -1244,39 +1251,48 @@ proc ::dui::pages::DYE::search_shot {} {
 	set answer [ask_to_save_if_needed]
 	if { $answer eq "cancel" } return
 
-	dui page load DYE_fsh -page_title [translate "Select the shot to describe"] -callback_cmd ::dui::pages::DYE::search_shot_callback
+	dui page open_dialog DYE_fsh -page_title [translate "Select the shot to describe"] \
+		-return_callback ::dui::pages::DYE::search_shot_callback
 }
 
 proc ::dui::pages::DYE::search_shot_callback { selected_shots matched_shots } {
-	variable data
-	if { [llength $selected_shots] == 0 } { 
-		dui page show DYE
-	} else {
-		set previous_page $data(previous_page)
-		dui page load DYE [lindex $selected_shots 0]
-		set data(previous_page) $previous_page
+#	variable data
+#	if { [llength $selected_shots] == 0 } { 
+#		dui page show DYE
+#	} else {
+#		set previous_page $data(previous_page)
+#		dui page load DYE [lindex $selected_shots 0]
+#		set data(previous_page) $previous_page
+#	}
+	
+	if { [llength $selected_shots] > 0 } {
+msg "SEARCH_SHOT_CALLBACK, selected_shots=$selected_shots, matched_shots=$matched_shots"		
+		dui page load DYE [lindex $selected_shots 0] -reload yes
 	}
 }
 
 proc ::dui::pages::DYE::select_shot {} {
-	set answer [ask_to_save_if_needed]
-	if { $answer eq "cancel" } return
+#	set answer [ask_to_save_if_needed]
+#	if { $answer eq "cancel" } return
+	if { ![ask_to_save_if_needed select_shot] } return
 	
 	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
-	dui page load dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
-		-page_title [translate "Select the shot to describe"] \
-		-callback_cmd [namespace current]::select_shot_callback -listbox_width 2300
+	dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
+		-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback
 }
 
 proc ::dui::pages::DYE::select_shot_callback { shot_desc shot_id args } {
 	variable data
 
-	if { [llength $shot_id] == 0 } { 
-		dui page show DYE
-	} else {
-		set previous_page $data(previous_page)
-		dui page load DYE [lindex $shot_id 0]
-		set data(previous_page) $previous_page
+msg "SELECT_SHOT_CALLBACK: shot_desc=$shot_desc, shot_id=$shot_id"
+#	if { [llength $shot_id] == 0 } { 
+#		dui page show DYE
+#	} 
+	
+	if { [llength $shot_id] > 0 } {
+		#set previous_page $data(previous_page)
+		dui page load DYE [lindex $shot_id 0] -reload yes
+		#set data(previous_page) $previous_page
 	}
 }
 
@@ -1294,13 +1310,18 @@ proc ::dui::pages::DYE::open_history_viewer {} {
 proc ::dui::pages::DYE::history_viewer_callback { left_clock right_clock } {
 	variable data
 	
-	if { $left_clock eq "" } { 
-		dui page show DYE
-	} else {
-		set previous_page $data(previous_page)
+#	if { $left_clock eq "" } { 
+#		dui page show DYE
+#	} else {
+#		set previous_page $data(previous_page)
+#		dui page load DYE [lindex $left_clock 0]
+#		set data(previous_page) $previous_page
+#	}
+	
+	if { $left_clock ne "" } { 
 		dui page load DYE [lindex $left_clock 0]
-		set data(previous_page) $previous_page
 	}
+	
 }
 
 proc ::dui::pages::DYE::beans_select {} {
@@ -1310,8 +1331,8 @@ proc ::dui::pages::DYE::beans_select {} {
 	set selected [string trim "$data(bean_brand) $data(bean_type) $data(roast_date)"]
 	regsub -all " +" $selected " " selected
 
-	dui page load dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
-		-page_title "Select the beans batch" -selected $selected -callback_cmd [namespace current]::select_beans_callback \
+	dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
+		-page_title "Select the beans batch" -selected $selected -return_callback [namespace current]::select_beans_callback \
 		-listbox_width 1700
 }
 
@@ -1352,7 +1373,7 @@ proc ::dui::pages::DYE::grinder_setting_select { variable values args} {
 	dui sound make button_in
 	if { $data(grinder_model) eq "" } return
 
-	dui page load dui_item_selector ::dui::pages::DYE::data(grinder_setting) \
+	dui page open_dialog dui_item_selector ::dui::pages::DYE::data(grinder_setting) \
 		[::plugins::SDB::available_categories grinder_setting \
 		-filter " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"] \
 		-page_title [translate "Select the grinder setting"] -selected $data(grinder_setting) -listbox_width 700
@@ -1394,9 +1415,12 @@ proc ::dui::pages::DYE::read_from {} {
 	
 	if { $data(read_from_status) eq "prev" } {
 		array set shots [::plugins::SDB::shots "clock shot_desc" 1 "$filter AND ([join $sql_conditions { OR }])" 500]
-		dui page load dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
+#		dui page load dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
+#			-page_title [translate "Select the shot to read the data from"] \
+#			-callback_cmd [namespace current]::select_read_from_shot_callback -listbox_width 2300
+		dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
 			-page_title [translate "Select the shot to read the data from"] \
-			-callback_cmd [namespace current]::select_read_from_shot_callback -listbox_width 2300
+			-return_callback [namespace current]::select_read_from_shot_callback -listbox_width 2300
 		set data(read_from_status) "last"
 	} else {
 		array set last_shot [::plugins::SDB::shots "$::plugins::DYE::propagated_fields" 1 \
@@ -1545,9 +1569,11 @@ proc ::dui::pages::DYE::load_description {} {
 		set data(grinder_dose_weight) {}
 		set data(drink_weight) {}
 		set data(repository_links) {}
-	} elseif { $data(describe_which_shot) eq "past" } {
-		array set shot [::plugins::SDB::load_shot $data(clock)]
-		if { [array size shot] == 0 } { return 0 }
+	} elseif { $data(describe_which_shot) eq "past" } {		
+		array set shot [::plugins::SDB::load_shot $data(clock)]	
+		if { [array size shot] == 0 } { 
+			return 0 
+		}
 		# What for?
 		set data(shot_file) [::plugins::SDB::get_shot_file_path $data(clock)]
 		set data(page_title) "Describe past espresso: [formatted_shot_date]"
@@ -1604,13 +1630,11 @@ proc ::dui::pages::DYE::save_description {} {
 	
 	set is_past_edition_of_current 0
 	if { $::settings(skin) eq "DSx" } {
-msg "COMPARING. data(describe_which_shot)=$data(describe_which_shot), DSX_settings(past_clock)=$::DSx_settings(past_clock), last_clock=$last_clock"		
 		if { ($data(describe_which_shot) eq "DSx_past" && $::DSx_settings(past_clock) == $last_clock) || \
 				($data(describe_which_shot) eq "DSx_past2" && $::DSx_settings(past_clock2) == $last_clock) } {
 			set is_past_edition_of_current 1
 					
 		}
-msg "is_past_edition_of_current=$is_past_edition_of_current"
 	}
 	
 	if { $::settings(skin) eq "DSx" && ($data(describe_which_shot) eq "DSx_past" || $data(describe_which_shot) eq "DSx_past2")} {
@@ -1876,6 +1900,10 @@ proc ::dui::pages::DYE::formatted_shot_date {} {
 proc ::dui::pages::DYE::needs_saving { } {
 	variable data
 	variable src_data
+		
+	if { $data(close_action) ne {} } {
+		return 0		
+	}
 	
 	foreach fn $::plugins::DYE::desc_text_fields {
 		if { $data($fn) ne $src_data($fn) } {
@@ -1887,6 +1915,7 @@ proc ::dui::pages::DYE::needs_saving { } {
 			return 1
 		}
 	}
+	
 	return 0
 }
 
@@ -1999,26 +2028,57 @@ proc ::dui::pages::DYE::update_visualizer_button { {check_page 1} } {
 	}
 }
 
-proc ::dui::pages::DYE::ask_to_save_if_needed {} {
+proc ::dui::pages::DYE::ask_to_save_if_needed { {action page_cancel} } {
+	variable data
+#	if { [needs_saving] == 1 } {
+#		set answer [tk_messageBox -message "[translate {You have unsaved changes to the shot description.}]\r\
+#			[translate {Do you want to save your changes first?}]" \
+#			-type yesnocancel -icon question]
+#		if { $answer eq "yes" } { 
+#			save_description
+#		} 
+#		return $answer 
+#	} else {
+#		return "yes"
+#	}
+	
 	if { [needs_saving] == 1 } {
-		set answer [tk_messageBox -message "[translate {You have unsaved changes to the shot description.}]\r\
-			[translate {Do you want to save your changes first?}]" \
-			-type yesnocancel -icon question]
-		if { $answer eq "yes" } { 
-			save_description
-		} 
-		return $answer 
+		set data(close_action) $action
+		dui page open_dialog dui_confirm_dialog -coords {0.5 0.5} -anchor center -size {1200 450} \
+			-return_callback ::dui::pages::DYE::confirm_save \
+			"You have unsaved changes to the shot description. Do you want to save your changes first?" \
+			"Save changes" "Discard changes"
+		return 0
 	} else {
-		return "yes"
+		set data(close_action) {}
+		return 1
+	}
+}
+
+proc ::dui::pages::DYE::confirm_save { answer } {
+	variable data
+	
+	if { $answer == 1 } {
+		save_description
+	} 
+	
+	if { $data(close_action) ne "" } {
+		set action $data(close_action)
+#		set data(close_action) {}
+		[namespace current]::$action
 	}
 }
 
 proc ::dui::pages::DYE::page_cancel {} {
-	set answer [ask_to_save_if_needed]
-	if { $answer eq "cancel" } return
+	variable data
+#	set answer [ask_to_save_if_needed]
+#	if { $answer eq "cancel" } return
 	
-	say [translate {cancel}] $::settings(sound_button_in);
-	unload_page
+	if { [ask_to_save_if_needed page_cancel] } {
+		dui say [translate {cancel}] sound_button_in
+		#unload_page
+		dui page close_dialog
+	}
 }
 
 proc ::dui::pages::DYE::page_done {} {
@@ -2028,7 +2088,9 @@ proc ::dui::pages::DYE::page_done {} {
 	if { ! [save_description] } {
 		return
 	}
-	unload_page
+	dui sound make sound_button_in 
+	#unload_page
+	dui page close_dialog
 }
 
 ### "FILTER SHOT HISTORY" PAGE #########################################################################################
@@ -2040,8 +2102,6 @@ namespace eval ::dui::pages::DYE_fsh {
 	variable data
 	array set data {
 		page_title "Filter Shot History"
-		previous_page {}
-		callback_cmd {}
 		category1 {profile_tile}
 		categories1_label {Profiles}
 		category2 {beans}
@@ -2199,8 +2259,6 @@ proc ::dui::pages::DYE_fsh::load { page_to_hide page_to_show args } {
 	variable data
 	array set opts $args
 	
-	set data(previous_page) $page_to_hide
-	set data(callback_cmd) [value_or_default opts(-callback_cmd) {}]
 	set data(category1) [value_or_default opts(-category1) profile_title]
 	set data(category2) [value_or_default opts(-category2) bean_desc]
 	set data(page_title) [value_or_default opts(-page_title) [translate "Filter Shot History"]]
@@ -2225,8 +2283,11 @@ proc ::dui::pages::DYE_fsh::show { page_to_hide page_to_show } {
 	set data(enjoyment_from) $data(enjoyment_from) 
 	set data(enjoyment_to) $data(enjoyment_to)
 	
-	dui item show_or_hide [expr {$::settings(skin) eq "DSx" && $data(previous_page) eq "DSx_past"}] $page_to_show \
+	dui item show_or_hide [expr {$::settings(skin) eq "DSx" && [dui page previous] eq "DSx_past"}] $page_to_show \
 		{apply_to_left_side* apply_to_right_side*}
+	
+#	dui item show_or_hide [expr {$::settings(skin) eq "DSx" && $data(previous_page) eq "DSx_past"}] $page_to_show \
+#		{apply_to_left_side* apply_to_right_side*}
 }
 
 proc ::dui::pages::DYE_fsh::categories1_label_dropdown { } {
@@ -2249,9 +2310,9 @@ proc ::dui::pages::DYE_fsh::categories1_label_dropdown { } {
 	}
 	
 	dui say [translate "Select"] button_in
-	dui page load dui_item_selector [namespace current]::data(category1) $items -selected $data(categories1_label) \
+	dui page open_dialog dui_item_selector [namespace current]::data(category1) $items -selected $data(categories1_label) \
 		-values_ids $item_ids -item_type categories -page_title [translate "Select a category"] \
-		-callback_cmd [namespace current]::select_category1_callback 
+		-return_callback [namespace current]::select_category1_callback 
 }
 
 proc ::dui::pages::DYE_fsh::category1_change { new_category } {
@@ -2323,9 +2384,9 @@ proc ::dui::pages::DYE_fsh::categories2_label_dropdown { } {
 	}
 	
 	dui say [translate "Select"] button_in
-	dui page load dui_item_selector [namespace current]::data(category2) $items -selected $data(categories2_label)  \
+	dui page open_dialog dui_item_selector [namespace current]::data(category2) $items -selected $data(categories2_label)  \
 		-values_ids $item_ids -item_type categories -page_title [translate "Select a category"] \
-		-callback_cmd [namespace current]::select_category2_callback
+		-return_callback [namespace current]::select_category2_callback
 }
 	
 proc ::dui::pages::DYE_fsh::category2_change { new_category } {
@@ -2649,39 +2710,43 @@ proc ::dui::pages::DYE_fsh::page_cancel {} {
 	variable data
 	dui say [translate {save}] button_in
 	
-	if { $data(callback_cmd) ne "" } {
-		uplevel #0 [list $data(callback_cmd) {} {}]
-	} elseif { $data(previous_page) eq "" } {
-		if { $::settings(skin) eq "DSx" } {
-			dui page show DSx_past
-		} else {
-			dui page show DYE
-		}
-	} else {
-		dui page show $data(previous_page)
-	} 	
+	dui page close_dialog {} {}
+#	if { $data(callback_cmd) ne "" } {
+#		uplevel #0 [list $data(callback_cmd) {} {}]
+#	} elseif { $data(previous_page) eq "" } {
+#		if { $::settings(skin) eq "DSx" } {
+#			dui page show DSx_past
+#		} else {
+#			dui page show DYE
+#		}
+#	} else {
+#		dui page show $data(previous_page)
+#	} 	
 }
 
 proc ::dui::pages::DYE_fsh::page_done {} {
 	variable data
 	dui say [translate {save}] button_in
 	
-	if { $data(callback_cmd) ne "" } {
-		#msg "::dui::pages::DYE_fsh::page_done, callback_cmd=$data(callback_cmd)"
-		#msg "::dui::pages::DYE_fsh::page_done, matched_clocks=$data(matched_clocks), selected_clock=[dui item listbox_get_selection DYE_fsh shots $data(matched_clocks)]"				
-		uplevel #0 [list $data(callback_cmd) [dui item listbox_get_selection DYE_fsh shots $data(matched_clocks)] $data(matched_clocks)]
-		return
-	} elseif { $data(previous_page) eq "" } {
-		if { $::settings(skin) eq "DSx" } {
-			dui page show DSx_past
-		} else {
-			dui page show DYE
-		}
-	} else {
-		dui page show $data(previous_page)
-	} 
+	set previous_page [dui page previous]
+	dui page close_dialog [dui item listbox_get_selection DYE_fsh shots $data(matched_clocks)] $data(matched_clocks)
 	
-	if { $::settings(skin) eq "DSx" && $data(previous_page) eq "DSx_past" } {
+#	if { $data(callback_cmd) ne "" } {
+#		#msg "::dui::pages::DYE_fsh::page_done, callback_cmd=$data(callback_cmd)"
+#		#msg "::dui::pages::DYE_fsh::page_done, matched_clocks=$data(matched_clocks), selected_clock=[dui item listbox_get_selection DYE_fsh shots $data(matched_clocks)]"				
+#		uplevel #0 [list $data(callback_cmd) [dui item listbox_get_selection DYE_fsh shots $data(matched_clocks)] $data(matched_clocks)]
+#		return
+#	} elseif { $data(previous_page) eq "" } {
+#		if { $::settings(skin) eq "DSx" } {
+#			dui page show DSx_past
+#		} else {
+#			dui page show DYE
+#		}
+#	} else {
+#		dui page show $data(previous_page)
+#	} 
+	
+	if { $::settings(skin) eq "DSx" && $previous_page eq "DSx_past" } {
 		if {$data(left_filter_status) eq "on"} {
 			fill_DSx_past_shots_listbox
 		}
@@ -2769,8 +2834,6 @@ namespace eval ::dui::pages::DYE_settings {
 	variable data
 	array set data {
 		page_name "::dui::pages::DYE_settings"
-		previous_page {}
-		callback_cmd {}
 		db_status_msg {}
 		update_plugin_state {-}
 		latest_plugin_version {}
@@ -2848,11 +2911,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 # Normally not used as this is not invoked directly but by the DSx settings pages carousel, but still kept for 
 # consistency or for launching the page from a menu.
 proc ::dui::pages::DYE_settings::load { page_to_hide page_to_show args } {
-	variable data
-	array set opts $args
-	
-	set data(previous_page) $page_to_hide
-	set data(callback_cmd) [value_or_default opts(-callback_cmd) ""]
+	return 1
 }
 
 # Added to context actions, so invoked automatically whenever the page is loaded
@@ -3017,16 +3076,8 @@ proc ::dui::pages::DYE_settings::set_default_shot_desc_font_color {} {
 #}
 
 proc ::dui::pages::DYE_settings::page_done {} {
-	variable data
 	dui say [translate {Done}] button_in
-	
-	if { $data(callback_cmd) ne "" } {
-		uplevel #0 $data(callback_cmd)
-	} elseif { $data(previous_page) eq "" } {
-		dui page load extensions
-	} else {
-		dui page show $data(previous_page)
-	} 
+	dui page close_dialog
 }
 
 #### DYE v3  #########################################################################################
@@ -3036,11 +3087,11 @@ namespace eval ::dui::pages::DYE_v3 {
 	array set widgets {}
 	
 	variable data
+	# which_shot can be "next", "last" or "past"
 	array set data {
 		previous_page {}
 		callback_cmd {}
 		page_title {translate {Describe your espresso}}
-		# next / last / past
 		which_shot {current}
 		clock 0		
 		shot_file {}
@@ -4498,9 +4549,9 @@ proc ::dui::pages::DYE_v3::select_shot {} {
 	save_description
 	
 	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
-	dui page load dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
+	dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
 		-page_title [translate "Select the shot to describe"] \
-		-callback_cmd [namespace current]::select_shot_callback -listbox_width 2300
+		-return_callback [namespace current]::select_shot_callback -listbox_width 2300
 }
 
 proc ::dui::pages::DYE_v3::select_shot_callback { shot_desc shot_id args } {
