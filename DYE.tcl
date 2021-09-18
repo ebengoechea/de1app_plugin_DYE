@@ -14,13 +14,13 @@
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.06
+	variable version 2.07
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
 
-	variable min_de1app_version {1.36}
-	variable min_DSx_version {4.54}
+	variable min_de1app_version {1.37}
+	variable min_DSx_version {4.79}
 	variable debug_text {}	
 	
 	# Store widgets used in the skin-specific GUI integration 
@@ -1973,7 +1973,7 @@ proc ::dui::pages::DYE::ask_to_save_if_needed { {action page_cancel} } {
 	
 	if { [needs_saving] == 1 } {
 		set data(close_action) $action
-		dui page open_dialog dui_confirm_dialog -coords {0.5 0.5} -anchor center -size {1200 450} \
+		dui page open_dialog dui_confirm_dialog -coords {0.5 0.5} -anchor center -size {1300 450} \
 			-return_callback ::dui::pages::DYE::confirm_save -theme [dui theme get] \
 			"You have unsaved changes to the shot description. Do you want to save your changes first?" \
 			{"Save changes" "Discard changes"} -buttons_y 0.8

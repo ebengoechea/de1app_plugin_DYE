@@ -2,6 +2,25 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.07] - 2021-09-18
+
+### Changed
+- All DYE pages now have type=fpdialog
+- Shot confirmation save dialog now uses dui_confirm_dialog instead of Tk message box
+- Ensure -theme option is used in all calls to DUI dialogs
+
+## [2.06] - 2021-07-26 (bundled with DE1app v1.37)
+
+### Added
+- DYE v3 prototype for testing, can be enabled on the settings page.
+- New `dui::add::text` to add Tk widgets
+
+### Changed
+- `dui::add::text` now is `dui::add::dtext`
+- Fix bug "can't set ::settings(grinder_dose_weight) to non-numeric"
+- Fix bug under DSx, editing last shot from history page was not saving shot
+- Initialize DYE added fields (drinker_name & repository_links) as metadata
+
 ## [2.03] - 2021-05-08
 
 ### Added
