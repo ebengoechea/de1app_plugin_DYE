@@ -1,41 +1,6 @@
 #######################################################################################################################
-### A Decent DE1app plugin for the DSx skin that improves the default logging / "describe your espresso"
-### functionality in Insight and DSx.
+### A Decent DE1app extension that provides shot logging (metadata description) of any shot in the history.
 ###  
-### INSTALLATION: 
-###	    1) Ensure you have DE1 app v1.33 stable (except for fontawesome symbols, which may need to be downloaded manually) 
-###			or higher, and DSx version v4.39 or higher.
-###		2) Copy this file "describe_your_espresso.dsx" to the "de1_plus/skins/DSx/DSx_Plugins" folder.
-###		3) Restart the app with DSx as skin.
-###
-### Features:
-###	1) "Describe your espresso" accesible from DSx home screen with a single click, for both next and last shots.
-###	2) All main description data in a single screen for easier data entry.
-###		* Irrelevant options ("I weight my beans" / "I use a refractometer") are removed.
-###	3) Facilitate data entry in the UI:
-###		* Numeric fields can be typed directly.
-###		* Keyboard return in non-multiline entries take you directly to the next field.
-###		* Choose categories fields (bean brand, type, grinder, etc) from a list of all previously typed values.
-###		* Star-rating system for Enjoyment
-###		* Mass-modify past entered categories values at once.
-###	4) Description data from previous shot can now be retrieved and modified:
-###		* A summary is shown on the History Viewer page, below the profile on both the left and right shots.
-###		* When that summary is clicked, the describe page is open showing the description for the past shot,
-###			which can be modified.
-### 5) Create a SQLite database of shot descriptions.
-### 	* Populate on startup
-###		* User decides what is to be stored in the database.
-###		* Update whenever there are new shots or shot data changes
-###		* Update on startup when a shot file has been changed on disk (TODO using a simple/fast test, some cases
-###			may be undetected, review)
-###		* TBD Persist profiles too (as an option)
-### 6) "Filter Shot History" page callable from the history viewer to restrict the shots being shown on both 
-###		left and right listboxes.
-### 7) TBD Add new description data: other equipment, beans details (country, variety), detailed coffee ratings like
-##		in cupping scoring sheets, etc.
-### 8) Upload shot files to Miha's visualizer or other repositories with a button press.
-### 9) Configuration page allows defining settings and launch database maintenance actions from within the app. 
-###
 ### Source code available in GitHub: https://github.com/ebengoechea/dye_de1app_dsx_plugin/
 ### This code is released under GPLv3 license. See LICENSE file under the DE1 source folder in github.
 ###
@@ -951,13 +916,7 @@ proc ::dui::pages::DYE::setup {} {
 
 	dui add image $page $x_left_label $y "niche_${skin}.png" -tags equipment_img
 	dui add dtext $page $x_left_field [expr {$y+130}] -text [translate "Equipment"] -style section_header
-		
-	# Other equipment (EXPERIMENTAL)
-#	if { [info exists ::debugging] && $::debugging == 1 } {
-#		dui add dbutton $page $x_left_label [expr {$y+50}] [expr {$x_left_field+400}] [expr {$y+200}] \
-#			-command { say "" $::settings(sound_button_in); ::plugins::DYE::SEQ::load_page } \			
-#	}
-	
+			
 	# Grinder model
 	incr y 240
 	dui add dcombobox $page $x_left_field $y -tags grinder_model -width $width_left_field \
@@ -1256,43 +1215,25 @@ proc ::dui::pages::DYE::search_shot {} {
 }
 
 proc ::dui::pages::DYE::search_shot_callback { selected_shots matched_shots } {
-#	variable data
-#	if { [llength $selected_shots] == 0 } { 
-#		dui page show DYE
-#	} else {
-#		set previous_page $data(previous_page)
-#		dui page load DYE [lindex $selected_shots 0]
-#		set data(previous_page) $previous_page
-#	}
-	
 	if { [llength $selected_shots] > 0 } {
-msg "SEARCH_SHOT_CALLBACK, selected_shots=$selected_shots, matched_shots=$matched_shots"		
 		dui page load DYE [lindex $selected_shots 0] -reload yes
 	}
 }
 
 proc ::dui::pages::DYE::select_shot {} {
-#	set answer [ask_to_save_if_needed]
-#	if { $answer eq "cancel" } return
 	if { ![ask_to_save_if_needed select_shot] } return
 	
 	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
 	dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
-		-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback
+		-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
+		-theme [dui theme get]
 }
 
 proc ::dui::pages::DYE::select_shot_callback { shot_desc shot_id args } {
 	variable data
 
-msg "SELECT_SHOT_CALLBACK: shot_desc=$shot_desc, shot_id=$shot_id"
-#	if { [llength $shot_id] == 0 } { 
-#		dui page show DYE
-#	} 
-	
 	if { [llength $shot_id] > 0 } {
-		#set previous_page $data(previous_page)
 		dui page load DYE [lindex $shot_id 0] -reload yes
-		#set data(previous_page) $previous_page
 	}
 }
 
@@ -1331,7 +1272,7 @@ proc ::dui::pages::DYE::beans_select {} {
 	set selected [string trim "$data(bean_brand) $data(bean_type) $data(roast_date)"]
 	regsub -all " +" $selected " " selected
 
-	dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
+	dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories bean_desc] -theme [dui theme get] \
 		-page_title "Select the beans batch" -selected $selected -return_callback [namespace current]::select_beans_callback \
 		-listbox_width 1700
 }
@@ -1373,10 +1314,9 @@ proc ::dui::pages::DYE::grinder_setting_select { variable values args} {
 	dui sound make button_in
 	if { $data(grinder_model) eq "" } return
 
-	dui page open_dialog dui_item_selector ::dui::pages::DYE::data(grinder_setting) \
-		[::plugins::SDB::available_categories grinder_setting \
-		-filter " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"] \
-		-page_title [translate "Select the grinder setting"] -selected $data(grinder_setting) -listbox_width 700
+	dui page open_dialog dui_item_selector ::dui::pages::DYE::data(grinder_setting) -theme [dui theme get] \
+		[::plugins::SDB::available_categories grinder_setting 1 " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"] \
+		-page_title [translate "Select the grinder setting"] -selected $data(grinder_setting) -listbox_width 700 
 }
 
 proc ::dui::pages::DYE::grinder_model_change {} {
@@ -1419,7 +1359,7 @@ proc ::dui::pages::DYE::read_from {} {
 #			-page_title [translate "Select the shot to read the data from"] \
 #			-callback_cmd [namespace current]::select_read_from_shot_callback -listbox_width 2300
 		dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
-			-page_title [translate "Select the shot to read the data from"] \
+			-page_title [translate "Select the shot to read the data from"] -theme [dui theme get] \
 			-return_callback [namespace current]::select_read_from_shot_callback -listbox_width 2300
 		set data(read_from_status) "last"
 	} else {
@@ -2030,24 +1970,13 @@ proc ::dui::pages::DYE::update_visualizer_button { {check_page 1} } {
 
 proc ::dui::pages::DYE::ask_to_save_if_needed { {action page_cancel} } {
 	variable data
-#	if { [needs_saving] == 1 } {
-#		set answer [tk_messageBox -message "[translate {You have unsaved changes to the shot description.}]\r\
-#			[translate {Do you want to save your changes first?}]" \
-#			-type yesnocancel -icon question]
-#		if { $answer eq "yes" } { 
-#			save_description
-#		} 
-#		return $answer 
-#	} else {
-#		return "yes"
-#	}
 	
 	if { [needs_saving] == 1 } {
 		set data(close_action) $action
 		dui page open_dialog dui_confirm_dialog -coords {0.5 0.5} -anchor center -size {1200 450} \
-			-return_callback ::dui::pages::DYE::confirm_save \
+			-return_callback ::dui::pages::DYE::confirm_save -theme [dui theme get] \
 			"You have unsaved changes to the shot description. Do you want to save your changes first?" \
-			"Save changes" "Discard changes"
+			{"Save changes" "Discard changes"} -buttons_y 0.8
 		return 0
 	} else {
 		set data(close_action) {}
@@ -2312,7 +2241,7 @@ proc ::dui::pages::DYE_fsh::categories1_label_dropdown { } {
 	dui say [translate "Select"] button_in
 	dui page open_dialog dui_item_selector [namespace current]::data(category1) $items -selected $data(categories1_label) \
 		-values_ids $item_ids -item_type categories -page_title [translate "Select a category"] \
-		-return_callback [namespace current]::select_category1_callback 
+		-return_callback [namespace current]::select_category1_callback -theme [dui theme get]
 }
 
 proc ::dui::pages::DYE_fsh::category1_change { new_category } {
@@ -2386,7 +2315,7 @@ proc ::dui::pages::DYE_fsh::categories2_label_dropdown { } {
 	dui say [translate "Select"] button_in
 	dui page open_dialog dui_item_selector [namespace current]::data(category2) $items -selected $data(categories2_label)  \
 		-values_ids $item_ids -item_type categories -page_title [translate "Select a category"] \
-		-return_callback [namespace current]::select_category2_callback
+		-return_callback [namespace current]::select_category2_callback -theme [dui theme get]
 }
 	
 proc ::dui::pages::DYE_fsh::category2_change { new_category } {
@@ -4550,7 +4479,7 @@ proc ::dui::pages::DYE_v3::select_shot {} {
 	
 	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
 	dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
-		-page_title [translate "Select the shot to describe"] \
+		-page_title [translate "Select the shot to describe"] -theme [dui theme get] \
 		-return_callback [namespace current]::select_shot_callback -listbox_width 2300
 }
 

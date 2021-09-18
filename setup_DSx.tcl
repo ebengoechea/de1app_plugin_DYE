@@ -16,6 +16,12 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		page.bg_img {}
 		page.bg_color $::DSx_settings(bg_colour)
 		
+		dialog_page.bg_shape round_outline
+		dialog_page.bg_color $::DSx_settings(bg_colour)
+		dialog_page.fill $::DSx_settings(bg_colour)
+		dialog_page.outline white
+		dialog_page.width 1
+		
 		font.font_family "$::DSx_settings(font_name)"
 		font.font_size $default_font_size
 		
@@ -98,6 +104,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		entry.disabledbackground $disabled_colour
 		entry.width 2
 		entry.foreground $::DSx_settings(font_colour)
+		entry.disabledforeground black
 		entry.font_size $default_font_size
 		 
 		multiline_entry.relief sunken
@@ -240,6 +247,14 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dbutton_label.anchor.dne_pad_button center
 	}
 	
+	# DUI confirm dialog styles
+	dui aspect set -theme DSx {
+		dbutton.shape.dui_confirm_button outline
+		dbutton.bheight.dui_confirm_button 100
+		dbutton.width.dui_confirm_button 1
+		dbutton.arc_offset.dui_confirm_button 20
+	}
+
 	# History Viewer styles
 	set smooth $::settings(live_graph_smoothing_technique)
 	dui aspect set -theme DSx [subst {
