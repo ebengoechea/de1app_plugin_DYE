@@ -696,14 +696,15 @@ proc ::plugins::DYE::upload_to_visualizer_and_save { clock } {
 	set content [::plugins::SDB::modify_shot_file $clock arr_changes 0 0]
 	if { $content eq "" } return
 	
+    set ::plugins::visualizer_upload::settings(last_action) "upload"
 	set ::plugins::visualizer_upload::settings(last_upload_shot) $clock
 	set ::plugins::visualizer_upload::settings(last_upload_result) ""
 	set ::plugins::visualizer_upload::settings(last_upload_id) ""
-	
+    
 	set repo_link ""
 	set visualizer_id [::plugins::visualizer_upload::upload $content]
 	if { $visualizer_id ne "" } {
-		regsub "<ID>" $::plugins::visualizer_upload::settings(visualizer_browse_url) $visualizer_id link 
+		set link [::plugins::visualizer_upload::id_to_url $visualizer_id browse]
 		set repo_link "Visualizer $link"
 		if { [string match "*$repo_link*" $content] != 1 } {
 			set arr_changes(repository_links) $repo_link
@@ -2124,31 +2125,38 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			line.width.dye_vis_sepline 1 
 		}
 
-		set dims [dui page split_vspace $page 0.1 0.1 0.1 0.4 0.1]
-		set i -1
+		set page_width [dui page width $page 0]
+		set page_height [dui page height $page 0]
+		set splits [dui page split_space 0 $page_height 0.1 0.1 0.1 0.4 0.1]
 		
-		lassign [lindex $dims [incr i]] x0 y0 x1 y1 width height
+		set i 0		
+		set y0 [lindex $splits $i]
+		set y1 [lindex $splits [incr i]]
 		dui add dtext $page 0.5 [expr {int(($y1-$y0)/2)}] -anchor center -tags title \
 			-text [translate "Choose a Visualizer action:"] -font_size +1
-		dui add dbutton $page 0.8 $y0 0.999 $y1 -tags close_dialog -shape rect -fill {} -symbol times \
-			-symbol_pos {0.6 0.5} -symbol_fill #3a3b3c
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -shape rect -fill {} -symbol times \
+			-symbol_pos {0.5 0.5} -symbol_fill #3a3b3c
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style dye_vis_sepline
 		
-		lassign [lindex $dims [incr i]] x0 y0 x1 y1 width height
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags upload -style dye_vis_dlg_btn \
 			-label [translate "Upload shot"] -symbol cloud-upload -label1variable upload_status_msg
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style dye_vis_sepline -tags line_up_down
 
 		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg -fill red -font_size +3 
 		
-		lassign [lindex $dims [incr i]] x0 y0 x1 y1 width height
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags download -style dye_vis_dlg_btn \
 			-label [translate "Download shot"] -symbol cloud-download -label1variable download_status_msg
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style dye_vis_sepline
 
-		lassign [lindex $dims [incr i]] x0 y0 x1 y1 width height
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags browse -style dye_vis_dlg_btn \
-			-label [translate "Browse shot"] -label_pos {0.3 0.1} -symbol chart-line -symbol_pos {0.15 0.1} \
+			-label [translate "Browse shot"] -label_pos {0.3 0.1} -label_anchor w \
+			-symbol chart-line -symbol_pos {0.15 0.1} -symbol_anchor w \
 			-label1variable browse_msg -label1_pos {0.1 0.3} -label1_anchor nw -label1_width 300
 				
 		image create photo [namespace current]::qr_img -width [dui::platform::rescale_x 1500] \
@@ -2158,7 +2166,8 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style dye_vis_sepline
 		
-		lassign [lindex $dims [incr i]] x0 y0 x1 y1 width height
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags settings -style dye_vis_dlg_btn \
 			-label [translate "Visualizer settings"] -symbol cogs -label1variable settings_msg
 	}
@@ -2167,6 +2176,10 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 	proc load { page_to_hide page_to_show {shot_clock {}} {visualizer_id {}} {repo_link {}} } {
 		variable data
 		
+		if { ![plugins available visualizer_upload] } {
+			return 0
+		}
+		
 		set data(shot_clock) $shot_clock
 		if { $visualizer_id eq {} && $repo_link ne {} } {
 			set visualizer_id [file tail $repo_link]
@@ -2174,7 +2187,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set data(visualizer_id) $visualizer_id
 
 		if { $repo_link eq {} && $visualizer_id ne {} } {
-			set repo_link "https://visualizer.coffee/shots/$visualizer_id"
+			set repo_link [plugins::visualizer_upload::id_to_url $visualizer_id browse]
 		}
 		set data(repo_link) $repo_link
 	
@@ -2199,7 +2212,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		} elseif { $::android == 1 && [borg networkinfo] eq "none" } {
 			set data(warning_msg) [translate "No wifi, can't access Visualizer"]
 		} elseif { $::plugins::visualizer_upload::settings(visualizer_username) eq "" ||
-		    $::plugins::visualizer_upload::settings(visualizer_username) eq "demo@demo123" ||
+				$::plugins::visualizer_upload::settings(visualizer_username) eq "demo@demo123" ||
 				$::plugins::visualizer_upload::settings(visualizer_password) eq "" } {
 			set data(warning_msg) [translate "Visualizer username or password is not defined, can't access Visualizer"]
 		} else {
@@ -2237,11 +2250,11 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set new_repo_link [::plugins::DYE::upload_to_visualizer_and_save $data(shot_clock)]
 
 		if { $new_repo_link eq "" } {
-			set data(upload_status_msg) [translate "Upload failed, see details on the settings page"]
+			set data(upload_status_msg) [translate "Failed, see details on settings page"]
 		} else {
 			set data(repo_link) [lindex $new_repo_link 1]
 			set data(visualizer_id) [file tail $data(repo_link)]
-			set data(upload_status_msg) [translate "Upload successful"]
+			set data(upload_status_msg) [translate "Successful"]
 			show {} $page
 		}
 		
@@ -2263,49 +2276,17 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		}
 		
 		set data(download_status_msg) "[translate Downloading]..."
-		set download_link "https://visualizer.coffee/api/shots/$data(visualizer_id)/download?essentials=1"
-		set host "visualizer.coffee"
-		
-		::http::register https 443 ::tls::socket
-		tls::init -tls1 0 -ssl2 0 -ssl3 0 -tls1.1 0 -tls1.2 1 -servername $host $host 443
-		
-		if {[catch {
-			set token [::http::geturl $download_link -timeout 10000]
-			set status [::http::status $token]
-			set answer [::http::data $token]
-			set meta [::http::meta $token]
-			set ncode [::http::ncode $token]
-			set code [::http::code $token]
-			::http::cleanup $token
-		} err] != 0} {
-			msg -WARNING [namespace current] download: "Could not download visualizer shot '$download_link' : $err"
-			dui say [translate "Download failed"]
-			set data(download_status_msg) [translate "Download failed"]
-			catch { ::http::cleanup $token }
-			return
-		}
-		
-		if { $status eq "ok" && $ncode == 200 } {
-			if {[catch {
-				set response [::json::json2dict $answer]
-			} err] != 0} {
-				set my_err ""
-				msg -WARNING [namespace current] download: "Unexpected Visualizer answer: $answer"
-				dui say [translate "Download failed"] 
-				set data(upload_status_msg) [translate "Download failed"]
-				return
-			}		
-		} else {
-			msg -WARNING [namespace current] "Could not get Visualizer url $download_link: $code"
-			dui say [translate "Download failed"]
-			set data(upload_status_msg) [translate "Download failed"]
-			return
-		}
+		set vis_shot [plugins::visualizer_upload::download $data(visualizer_id)]
 
-		set data(download_status_msg) [translate "Download successful"]
-		set data(downloaded_shot) $response	
+		if { [dict size $vis_shot] == 0 } {
+			set data(download_status_msg) [translate "Failed"]
+		} else {
+			set data(download_status_msg) [translate "Successful"]
+		}
+		set data(downloaded_shot) $vis_shot	
 		
-		return $response
+		return $vis_shot
+		
 	}
 	
 	proc browse {} {
@@ -2319,7 +2300,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		variable data
 		
 		if { [plugins enabled visualizer_upload] } {
-			dui page load plugin_visualizer_page_default
+			dui page open_dialog visualizer_settings
 		} else {
 			if { [plugins enable visualizer_upload] } {
 				show {} [namespace tail [namespace current]]
