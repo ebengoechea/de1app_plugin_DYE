@@ -1557,9 +1557,23 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 					}
 				}
 			}
-			#::plugins::DYE::define_last_shot_desc
+			
 			set ::plugins::DYE::last_shot_desc [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
 				$data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
+	
+			# Update data on labels in small chart on DSx home page
+			if { $::settings(skin) eq "DSx" } {
+				if { [return_zero_if_blank $data(grinder_dose_weight)] > 0 && \
+						[value_or_default ::DSx_settings(live_graph_beans) {}] ne $data(grinder_dose_weight)} {
+					set ::DSx_settings(live_graph_beans) [round_to_one_digits $data(grinder_dose_weight)]
+					set dsx_settings_changed 1
+				}
+				if { [return_zero_if_blank $data(drink_weight)] > 0 && \
+						[value_or_default ::DSx_settings(live_graph_weight) {}] ne $data(drink_weight) } {
+					set ::DSx_settings(live_graph_weight) [round_to_one_digits $data(drink_weight)]
+					set dsx_settings_changed 1
+				}
+			}
 		}
 		
 		::plugins::SDB::modify_shot_file $data(path) changes
@@ -1973,19 +1987,19 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			dbutton.shape.dye_vis_dlg_btn rect
 			dbutton.fill.dye_vis_dlg_btn {}
 			dbutton.disabledfill.dye_vis_dlg_btn {}
-			dbutton_label.pos.dye_vis_dlg_btn {0.3 0.4} 
+			dbutton_label.pos.dye_vis_dlg_btn {0.3 0.3} 
 			dbutton_label.anchor.dye_vis_dlg_btn w
 			dbutton_label.fill.dye_vis_dlg_btn #7f879a
 			dbutton_label.disabledfill.dye_vis_dlg_btn #ddd
 			
-			dbutton_label1.pos.dye_vis_dlg_btn {0.3 0.8} 
+			dbutton_label1.pos.dye_vis_dlg_btn {0.3 0.75} 
 			dbutton_label1.anchor.dye_vis_dlg_btn w
 			dbutton_label1.fill.dye_vis_dlg_btn #ccc
 			dbutton_label1.disabledfill.dye_vis_dlg_btn #ddd
 			dbutton_label1.font_size.dye_vis_dlg_btn -3
 			
-			dbutton_symbol.pos.dye_vis_dlg_btn {0.15 0.5} 
-			dbutton_symbol.anchor.dye_vis_dlg_btn w
+			dbutton_symbol.pos.dye_vis_dlg_btn {0.18 0.5} 
+			dbutton_symbol.anchor.dye_vis_dlg_btn center
 			dbutton_symbol.fill.dye_vis_dlg_btn #3a3b3c
 			dbutton_symbol.disabledfill.dye_vis_dlg_btn #ddd
 			
@@ -2042,8 +2056,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 
 	
 	proc load { page_to_hide page_to_show {shot_clock {}} {visualizer_id {}} {repo_link {}} } {
-		variable data
-msg "LOAD VISUALIZER DIALOG, clock=$shot_clock, vis_id=$visualizer_id, link=$repo_link"		
+		variable data		
 		if { ![plugins available visualizer_upload] } {
 			return 0
 		}
