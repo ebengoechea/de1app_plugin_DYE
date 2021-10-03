@@ -818,8 +818,7 @@ namespace eval ::dui::pages::DYE {
 	# right of the history viewer). Values are actually saved only when tapping the "Done" button.
 	# describe_which_shot: next / current / past / DSx_past / DSx_past2	
 	variable data
-	array set data {
-		close_action {}
+	array set data {		
 		page_title {translate {Describe your espresso}}
 		describe_which_shot {current}
 		shot_file {}
@@ -1055,8 +1054,6 @@ proc ::dui::pages::DYE::setup {} {
 #	'DSx_past2'.
 proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } {
 	variable data
-	set data(close_action) {}
-	set data(cancel_clicked) 0
 	
 	if { [info exists ::settings(espresso_clock)] && $::settings(espresso_clock) ne "" && $::settings(espresso_clock) > 0} {
 		set current_clock $::settings(espresso_clock)
@@ -1114,9 +1111,10 @@ proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } 
 		return 0
 	}
 	
-	if { [load_description] == 0 } {
-		info_page [translate "The requested shot description for '$which_shot' is not available"] [translate Ok]
-		return 0
+	if { ![load_description] } {
+#		info_page [translate "The requested shot description for '$which_shot' is not available"] [translate Ok]
+#		return 0
+		#set data()
 	}
 	
 	return 1
@@ -1132,12 +1130,32 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 	dui item show_or_hide [expr {!$use_stars}] $page_to_show espresso_enjoyment*
 
 	set is_not_next [expr {$data(describe_which_shot) ne "next"}]
-	dui item enable_or_disable $is_not_next $page_to_show {move_forward move_to_next grinder_dose_weight* 
-		drink_weight* drink_tds* drink_ey* espresso_enjoyment* espresso_enjoyment_rater* espresso_enjoyment_label}
+	
+	if { $is_not_next && $data(path) eq {} } {
+		set fields {beans_select edit_dialog* visualizer_dialog* espresso_enjoyment_rater* espresso_enjoyment_label}
+		foreach f [metadata fields -domain shot -category description] {
+			lappend fields $f*
+		}
+		dui item disable $page_to_show $fields
+	} else {
+		set cond_fields {move_forward move_to_next grinder_dose_weight* drink_weight* drink_tds* drink_ey* 
+			espresso_enjoyment* espresso_enjoyment_rater* espresso_enjoyment_label}
+		set fields {beans_select edit_dialog* espresso_enjoyment_rater* espresso_enjoyment_label}
+		foreach f [metadata fields -domain shot -category description] {
+			if { "$f*" ni $cond_fields } {
+				lappend fields $f*
+			}
+		}
+		dui item enable $page_to_show $fields
+		
+		dui item enable_or_disable $is_not_next $page_to_show $cond_fields
+#		dui item enable_or_disable $is_not_next $page_to_show {move_forward move_to_next grinder_dose_weight* 
+#			drink_weight* drink_tds* drink_ey* espresso_enjoyment* espresso_enjoyment_rater* espresso_enjoyment_label}
+	}
 	
 	if { $is_not_next } {
 		set previous_shot [::plugins::SDB::previous_shot $data(clock)]
-		dui item enable_or_disable [expr {$previous_shot ne ""}] $page_to_show "move_backward"
+		dui item enable_or_disable [expr {$previous_shot ne ""}] $page_to_show "move_backward*"
 		
 		if { $use_stars } {
 			dui item enable $page_to_show espresso_enjoyment_rater*
@@ -1161,10 +1179,8 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 proc ::dui::pages::DYE::hide { page_to_hide page_to_show } {
 	variable data
 
-	if { !$data(cancel_clicked) } {
-		save_description
-		dui say [translate "Saved"] ""
-	}
+	save_description
+	dui say [translate "Saved"] ""
 }
 
 proc ::dui::pages::DYE::propagate_state_msg {} {
@@ -1178,6 +1194,8 @@ proc ::dui::pages::DYE::propagate_state_msg {} {
 		} else {
 			return [translate "Changes in last shot metadata will propagate here"]
 		}
+	} elseif { $data(path) eq {} } {
+		return [translate "Shot not saved to history"]
 	} elseif { $data(describe_which_shot) eq "current" || $data(clock) == $::settings(espresso_clock) } {
 		if { ![string is true $::plugins::DYE::settings(propagate_previous_shot_desc)] } {
 			return [translate "Propagation is disabled"]
@@ -1433,33 +1451,43 @@ proc ::dui::pages::DYE::load_description {} {
 			set data($fn) {}
 		}
 		
+		return 1
 	} else {
 		set src_next_modified {}
-		array set shot [::plugins::SDB::load_shot $data(clock)]	
-		if { [array size shot] == 0 } { 
-			return 0 
-		}
-		
 		if { $data(clock) == [value_or_default ::settings(espresso_clock) 0] } {
 			set data(page_title) "Describe last espresso: [formatted_shot_date]"
 		} else {
 			set data(page_title) "Describe past espresso: [formatted_shot_date]"
 		}
 		
-		foreach fn [metadata fields -domain shot -category description] {
-			set src_data($fn) $shot($fn)
-			set data($fn) $shot($fn)
+		array set shot [::plugins::SDB::load_shot $data(clock)]	
+		if { [array size shot] == 0 } {
+			foreach fn [metadata fields -domain shot -category description] {
+				set src_data($fn) {}
+				set data($fn) {}
+			}
+			set data(path) {}
+			return 0 
+		} else {			
+			foreach fn [metadata fields -domain shot -category description] {
+				set src_data($fn) $shot($fn)
+				set data($fn) $shot($fn)
+			}
+			set data(path) $shot(path)
+			return 1
 		}
-		set data(path) $shot(path)
 	}
-	
-	return 1
 }
 
 proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 	variable data
 	variable src_data
 	array set changes {}
+	
+	# Non-saved shot
+	if { $data(path) eq {} } {
+		return 1
+	}
 	
 	# Determine what to change (either all, or detect the actual changes)
 	if { [string is true $force_save_all] } {
@@ -1855,22 +1883,11 @@ proc ::dui::pages::DYE::ask_to_save_if_needed { {action page_cancel} } {
 	}
 }
 
-# TBR: No longer used
-proc ::dui::pages::DYE::page_cancel {} {
-	variable data
-	dui say [translate {cancel}] sound_button_in
-	
-	undo_changes
-	set data(cancel_clicked) 1
-	dui page close_dialog
-}
-
 proc ::dui::pages::DYE::page_done {} {
 	variable data
 	dui sound make sound_button_in
 	
-	# Don't need to save_description here, it is done automatically in dui::pages::DYE::hide. Just flag "Not cancelled"
-	set data(cancel_clicked) 0
+	# Don't need to save_description here, it is done automatically in dui::pages::DYE::hide. 
 	dui page close_dialog
 }
 
