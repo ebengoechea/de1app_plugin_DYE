@@ -2,6 +2,20 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.08] - 2021-10-03
+
+### Changed
+- Now any edition in the DYE page is saved by default, even if leaving the page in abnormal ways
+- Remove the cancel button, now there's an "Undo" equivalent action in the "Edit data" dialog
+- Ok button moves to the center of the page 
+- Moved all editing actions to a new "Edit data" dialog
+- The visualizer button now launches a Visualizer dialog with options for upload, download, browse (direct or QR),
+and see visualizer settings or enable visualizer
+- Shots that are not saved to history now are shown with a message and all fields disabled, instead of showing
+an error page as before. The old way closed the DYE page and prevented moving to other shots, which now is possible.
+- Disabled dclickers or draters background colors now transparent
+- Color of cursor in entries and multiline_entries modified to orange in DSx theme, to make it visible
+
 ## [2.07] - 2021-09-18
 
 ### Changed
