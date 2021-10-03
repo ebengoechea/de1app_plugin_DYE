@@ -63,7 +63,10 @@ proc ::plugins::DYE::main {} {
 	foreach page {DYE DYE_fsh} {
 		dui page add $page -namespace true -type fpdialog
 	}
-	dui page add dye_visualizer_dlg -namespace true -type dialog -bbox {750 400 1650 1350}
+	# Default slice/button height in menu dialogs: 120
+	dui page add dye_edit_dlg -namespace true -type dialog -bbox {0 0 900 600}
+	dui page add dye_visualizer_dlg -namespace true -type dialog -bbox {0 0 900 960}
+	
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
 	}
@@ -731,7 +734,8 @@ proc ::plugins::DYE::plugin_directory_graphics {} {
 	return $dir
 }
 
-proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button yes} {cancel_button yes} {buttons_loc right} } {
+proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button yes} {cancel_button yes} {buttons_loc right} \
+		{buttons_style dsx_done} } {
 	if { $title ne "" } {
 		dui add dtext $page 1280 60 -text $title -tags page_title -style page_title 
 	} elseif { $titlevar ne "" } {
@@ -740,7 +744,7 @@ proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button 
 
 	set done_button [string is true $done_button]
 	set cancel_button [string is true $cancel_button]
-	set button_width [dui aspect get dbutton bwidth -style dsx_done -default 220]
+	set button_width [dui aspect get dbutton bwidth -style $buttons_style -default 220]
 	
 	if { $buttons_loc eq "center" } {
 		if { $done_button && $cancel_button } {
@@ -771,12 +775,16 @@ proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button 
 		}
 	}
 
-	set y 1425	
+	if { $buttons_style eq "insight_ok" } {
+		set y 1460
+	} else {
+		set y 1425
+	}
 	if { $cancel_button } {
-		dui add dbutton $page $x_cancel $y -label [translate Cancel] -tags page_cancel -style dsx_done
+		dui add dbutton $page $x_cancel $y -label [translate Cancel] -tags page_cancel -style $buttons_style
 	}
 	if { $done_button } {
-		dui add dbutton $page $x_done $y -label [translate Ok] -tags page_done -style dsx_done
+		dui add dbutton $page $x_done $y -label [translate Ok] -tags page_done -style $buttons_style
 	}
 }
 
@@ -814,10 +822,6 @@ namespace eval ::dui::pages::DYE {
 		close_action {}
 		page_title {translate {Describe your espresso}}
 		describe_which_shot {current}
-		read_from_status "last"
-		read_from_last_text "Read from\rlast shot" 
-		read_from_prev_text "Read from\rselection"
-		read_from_label {}
 		shot_file {}
 		clock 0
 		grinder_dose_weight 0
@@ -837,7 +841,7 @@ namespace eval ::dui::pages::DYE {
 		drinker_name {}
 		skin {}
 		beverage_type {}
-		upload_to_visualizer_label {}
+		visualizer_status_label {}
 		repository_links {}
 		warning_msg {}
 	}
@@ -858,7 +862,7 @@ proc ::dui::pages::DYE::setup {} {
 	set page [namespace tail [namespace current]]
 	set skin $::settings(skin)	
 	
-	::plugins::DYE::page_skeleton $page "" page_title yes yes right
+	::plugins::DYE::page_skeleton $page "" page_title yes no center insight_ok
 
 	dui add variable $page 1280 125 -textvariable {[::dui::pages::DYE::propagate_state_msg]} -tags propagate_state_msg \
 		-anchor center -justify center -font_size -3
@@ -995,8 +999,7 @@ proc ::dui::pages::DYE::setup {} {
 	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610 -bheight 75 -tags drink_ey \
 		-labelvariable {$%NS::data(drink_ey)%} -style dye_double \
 		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc \
-		-editor_page yes -editor_page_title [translate "Edit Extraction Yield (%%)"]	
-
+		-editor_page yes -editor_page_title [translate "Edit Extraction Yield (%%)"]
 	
 	# Enjoyment entry with horizontal clicker
 	incr y 100
@@ -1016,7 +1019,7 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Espresso notes
 	incr y 100
-	dui add multiline_entry $page $x_right_field $y -tags espresso_notes -height 5 -canvas_width 900 \
+	dui add multiline_entry $page $x_right_field $y -tags espresso_notes -height 5 -canvas_width 900 -label_width 245 \
 		-label [translate [::plugins::SDB::field_lookup espresso_notes name]] -label_pos [list $x_right_label $y]
 
 	# PEOPLE
@@ -1037,36 +1040,21 @@ proc ::dui::pages::DYE::setup {} {
 		-values {[::plugins::SDB::available_categories drinker_name]} -page_title [translate "Select the coffee drinker"] \
 		-listbox_width 800
 	
-	# BOTTOM BUTTONS	
-	# Clear shot data (only clears "propagated" fields)
-	set x 100; set y 1385
-	dui add dbutton $page $x $y -tags clear_shot_data -style dsx_settings -symbol eraser -label [translate "Clear shot\rdata"]	
+	# BOTTOM BUTTONS
+	set y 1415 	
+	dui add dbutton $page 100 $y -tags edit_dialog -style dsx_settings -symbol chevron-up -label [translate "Edit data"] -bheight 160
 
-	# Recover "propagated" fields from a previous shot
-	set x [expr {$x+[dui aspect get dbutton bwidth -style dsx_settings -default 400]+75}]
-	set data(read_from_label) [translate $data(read_from_last_text)]
-	dui add dbutton $page $x $y -tags read_from -style dsx_settings -symbol file-import -labelvariable read_from_label
-
-	# Upload to Miha's Visualizer button
-	set x [expr {$x+[dui aspect get dbutton bwidth -style dsx_settings -default 400]+75}]
-	#set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
-#	dui add dbutton $page $x $y -tags upload_to_visualizer -style dsx_settings -symbol file-upload \
-#		-labelvariable upload_to_visualizer_label -initial_state hidden
-	#set data(upload_to_visualizer_label) [translate "Visualizer"]
-	dui add dbutton $page $x $y -tags visualizer_dialog -style dsx_settings -symbol chevron-up -symbol_pos {0.8 0.5} \
-		-label [translate "Visualizer"] -label_pos {0.35 0.5}
+	dui add dbutton $page 2440 $y -anchor ne -tags visualizer_dialog -style dsx_settings -symbol chevron-up -symbol_pos {0.8 0.45} \
+		-label [translate "Visualizer"] -label_pos {0.35 0.45} -label1variable visualizer_status_label -label1_pos {0.5 0.8} \
+		-label1_anchor center -label1_justify center -label1_font_size -3 -bheight 160
 	
-	dui add variable $page 2420 1380 -tags warning_msg -style remark -anchor e -justify right -initial_state hidden
+	dui add variable $page 2420 1390 -tags warning_msg -style remark -anchor e -justify right -initial_state hidden
 }
 
 # 'which_shot' can be either a clock value matching a past shot clock, or any of 'current', 'next', 'DSx_past' or 
 #	'DSx_past2'.
 proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } {
 	variable data
-	# If reloading the page (to show a different shot data), remember the original page we came from
-#	if { $page_to_hide ne "DYE" } {
-#		set data(previous_page) $page_to_hide
-#	}
 	set data(close_action) {}
 	set data(cancel_clicked) 0
 	
@@ -1164,22 +1152,6 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 	calc_ey_from_tds
 	update_visualizer_button 0
 }
-
-# TO BE REMOVED, NO LONGER CALLED WITH DUI FPDIALOGS
-proc ::dui::pages::DYE::unload_page {} {
-	#variable data
-
-	dui page close_dialog
-#	if { $data(previous_page) eq "sleep" } {
-#		set_next_page off off
-#		set ::current_espresso_page "off"
-#		start_sleep				
-#	} elseif { $data(previous_page) ne "" } {
-#		dui page load $data(previous_page)
-#	} else {
-#		dui page load off
-#	}	
-}	
 
 # Ensure the shot description is saved if it has been modified and we're leaving the page unexpectedly, for example
 # 	if a GHC button is tapped while editing the shot, or the machine is starting up.
@@ -1369,52 +1341,49 @@ proc ::dui::pages::DYE::grinder_model_change {} {
 
 proc ::dui::pages::DYE::clear_shot_data {} {
 	variable data
-	say "clear" $::settings(sound_button_in)
-	foreach f $::plugins::DYE::propagated_fields {
-		set data($f) {}
+	
+	dui say "clear" sound_button_in
+	foreach fn [metadata fields -domain shot -category description -propagate 1] {
+		set data($fn) {}
 	}
 	set data(espresso_notes) {}
+
+	# Why commented?
 #	if { $data(describe_which_shot) eq "next" } {
 #		set ::plugins::DYE::settings(next_modified) 1
 #	}
 }
 
-proc ::dui::pages::DYE::read_from {} {
+# what = [previous] / selected
+proc ::dui::pages::DYE::read_from { {what previous} } {
 	variable data
 	say "read" $::settings(sound_button_in)
 
-	# Bring descriptive data from last shot (in-memory if editing the next description), if not using
-	# the last shot use the DB to get it back.
-	if { ![info exists data(clock) ]|| $data(clock) == 0 || $data(clock) eq {} } {			
+	set propagated_fields [metadata fields -domain shot -category description -propagate 1]
+	
+	# Next shot spec doesn't have a clock
+	if { $data(clock) == 0 || $data(clock) eq {} } {
 		set filter "clock < [clock seconds]"
 	} else {
 		set filter "clock < $data(clock)"
 	}
 	set sql_conditions {}
-	foreach f $::plugins::DYE::propagated_fields {
+	foreach f $propagated_fields {
 		lappend sql_conditions "LENGTH(TRIM(COALESCE($f,'')))>0"
 	}
 	
-	if { $data(read_from_status) eq "prev" } {
+	if { $what eq "selected" } {
 		array set shots [::plugins::SDB::shots "clock shot_desc" 1 "$filter AND ([join $sql_conditions { OR }])" 500]
-#		dui page load dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
-#			-page_title [translate "Select the shot to read the data from"] \
-#			-callback_cmd [namespace current]::select_read_from_shot_callback -listbox_width 2300
 		dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
 			-page_title [translate "Select the shot to read the data from"] -theme [dui theme get] \
 			-return_callback [namespace current]::select_read_from_shot_callback -listbox_width 2300
-		set data(read_from_status) "last"
 	} else {
-		array set last_shot [::plugins::SDB::shots "$::plugins::DYE::propagated_fields" 1 \
-			"$filter AND ([join $sql_conditions { OR }])" 1]
+		array set last_shot [::plugins::SDB::shots $propagated_fields 1 "$filter AND ([join $sql_conditions { OR }])" 1]
 		foreach f [array names last_shot] {
 			set data($f) [lindex $last_shot($f) 0]
 		}
-				
-		set data(read_from_status) "prev"
 	}
 	
-	set data(read_from_label) [translate $data(read_from_${data(read_from_status)}_text)]
 #	if { $data(describe_which_shot) eq "next" } {
 #		set DYE::settings(next_modified) 1
 #	}
@@ -1448,7 +1417,6 @@ proc ::dui::pages::DYE::load_description {} {
 	variable src_next_modified
 	
 	array set src_data {}
-	set data(read_from_label) [translate $data(read_from_${data(read_from_status)}_text)]
 	
 	if { $data(describe_which_shot) eq "next" } {
 		#set data(clock) {}
@@ -1731,7 +1699,8 @@ proc ::dui::pages::DYE::formatted_shot_date {} {
 }
 
 # TBR: NO LONGER NEEDED
-# Return 1 if some data has changed in the form.
+# Return 1 if some data has changed in the form, with respect to the data that was there when we originally loaded
+# the shot in the page.
 proc ::dui::pages::DYE::needs_saving { } {
 	variable data
 	variable src_data
@@ -1779,6 +1748,24 @@ proc ::dui::pages::DYE::calc_ey_from_tds  {} {
 	}
 }
 
+proc ::dui::pages::DYE::edit_dialog {} {
+	dui sound make sound_button_in
+	
+	dui page open_dialog dye_edit_dlg -coords {100 1390} -anchor sw -disable_items 1 -return_callback [namespace current]::process_edit_dialog
+}
+
+proc ::dui::pages::DYE::process_edit_dialog { {action {}} } {
+	if { $action eq "clear" } {
+		clear_shot_data
+	} elseif { $action eq "read_previous" } {
+		read_from previous
+	} elseif { $action eq "read_selected" } {
+		read_from selected
+	} elseif { $action eq "undo" } {
+		undo_changes
+	}
+}
+
 proc ::dui::pages::DYE::visualizer_dialog {} {
 	variable data
 	dui sound make sound_button_in
@@ -1788,63 +1775,8 @@ proc ::dui::pages::DYE::visualizer_dialog {} {
 	if { $data(repository_links) ne {} } {
 		set repo_link [lindex $data(repository_links) 1]
 	}
-	dui page open_dialog dye_visualizer_dlg -return_callback [namespace current]::process_visualizer_dlg \
-		$data(clock) {} $repo_link
-}
-
-proc ::dui::pages::DYE::upload_to_visualizer {} {
-return
-	variable data
-	variable widgets
-
-	set remark_color [dui aspect get dtext fill -style remark -default orange]
-#	if { $::dui::pages::DYE::data(repository_links) ne {} } {
-#		say [translate "browsing"] $::settings(sound_button_in)
-#		if { [llength $::dui::pages::DYE::data(repository_links)] > 1 } {
-#			web_browser [lindex $::dui::pages::DYE::data(repository_links) 1]
-#		}
-#		return
-#	}
-	
-	say "" $::settings(sound_button_in)
-	if { $::android == 1 && [borg networkinfo] eq "none" } {
-		set data(upload_to_visualizer_label) [translate "Failed\rNo wifi"]
-#		set ::plugins::DYE::settings(last_visualizer_result) "[translate {Upload failed}]: [translate {No wifi}]"
-		dui item config $widgets(upload_to_visualizer-lbl) -fill $remark_color 
-		#update
-		after 3000 ::dui::pages::DYE::update_visualizer_button
-		dui sound make button_out
-		return
-	}
-	
-	# Ensure latest values are in the shot file in case they have changed
-	if { [::dui::pages::DYE::needs_saving] } {
-		set answer [ask_to_save_if_needed]
-		if { $answer eq "cancel" } return
-	}
-		
-	set data(upload_to_visualizer_label) [translate "Uploading..."]
-	dui item config $widgets(upload_to_visualizer-lbl) -fill $remark_color
-	#update
-	
-	set repo_link [::plugins::DYE::upload_to_visualizer_and_save $data(clock)]
-	
-	if { $repo_link eq "" } {
-		set data(upload_to_visualizer_label) [translate "Upload\rfailed"]
-		#update
-		after 3000 ::dui::pages::DYE::update_visualizer_button
-	} else {
-		set data(upload_to_visualizer_label) [translate "Upload\rsuccessful"]
-		if { $data(repository_links) eq "" } { 
-			set data(repository_links) $repo_link
-		} elseif { $data(repository_links) ne $repo_link } {
-			lappend data(repository_links) $repo_link
-		}
-		
-		#update
-		after 3000 ::dui::pages::DYE::update_visualizer_button
-	}
-	dui sound make button_out
+	dui page open_dialog dye_visualizer_dlg -coords {2440 1390} -anchor se -disable_items 1 \
+		-return_callback [namespace current]::process_visualizer_dlg $data(clock) {} $repo_link
 }
 
 proc ::dui::pages::DYE::update_visualizer_button { {check_page 1} } {
@@ -1857,31 +1789,26 @@ proc ::dui::pages::DYE::update_visualizer_button { {check_page 1} } {
 		return
 	}
 
-	# [plugins enabled visualizer_upload]
+	set data(visualizer_status_label) {}
+	
 	if { [plugins available visualizer_upload] } {
 		if { $data(describe_which_shot) eq "next" } {
 			dui item disable $page visualizer_dialog*
 		}
-		#dui item config $widgets(upload_to_visualizer-lbl) -fill [dui aspect get {dbutton_label text} fill]
-		#dui item show $page upload_to_visualizer*
-		#dui item show $page visualizer_dialog*
 				
-#		if { $data(repository_links) eq {} } {
-#			#dui item config $widgets(upload_to_visualizer_symbol) -text [dui symbol get file-upload]
-#			set data(upload_to_visualizer_label) [translate "Upload to\rVisualizer"]
-#		} else {
-#			set data(upload_to_visualizer_label) [translate "Re-upload to\rVisualizer"]
-#		}
-#		else {
-			#dui item config $widgets(upload_to_visualizer_symbol) -text [dui symbol get file-contract]
-#			set $data(upload_to_visualizer_label) [translate "See in\rVisualizer"]
-#		}
+		if { $data(repository_links) ne {} } {
+			set data(visualizer_status_label) [translate "Uploaded"]
+		} elseif { [plugins enabled visualizer_upload] && $::plugins::visualizer_upload::settings(last_upload_shot) == $data(clock) } {
+			set data(visualizer_status_label) [translate [lrange $::plugins::visualizer_upload::settings(last_upload_result) 0 1]]
+		} else {
+			set data(visualizer_status_label) [translate "Not uploaded"]
+		} 
 	} else {
 		dui item hide $page visualizer_dialog* -current yes -initial yes
 	}
 }
 
-proc ::dui::pages::DYE::process_visualizer_dlg { repo_link {downloaded_shot {}} } {
+proc ::dui::pages::DYE::process_visualizer_dlg { {repo_link {}} {downloaded_shot {}} } {
 	variable data
 	
 	if { $repo_link ne {} && $data(repository_links) eq {} } {
@@ -1907,6 +1834,8 @@ proc ::dui::pages::DYE::process_visualizer_dlg { repo_link {downloaded_shot {}} 
 			}
 		}
 	}
+	
+	update_visualizer_button
 }
 
 # TBR: NO LONGER NEEDED
@@ -1926,21 +1855,7 @@ proc ::dui::pages::DYE::ask_to_save_if_needed { {action page_cancel} } {
 	}
 }
 
-# TBR: NO LONGER NEEDED
-proc ::dui::pages::DYE::confirm_save { answer } {
-	variable data
-	
-	if { $answer == 1 } {
-		save_description
-	} 
-	
-	if { $data(close_action) ne "" } {
-		set action $data(close_action)
-#		set data(close_action) {}
-		[namespace current]::$action
-	}
-}
-
+# TBR: No longer used
 proc ::dui::pages::DYE::page_cancel {} {
 	variable data
 	dui say [translate {cancel}] sound_button_in
@@ -1957,6 +1872,61 @@ proc ::dui::pages::DYE::page_done {} {
 	# Don't need to save_description here, it is done automatically in dui::pages::DYE::hide. Just flag "Not cancelled"
 	set data(cancel_clicked) 0
 	dui page close_dialog
+}
+
+### DYE EDIT DIALOG PAGE ###########################################################################################
+
+namespace eval ::dui::pages::dye_edit_dlg {
+	variable widgets
+	array set widgets {}
+		
+	variable data
+	array set data {}
+
+	# Actions: Clear shot data, Read from last shot, Read from selected shot, Undo changes
+	proc setup {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		set page_width [dui page width $page 0]
+		set page_height [dui page height $page 0]
+		set splits [dui page split_space 0 $page_height 0.1 0.1 0.1 0.1 0.1]
+		
+		set i 0		
+		set y0 [lindex $splits $i]
+		set y1 [lindex $splits [incr i]]
+		
+		dui add dtext $page 0.5 [expr {int(($y1-$y0)/2)}] -tags title -style menu_dlg_title -text [translate "Choose an edit action:"] 
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
+			-command dui::page::close_dialog
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+		
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags clear_data -style menu_dlg_btn \
+			-label [translate "Clear all shot data"] -symbol eraser -command [list dui::page::close_dialog clear]
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
+
+		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg -fill red -font_size +3 
+		
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags read_last -style menu_dlg_btn \
+			-label [translate "Read from previous shot"] -symbol file-import -command [list dui::page::close_dialog read_previous]
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags read_selected -style menu_dlg_btn \
+			-label "[translate {Read from selected shot}]..." -symbol file-import -command [list dui::page::close_dialog read_selected]
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+		
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags undo_changes -style menu_dlg_btn \
+			-label [translate "Undo changes"] -symbol undo -command [list dui::page::close_dialog undo]
+	}
+
 }
 
 ### VISUALIZER DIALOG PAGE #########################################################################################
@@ -1983,30 +1953,6 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		variable data
 		set page [namespace tail [namespace current]]
 		
-		dui aspect set -theme default {
-			dbutton.shape.dye_vis_dlg_btn rect
-			dbutton.fill.dye_vis_dlg_btn {}
-			dbutton.disabledfill.dye_vis_dlg_btn {}
-			dbutton_label.pos.dye_vis_dlg_btn {0.3 0.3} 
-			dbutton_label.anchor.dye_vis_dlg_btn w
-			dbutton_label.fill.dye_vis_dlg_btn #7f879a
-			dbutton_label.disabledfill.dye_vis_dlg_btn #ddd
-			
-			dbutton_label1.pos.dye_vis_dlg_btn {0.3 0.75} 
-			dbutton_label1.anchor.dye_vis_dlg_btn w
-			dbutton_label1.fill.dye_vis_dlg_btn #ccc
-			dbutton_label1.disabledfill.dye_vis_dlg_btn #ddd
-			dbutton_label1.font_size.dye_vis_dlg_btn -3
-			
-			dbutton_symbol.pos.dye_vis_dlg_btn {0.18 0.5} 
-			dbutton_symbol.anchor.dye_vis_dlg_btn center
-			dbutton_symbol.fill.dye_vis_dlg_btn #3a3b3c
-			dbutton_symbol.disabledfill.dye_vis_dlg_btn #ddd
-			
-			line.fill.dye_vis_sepline #ddd
-			line.width.dye_vis_sepline 1 
-		}
-
 		set page_width [dui page width $page 0]
 		set page_height [dui page height $page 0]
 		set splits [dui page split_space 0 $page_height 0.1 0.1 0.1 0.4 0.1]
@@ -2014,31 +1960,30 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set i 0		
 		set y0 [lindex $splits $i]
 		set y1 [lindex $splits [incr i]]
-		dui add dtext $page 0.5 [expr {int(($y1-$y0)/2)}] -anchor center -tags title \
-			-text [translate "Choose a Visualizer action:"] -font_size +1
-		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -shape rect -fill {} -symbol times \
-			-symbol_pos {0.5 0.5} -symbol_fill #3a3b3c
-		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style dye_vis_sepline
+		
+		dui add dtext $page 0.5 [expr {int(($y1-$y0)/2)}] -tags title -style menu_dlg_title -text [translate "Choose a Visualizer action:"] 
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags upload -style dye_vis_dlg_btn \
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags upload -style menu_dlg_btn \
 			-label [translate "Upload shot"] -symbol cloud-upload -label1variable upload_status_msg
-		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style dye_vis_sepline -tags line_up_down
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline -tags line_up_down
 
 		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg -fill red -font_size +3 
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags download -style dye_vis_dlg_btn \
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags download -style menu_dlg_btn \
 			-label [translate "Download shot"] -symbol cloud-download -label1variable download_status_msg
-		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style dye_vis_sepline
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags browse -style dye_vis_dlg_btn \
-			-label [translate "Browse shot"] -label_pos {0.3 0.1} -label_anchor w \
-			-symbol chart-line -symbol_pos {0.15 0.1} -symbol_anchor w \
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags browse -style menu_dlg_btn \
+			-label "[translate {Browse shot}]..." -label_pos {0.25 0.1} -label_anchor w \
+			-symbol chart-line -symbol_pos {0.15 0.1} -symbol_anchor center -symbol_justify center \
 			-label1variable browse_msg -label1_pos {0.1 0.3} -label1_anchor nw -label1_width 300
 				
 		image create photo [namespace current]::qr_img -width [dui::platform::rescale_x 1500] \
@@ -2046,12 +1991,12 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		dui add image $page 0.5 [expr {$y0+100}] {} -tags qr
 		dui item config $page qr -image [namespace current]::qr_img
 		
-		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style dye_vis_sepline
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags settings -style dye_vis_dlg_btn \
-			-label [translate "Visualizer settings"] -symbol cogs -label1variable settings_msg
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags settings -style menu_dlg_btn \
+			-label "[translate {Visualizer settings}]..." -symbol cogs -label1variable settings_msg
 	}
 
 	
@@ -2089,15 +2034,13 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		if { ![plugins enabled visualizer_upload] } {
 			set data(warning_msg) [translate "\"Upload to Visualizer\" extension is not enabled"]
 			dui item config $page settings-lbl -text [translate "Enable Visualizer"]
-			set data(settings_msg) [translate "Requires app restart"]
+			#set data(settings_msg) [translate "Requires app restart"]
 		} elseif { $::android == 1 && [borg networkinfo] eq "none" } {
 			set data(warning_msg) [translate "No wifi, can't access Visualizer"]
-		} elseif { $::plugins::visualizer_upload::settings(visualizer_username) eq "" ||
-				$::plugins::visualizer_upload::settings(visualizer_username) eq "demo@demo123" ||
-				$::plugins::visualizer_upload::settings(visualizer_password) eq "" } {
+		} elseif { ![::plugins::visualizer_upload::has_credentials] } {
 			set data(warning_msg) [translate "Visualizer username or password is not defined, can't access Visualizer"]
 		} else {
-			dui item config $page settings-lbl -text [translate "Visualizer settings"]
+			dui item config $page settings-lbl -text "[translate {Visualizer settings}]..."
 			set data(settings_msg) {}
 			set data(warning_msg) {}
 		}
@@ -2119,6 +2062,11 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			set data(browse_msg) [translate "Scan the QR code or tap here to open the link in the system browser"]
 		}
 		generate_qr $data(repo_link)
+	}
+	
+	proc close_dialog {} {
+		variable data
+		dui page close_dialog $data(repo_link) $data(downloaded_shot)
 	}
 	
 	proc upload {} {
@@ -2191,11 +2139,6 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		}
 	}
 	
-	proc close_dialog {} {
-		variable data
-		dui page close_dialog $data(repo_link) $data(downloaded_shot)
-	}
-
 }
 
 ### "FILTER SHOT HISTORY" PAGE #########################################################################################
