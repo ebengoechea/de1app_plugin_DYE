@@ -18,7 +18,7 @@ package require json
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.08
+	variable version 2.09
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -1447,8 +1447,13 @@ proc ::dui::pages::DYE::load_description {} {
 			set data($fn) $::plugins::DYE::settings(next_$fn)
 		}
 		foreach fn [metadata fields -domain shot -category description -propagate 0] {
-			set src_data($fn) {}
-			set data($fn) {}
+			if { $fn eq "espresso_notes" } {
+				set src_data($fn) $::plugins::DYE::settings(next_$fn)
+				set data($fn) $::plugins::DYE::settings(next_$fn)
+			} else {
+				set src_data($fn) {}
+				set data($fn) {}
+			}
 		}
 		
 		return 1
@@ -1484,11 +1489,6 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 	variable src_data
 	array set changes {}
 	
-	# Non-saved shot
-	if { $data(path) eq {} } {
-		return 1
-	}
-	
 	# Determine what to change (either all, or detect the actual changes)
 	if { [string is true $force_save_all] } {
 		foreach field [metadata fields -domain shot -category description] {
@@ -1521,7 +1521,7 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 			if { [info exists ::plugins::DYE::settings(next_$field)] } {
 				set ::plugins::DYE::settings(next_modified) 1
 				set ::plugins::DYE::settings(next_$field) $changes($field)
-				if { [metadata get $field propagate] && [info exists ::settings($field)] } {
+				if { ([metadata get $field propagate] || $field eq "espresso_notes") && [info exists ::settings($field)] } {
 					if { $changes($field) eq "" && [metadata get $field data_type] eq "number" } {
 						set ::settings($field) 0
 					} else {
@@ -1535,28 +1535,35 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 		set dye_settings_changed 1
 		set ::plugins::DYE::next_shot_desc [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
 			$data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
+	} elseif { $data(path) eq {} } {
+		# Past shot not properly saved to history folder
+		return 1
 	} else {
-		set dye_settings_changed 1
+		#set dye_settings_changed 1
 		if { $data(describe_which_shot) eq "current" || $data(clock) == $last_espresso_clock } {
 			foreach field [array names changes] {
 				if { $propagate && !$next_modified && [metadata get $field propagate] } {
 					set ::plugins::DYE::settings(next_$field) $changes($field)
-										
 					set dye_settings_changed 1
-					if { [info exists ::settings($field)] } {
-						if { $changes($field) eq "" && [metadata get $field data_type] eq "number" } {
-							set ::settings($field) 0
-						} else {
-							set ::settings($field) $changes($field)
-						}
-						set settings_changed 1
+				}
+								
+				if { [info exists ::settings($field)] } {
+					if { $changes($field) eq "" && [metadata get $field data_type] eq "number" } {
+						set ::settings($field) 0
+					} else {
+						set ::settings($field) $changes($field)
 					}
+					set settings_changed 1
 				}
 			}
 			
 			set ::plugins::DYE::last_shot_desc [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
 				$data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
-	
+			if { $dye_settings_changed } {
+				set ::plugins::DYE::next_shot_desc [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
+					$data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
+			}
+			
 			# Update data on labels in small chart on DSx home page
 			if { $::settings(skin) eq "DSx" } {
 				if { [return_zero_if_blank $data(grinder_dose_weight)] > 0 && \
