@@ -2,6 +2,15 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.09] - 2021-10-12
+
+### Changed
+- Corrected a few bugs introduced by the refactoring of the last/next shot descriptions in v2.08 (reported by JoeD, Robert Jordan & TMC):
+
+  - Next shot description was not being saved
+  - Next shot summary string was not being updated when propagating last shot data (only visible in DSx)
+  - Field "espresso_notes" was not being saved/loaded in next shot description in some scenarios.
+
 ## [2.08] - 2021-10-03
 
 ### Changed
