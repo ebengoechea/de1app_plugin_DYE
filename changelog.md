@@ -2,7 +2,17 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2.09] - 2021-10-12
+## [2.11] - 2021-10-14
+
+### Changed
+- Make dose and yield (`grinder_dose_weight` and `drink_weight` settings variables) editable in the next shot plan.
+  - Changes in next shot `grinder_dose_weight`, `drink_weight` and `grinder_setting` in the DYE page are now reflected in MimojaCafe home page, and viceversa.
+  - Changes in next shot `grinder_dose_weight` and `drink_weight` in the DYE page are now reflected in DSx home page, and viceversa.
+
+- Last & next shot summary description variables `last_shot_desc` and `next_shot_desc` are  now stored in DYE settings instead of being namespace variables, so they persist. This prevents the error of showing an empty `last_shot_desc` when restarting the app after v2.08 changes.
+- DSx link to open last shot desc in DYE now launches DYE even if the last shot was not saved to history.
+
+## [2.09/2.10] - 2021-10-12
 
 ### Changed
 - Corrected a few bugs introduced by the refactoring of the last/next shot descriptions in v2.08 (reported by JoeD, Robert Jordan & TMC):

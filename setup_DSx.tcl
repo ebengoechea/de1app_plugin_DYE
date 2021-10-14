@@ -536,11 +536,9 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	set x [lindex $settings(next_shot_DSx_home_coords) 0]
 	set y [lindex $settings(next_shot_DSx_home_coords) 1]
 	if { $x > 0 && $y > 0 } {
-		set ::plugins::DYE::next_shot_desc [::plugins::DYE::define_next_shot_desc]
-		
 		dui add dbutton $::DSx_standby_pages [expr {$x-375}] [expr {$y-85}] [expr {$x+400}] [expr {$y+85}] \
 			-tags launch_dye_next -symbol $settings(describe_icon) -symbol_pos {0.01 0.5} -symbol_anchor w -symbol_justify left \
-			-symbol_font_size 28 -labelvariable {$::plugins::DYE::next_shot_desc} -label_pos {0.575 0.5} -label_anchor center \
+			-symbol_font_size 28 -labelvariable {$::plugins::DYE::settings(next_shot_desc)} -label_pos {0.575 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
 			-command [list ::plugins::DYE::open -which_shot next]
 	}
@@ -549,13 +547,11 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	set x [lindex $settings(last_shot_DSx_home_coords) 0]
 	set y [lindex $settings(last_shot_DSx_home_coords) 1]
 	if { $x > 0 && $y > 0 } {
-		set ::plugins::DYE::last_shot_desc [::plugins::DYE::define_last_shot_desc]
-		
 		dui add dbutton $::DSx_standby_pages [expr {$x-375}] [expr {$y-85}] [expr {$x+400}] [expr {$y+85}] \
 			-tags launch_dye_last -symbol $settings(describe_icon) -symbol_pos {0.99 0.5} -symbol_anchor e -symbol_justify right \
-			-symbol_font_size 28 -labelvariable {$::plugins::DYE::last_shot_desc} -label_pos {0.45 0.5} -label_anchor center \
+			-symbol_font_size 28 -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.45 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
-			-command { if { $::settings(history_saved) == 1 && [info exists ::DSx_settings(live_graph_time)] } { ::plugins::DYE::open -which_shot last }}
+			-command [list ::plugins::DYE::open -which_shot last]
 	}
 		
 	### HISTORY VIEWER PAGE ###
