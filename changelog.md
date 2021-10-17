@@ -2,6 +2,13 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.12] - 2021-10-17
+
+### Changed
+- Don't reset skin target variables in DSx and MimojaCafe if the next shot variables in DYE are cleared.
+- Use the correct variables for storing target drink weight in MimojaCafe depending on bluetooth scale connected or not and `settings(settings_profile_type)`.
+- Read from last and read from past shot now bring also the dose and yield.
+
 ## [2.11] - 2021-10-14
 
 ### Changed

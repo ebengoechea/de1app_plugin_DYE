@@ -398,29 +398,60 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 # Reset the "next" description and update the current/last shot summary description
 proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	variable settings
+	set skin $::settings(skin)
 	
-	foreach field [concat [metadata fields -domain shot -category description -propagate 1] espresso_notes] {
+	# If the target dose or yield have been defined in the skin, ensure they are synchronized to next shot dose
+	if { $skin eq "DSx" } {
+		if { [info exists ::DSx_settings(bean_weight)] && $::DSx_settings(bean_weight) > 0 } {
+			set settings(next_grinder_dose_weight) [round_to_one_digits $::DSx_settings(bean_weight)]
+		}
+		if { [info exists ::DSx_settings(saw)] && $::DSx_settings(bean_weight) > 0 } {
+			set settings(next_drink_weight) [round_to_one_digits $::DSx_settings(saw)]
+		}
+	} elseif { $skin eq "MimojaCafe" } {
+		if { [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 && $settings(next_grinder_dose_weight) != $::settings(grinder_dose_weight) } {
+			set settings(next_grinder_dose_weight) [round_to_one_digits $::settings(grinder_dose_weight)]
+		}
+		if { [::device::scale::expecting_present] } {
+			if {$::settings(settings_profile_type) eq "settings_2c"} {
+				if { [return_zero_if_blank $::settings(final_desired_shot_weight_advanced)] > 0  && 
+						$settings(next_drink_weight) != $::settings(final_desired_shot_weight_advanced) } {
+					set settings(next_drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight_advanced)]
+				}
+			} else {
+				if { [return_zero_if_blank $::settings(final_desired_shot_weight)] > 0 && \
+						$settings(next_drink_weight) != $::settings(final_desired_shot_weight) } {
+					set settings(next_drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
+				}
+			}
+		}
+		if { [return_zero_if_blank $::settings(grinder_setting)] > 0 && $settings(next_grinder_setting) ne $::settings(grinder_setting) } {
+			set settings(next_grinder_setting) $::settings(grinder_setting)
+		}
+	}
+	
+	foreach field [concat [metadata fields -domain shot -category description -propagate 1] espresso_notes grinder_setting] {
 		set type [metadata get $field data_type]
-		if { $type eq "number" && $settings(next_$field) eq "" } {
+		if { ($type eq "number" || $field eq "grinder_setting") && $settings(next_$field) eq "" } {
 			set ::settings($field) 0
 		} else {
 			set ::settings($field) $settings(next_$field)
 		}
 	}
+
+#	if { $skin eq "DSx" } {
+#		if { [info exists ::DSx_settings(live_graph_beans)] && $::DSx_settings(live_graph_beans) > 0 } {
+#			set ::settings(grinder_dose_weight) $::DSx_settings(live_graph_beans)
+#		} elseif { [info exists ::DSx_settings(bean_weight)] && $::DSx_settings(bean_weight) > 0 } {
+#			set ::settings(grinder_dose_weight) [round_to_one_digits [return_zero_if_blank $::DSx_settings(bean_weight)]]
+#		} else {
+#			set ::settings(grinder_dose_weight) 0
+#		}
+#	}
 	
 	set settings(next_espresso_notes) {}
 	set settings(next_modified) 0
 	
-	set skin $::settings(skin)
-	if { $skin eq "DSx" } {
-		if { [info exists ::DSx_settings(live_graph_beans)] && $::DSx_settings(live_graph_beans) > 0 } {
-			set ::settings(grinder_dose_weight) $::DSx_settings(live_graph_beans)
-		} elseif { [info exists ::DSx_settings(bean_weight)] && $::DSx_settings(bean_weight) > 0 } {
-			set ::settings(grinder_dose_weight) [round_to_one_digits [return_zero_if_blank $::DSx_settings(bean_weight)]]
-		} else {
-			set ::settings(grinder_dose_weight) 0
-		}
-	}
 	
 #	if { $::undroid == 1 } {		
 #		if { $skin eq "DSx" && [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
@@ -1348,11 +1379,9 @@ proc ::dui::pages::DYE::clear_shot_data {} {
 	variable data
 	
 	dui say "clear" sound_button_in
-	foreach fn [metadata fields -domain shot -category description -propagate 1] {
+	foreach fn [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes] {
 		set data($fn) {}
 	}
-	set data(espresso_notes) {}
-
 	# Why commented?
 #	if { $data(describe_which_shot) eq "next" } {
 #		set ::plugins::DYE::settings(next_modified) 1
@@ -1364,7 +1393,7 @@ proc ::dui::pages::DYE::read_from { {what previous} } {
 	variable data
 	say "read" $::settings(sound_button_in)
 
-	set propagated_fields [metadata fields -domain shot -category description -propagate 1]
+	set propagated_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight]
 	
 	# Next shot spec doesn't have a clock
 	if { $data(clock) == 0 || $data(clock) eq {} } {
@@ -1399,9 +1428,10 @@ proc ::dui::pages::DYE::read_from { {what previous} } {
 proc ::dui::pages::DYE::select_read_from_shot_callback { shot_desc shot_clock item_type args } {
 	variable data
 	dui page show [namespace tail [namespace current]]
-	
+		
 	if { $shot_clock ne "" } {
-		array set shot [::plugins::SDB::shots "$::plugins::DYE::propagated_fields" 1 "clock=$shot_clock" 1]
+		set propagated_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight]
+		array set shot [::plugins::SDB::shots "$propagated_fields" 1 "clock=$shot_clock" 1]
 		foreach f [array names shot] {
 			set data($f) [lindex $shot($f) 0]
 		}
@@ -1447,21 +1477,31 @@ proc ::dui::pages::DYE::load_description {} {
 		# with DYE next shot description.
 		if { $::settings(skin) eq "MimojaCafe" } {
 			# For these fields, the definition in MC home page takes precedence over values in DYE::settings(next_*)
-			if { $::settings(final_desired_shot_volume_advanced) > 0 } {
-				set data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_volume_advanced)]
-			}
-			if { $::settings(grinder_dose_weight) > 0 } {
+			if { [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
 				set data(grinder_dose_weight) [round_to_one_digits $::settings(grinder_dose_weight)]
 			}
-			if { $::settings(grinder_setting) > 0 } {
+			
+			if {[::device::scale::expecting_present]} {
+				if {$::settings(settings_profile_type) eq "settings_2c"} {
+					if { [return_zero_if_blank $::settings(final_desired_shot_weight_advanced)] > 0 } {
+						set data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight_advanced)]
+					}
+				} else {
+					if { [return_zero_if_blank $::settings(final_desired_shot_weight)] > 0 } {
+						set data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
+					}
+				}
+			}
+			
+			if { [return_zero_if_blank $::settings(grinder_setting)] > 0 } {
 				set data(grinder_setting) $::settings(grinder_setting)
 			}
 		} elseif { $::settings(skin) eq "DSx" } {
-			if { [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
-				set data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
-			}
-			if { [info exists ::DSx_settings(bean_weight)] && $::DSx_settings(bean_weight) > 0 } {
+			if { [return_zero_if_blank $::DSx_settings(bean_weight)] > 0 } {
 				set data(grinder_dose_weight) [round_to_one_digits $::DSx_settings(bean_weight)]
+			}			
+			if { [return_zero_if_blank $::DSx_settings(saw)] > 0 } {
+				set data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
 			}
 		}
 			
@@ -1532,24 +1572,34 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 				set ::plugins::DYE::settings(next_modified) 1
 				set ::plugins::DYE::settings(next_$field) $changes($field)
 				if { ([metadata get $field propagate] || $field eq "espresso_notes") && [info exists ::settings($field)] } {
-					if { $changes($field) eq "" && [metadata get $field data_type] eq "number" } {
-						set ::settings($field) 0
+					if { $changes($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
+						if { $field ni {grinder_dose_weight grinder_setting} } {
+							set ::settings($field) 0
+						}
 					} else {
 						set ::settings($field) $changes($field)
 					}
 					set settings_changed 1
 					
-					if { $skin eq "DSx" && $field eq "grinder_dose_weight" } {
+					if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
 						set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
 						set dsx_settings_changed 1
 					}
 				} elseif { $field eq "drink_weight" } {
 					if { $skin eq "MimojaCafe" } {
-						set ::settings(final_desired_shot_volume_advanced) $changes(drink_weight)
-						set settings_changed 1
+						if {[::device::scale::expecting_present] && [return_zero_if_blank $changes(drink_weight)] > 0 } {
+							if {$::settings(settings_profile_type) eq "settings_2c"} {
+								set ::settings(final_desired_shot_weight_advanced) $changes(drink_weight)
+							} else {
+								set ::settings(final_desired_shot_weight) $changes(drink_weight)
+							}
+							set settings_changed 1
+						}
 					} elseif { $skin eq "DSx" } {
-						set ::DSx_settings(saw) $changes(drink_weight)
-						set dsx_settings_changed 1
+						if { [return_zero_if_blank $changes(drink_weight)] > 0 } {
+							set ::DSx_settings(saw) $changes(drink_weight) 
+							set dsx_settings_changed 1
+						}
 					}
 				}
 			}
@@ -3391,6 +3441,8 @@ proc ::dui::pages::DYE_v3::text_scale_scroll { {target edited} args } {
 	}
 	
 	::dui::item::scale_scroll $page ${target}_text ::dui::item::sliders(${page},${target}_text) {*}$args
+	# Change for DUI multi-canvas:
+	#::dui::item::scale_scroll $page ${target}_text ::dui::item::sliders(${page},${target}_text) [dui::canvas::get] {*}$args
 	
 	set ygraph ""
 	catch { set ygraph [lindex [$widgets(${target}_text) dlineinfo chart] 1] }
@@ -4810,3 +4862,4 @@ foreach fn "drinker_name repository_links" {
 		set ::settings($fn) {}
 	}
 }
+
