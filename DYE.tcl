@@ -18,7 +18,7 @@ package require json
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.11
+	variable version 2.12
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -62,7 +62,7 @@ proc ::plugins::DYE::main {} {
 		dui page add $page -namespace true -type fpdialog
 	}
 	# Default slice/button height in menu dialogs: 120
-	dui page add dye_edit_dlg -namespace true -type dialog -bbox {0 0 900 600}
+	dui page add dye_edit_dlg -namespace true -type dialog -bbox {0 0 1150 840}
 	dui page add dye_visualizer_dlg -namespace true -type dialog -bbox {0 0 900 960}
 	
 	foreach page $::dui::pages::DYE_v3::pages {
@@ -188,6 +188,14 @@ proc ::plugins::DYE::check_settings {} {
 	}
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
 	ifexists settings(use_dye_v3) 0
+	
+	ifexists settings(apply_action_to_beans) 1
+	ifexists settings(apply_action_to_equipment) 1
+	ifexists settings(apply_action_to_ratio) 1
+	ifexists settings(apply_action_to_extraction) 0
+	ifexists settings(apply_action_to_note) 0
+	ifexists settings(apply_action_to_people) 1
+	ifexists settings(apply_action_to_profile) 0
 	
 	# Don't use ifexists for this, as it always evaluates the default value, inducing it to be changed
 	if { ![info exists settings(last_shot_desc)] } {
@@ -624,6 +632,7 @@ proc ::plugins::DYE::define_next_shot_desc { args } {
 # Returns an array with the same structure as ::plugins::SDB::load_shot but with the data for next shot, taken from
 # the global and DYE settings. Data that doesn't apply to a "next" shot gets an empty string as value, or 0.0 for series.
 # This is used so we can easily use the returned array as the source for DYE pages.
+# TODO: REMOVE? NOT NEEDED ANYMORE?
 proc ::plugins::DYE::load_next_shot { } {
 	array set shot_data {
 		comes_from_archive 0
@@ -803,8 +812,28 @@ proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button 
 	}
 }
 
+proc ::plugins::DYE::import_profile_from_shot { shot_clock } {
+	array set shot [::plugins::SDB::load_shot $shot_clock 0 0 1]
+	if { [array size shot] == 0 } {
+		msg -WARNING [namespace current] import_profile_from_shot: "shot file for '$shot_clock' not found"
+		return 0
+	}
 
-proc ::plugins::DYE::open { args } {	
+	foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] { 
+		set ::settings($fn) $shot($fn)
+	}
+	set ::settings(profile_has_changed) 1
+	set ::settings(profile_hide) 0
+	
+	fill_profiles_listbox
+	update_de1_explanation_chart
+	profile_has_changed_set_colors
+	
+	::save_settings	
+	return 1
+}
+
+proc ::plugins::DYE::open { args } {
 	if { [llength $args] == 1 } {
 		set use_dye_v3 0
 		set which_shot [lindex $args 0]
@@ -858,6 +887,7 @@ namespace eval ::dui::pages::DYE {
 		visualizer_status_label {}
 		repository_links {}
 		warning_msg {}
+		apply_action_to {beans equipment ratio people}
 	}
 	#		other_equipment {}
 
@@ -1375,12 +1405,21 @@ proc ::dui::pages::DYE::grinder_model_change {} {
 	dui item enable_or_disable [expr {$data(grinder_model) ne ""}] [namespace tail [namespace current]] grinder_setting-dda
 }
 
-proc ::dui::pages::DYE::clear_shot_data {} {
+proc ::dui::pages::DYE::field_in_apply_to { field apply_to } {
+	set section [metadata get $field section]
+	return [expr { $apply_to eq {} || $section in $apply_to || ($field eq "espresso_notes" && "note" in $apply_to) ||
+		($section eq "beans_batch" && "beans" in $apply_to) || 
+		("ratio" in $apply_to && $field in {grinder_dose_weight drink_weight})}]
+}
+
+proc ::dui::pages::DYE::clear_shot_data { {apply_to {}} } {
 	variable data
 	
 	dui say "clear" sound_button_in
 	foreach fn [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes] {
-		set data($fn) {}
+		if { [field_in_apply_to $fn $apply_to] } {
+			set data($fn) {}
+		}
 	}
 	# Why commented?
 #	if { $data(describe_which_shot) eq "next" } {
@@ -1389,11 +1428,11 @@ proc ::dui::pages::DYE::clear_shot_data {} {
 }
 
 # what = [previous] / selected
-proc ::dui::pages::DYE::read_from { {what previous} } {
+proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 	variable data
 	say "read" $::settings(sound_button_in)
 
-	set propagated_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight]
+	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
 	
 	# Next shot spec doesn't have a clock
 	if { $data(clock) == 0 || $data(clock) eq {} } {
@@ -1402,7 +1441,7 @@ proc ::dui::pages::DYE::read_from { {what previous} } {
 		set filter "clock < $data(clock)"
 	}
 	set sql_conditions {}
-	foreach f $propagated_fields {
+	foreach f $read_fields {
 		lappend sql_conditions "LENGTH(TRIM(COALESCE($f,'')))>0"
 	}
 	
@@ -1412,9 +1451,11 @@ proc ::dui::pages::DYE::read_from { {what previous} } {
 			-page_title [translate "Select the shot to read the data from"] -theme [dui theme get] \
 			-return_callback [namespace current]::select_read_from_shot_callback -listbox_width 2300
 	} else {
-		array set last_shot [::plugins::SDB::shots $propagated_fields 1 "$filter AND ([join $sql_conditions { OR }])" 1]
+		array set last_shot [::plugins::SDB::shots $read_fields 1 "$filter AND ([join $sql_conditions { OR }])" 1]
 		foreach f [array names last_shot] {
-			set data($f) [lindex $last_shot($f) 0]
+			if { [field_in_apply_to $f $apply_to ] } {
+				set data($f) [lindex $last_shot($f) 0]
+			}
 		}
 	}
 	
@@ -1428,12 +1469,18 @@ proc ::dui::pages::DYE::read_from { {what previous} } {
 proc ::dui::pages::DYE::select_read_from_shot_callback { shot_desc shot_clock item_type args } {
 	variable data
 	dui page show [namespace tail [namespace current]]
-		
+	
 	if { $shot_clock ne "" } {
-		set propagated_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight]
-		array set shot [::plugins::SDB::shots "$propagated_fields" 1 "clock=$shot_clock" 1]
+		set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
+		array set shot [::plugins::SDB::shots "$read_fields" 1 "clock=$shot_clock" 1]
 		foreach f [array names shot] {
-			set data($f) [lindex $shot($f) 0]
+			if { [field_in_apply_to $f $data(apply_action_to)] } {
+				set data($f) [lindex $shot($f) 0]
+			}
+		}
+		
+		if { $data(describe_which_shot) eq "next" && "profile" in $data(apply_action_to) } {
+			::plugins::DYE::import_profile_from_shot $shot_clock
 		}
 	}
 }
@@ -1464,7 +1511,7 @@ proc ::dui::pages::DYE::load_description {} {
 			set data($fn) $::plugins::DYE::settings(next_$fn)
 		}
 		foreach fn [metadata fields -domain shot -category description -propagate 0] {
-			if { $fn eq "espresso_notes" } {
+			if { $fn eq "espresso_notes" || $fn eq "drink_weight" } {
 				set src_data($fn) $::plugins::DYE::settings(next_$fn)
 				set data($fn) $::plugins::DYE::settings(next_$fn)
 			} else {
@@ -1730,7 +1777,7 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 # Undo changes, reverting all editions done since entering the page. 
 # Beware that there may have been intermediate saves (when the page is hidden, e.g. for showing a dialog), so we
 #	need to do exactly the reverse as save_description, going back to data in the src_data array.
-proc ::dui::pages::DYE::undo_changes {} {
+proc ::dui::pages::DYE::undo_changes { {apply_to {}} } {
 	variable data
 	variable src_data
 	variable src_next_modified
@@ -1740,7 +1787,9 @@ proc ::dui::pages::DYE::undo_changes {} {
 	# Revert values for all fields and force-save
 	foreach field [metadata fields -domain shot -category description] {
 		if { [info exists data($field)] && [info exists src_data($field)]} {
-			set data($field) $src_data($field)
+			if { [field_in_apply_to $field $apply_to] } {
+				set data($field) $src_data($field)
+			}
 		}
 	}
 	save_description 1
@@ -1857,20 +1906,26 @@ proc ::dui::pages::DYE::calc_ey_from_tds  {} {
 }
 
 proc ::dui::pages::DYE::edit_dialog {} {
+	variable data
 	dui sound make sound_button_in
+	set is_next [expr {$data(describe_which_shot) eq "next"}]
 	
-	dui page open_dialog dye_edit_dlg -coords {100 1390} -anchor sw -disable_items 1 -return_callback [namespace current]::process_edit_dialog
+	dui page open_dialog dye_edit_dlg $is_next [expr {!$is_next}] \
+		-coords {100 1390} -anchor sw -disable_items 1 -return_callback [namespace current]::process_edit_dialog 
 }
 
-proc ::dui::pages::DYE::process_edit_dialog { {action {}} } {
+proc ::dui::pages::DYE::process_edit_dialog { {action {}} {apply_to {}} } {
+	variable data
+	set data(apply_action_to) $apply_to
+	
 	if { $action eq "clear" } {
-		clear_shot_data
+		clear_shot_data $apply_to
 	} elseif { $action eq "read_previous" } {
-		read_from previous
+		read_from previous $apply_to
 	} elseif { $action eq "read_selected" } {
-		read_from selected
+		read_from selected $apply_to
 	} elseif { $action eq "undo" } {
-		undo_changes
+		undo_changes $apply_to
 	}
 }
 
@@ -1978,7 +2033,12 @@ namespace eval ::dui::pages::dye_edit_dlg {
 	array set widgets {}
 		
 	variable data
-	array set data {}
+	array set data {
+		enable_profile 1
+		enable_extraction 1
+		settings_changed 0
+		select_apply_to all
+	}
 
 	# Actions: Clear shot data, Read from last shot, Read from selected shot, Undo changes
 	proc setup {} {
@@ -1987,21 +2047,42 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		
 		set page_width [dui page width $page 0]
 		set page_height [dui page height $page 0]
-		set splits [dui page split_space 0 $page_height 0.1 0.1 0.1 0.1 0.1]
+		set splits [dui page split_space 0 $page_height 0.3 0.1 0.1 0.1 0.1]
 		
 		set i 0		
 		set y0 [lindex $splits $i]
 		set y1 [lindex $splits [incr i]]
 		
-		dui add dtext $page 0.5 [expr {int(($y1-$y0)/2)}] -tags title -style menu_dlg_title -text [translate "Choose an edit action:"] 
 		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
 			-command dui::page::close_dialog
-		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+
+		dui add dtext $page 0.05 [expr {$y0+50}] -tags apply_action_to -text [translate "Apply edition to:"] -font_family notosansuibold
+		
+		dui add dbutton $page 0.60 [expr {$y0+70}] -bwidth 0.35 -bheight 80 -anchor center -tags select_apply_to -shape outline -arc_offset 20 \
+			-label [translate "Select all"] -label_pos {0.5 0.5}
+		
+		dui add dcheckbox $page 0.05 [expr {$y0+150}] -tags apply_to_beans -textvariable ::plugins::DYE::settings(apply_action_to_beans) \
+			-label [translate "Beans"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+		dui add dcheckbox $page 0.30 [expr {$y0+150}] -tags apply_to_equipment -textvariable ::plugins::DYE::settings(apply_action_to_equipment) \
+			-label [translate "Equipment"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+		dui add dcheckbox $page 0.57 [expr {$y0+150}] -tags apply_to_ratio -textvariable ::plugins::DYE::settings(apply_action_to_ratio) \
+			-label [translate "Ratio"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+		dui add dcheckbox $page 0.75 [expr {$y0+150}] -tags apply_to_extraction -textvariable ::plugins::DYE::settings(apply_action_to_extraction) \
+			-label [translate "Extraction"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+		
+		dui add dcheckbox $page 0.05 [expr {$y0+260}] -tags apply_to_note -textvariable ::plugins::DYE::settings(apply_action_to_note) \
+			-label [translate "Esp. Note"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+		dui add dcheckbox $page 0.30 [expr {$y0+260}] -tags apply_to_people -textvariable ::plugins::DYE::settings(apply_action_to_people) \
+			-label [translate "People"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+		dui add dcheckbox $page 0.57 [expr {$y0+260}] -tags apply_to_profile -textvariable ::plugins::DYE::settings(apply_action_to_profile) \
+			-label [translate "Profile"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+		
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline -width 3
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags clear_data -style menu_dlg_btn \
-			-label [translate "Clear all shot data"] -symbol eraser -command [list dui::page::close_dialog clear]
+			-label [translate "Clear shot data"] -symbol eraser -command {%NS::page_close clear}
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
 
 		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg -fill red -font_size +3 
@@ -2009,21 +2090,78 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags read_last -style menu_dlg_btn \
-			-label [translate "Read from previous shot"] -symbol file-import -command [list dui::page::close_dialog read_previous]
+			-label [translate "Read from previous shot"] -symbol file-import -command {%NS::page_close read_previous}
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags read_selected -style menu_dlg_btn \
-			-label "[translate {Read from selected shot}]..." -symbol file-import -command [list dui::page::close_dialog read_selected]
+			-label "[translate {Read from selected shot}]..." -symbol file-import -command {%NS::page_close read_selected}
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags undo_changes -style menu_dlg_btn \
-			-label [translate "Undo changes"] -symbol undo -command [list dui::page::close_dialog undo]
+			-label [translate "Undo changes"] -symbol undo -command {%NS::page_close undo}
 	}
 
+	proc load { page_to_hide page_to_show {enable_profile 0} {enable_extraction 0} args } {
+		variable data
+		
+		set data(enable_profile) [string is true $enable_profile]
+		set data(enable_extraction) [string is true $enable_extraction]
+		return 1
+	}
+	
+	proc show { page_to_hide page_to_show } {
+		variable data
+		
+		dui item enable_or_disable $data(enable_profile) dye_edit_dlg apply_to_profile*
+		dui item enable_or_disable $data(enable_extraction) dye_edit_dlg apply_to_extraction*
+	}
+	
+	proc select_apply_to {} {
+		variable data
+		variable widgets
+		
+		set activate [expr {$data(select_apply_to) eq "all"}]
+		foreach what {beans equipment ratio extraction note people profile} {
+			if { [dui item cget $widgets(apply_to_$what) -state] eq "normal" } {
+				set ::plugins::DYE::settings(apply_action_to_$what) $activate
+			}
+		}
+		
+		if { $activate } {
+			dui item config $widgets(select_apply_to-lbl) -text [translate "Unselect all"]
+			set data(select_apply_to) "none"
+		} else {
+			dui item config $widgets(select_apply_to-lbl) -text [translate "Select all"]
+			set data(select_apply_to) "all"
+		}
+		
+		set data(settings_changed) 1
+	}
+	
+	proc page_hide { } {
+		variable data
+		if { $data(settings_changed) } {
+			plugins save_settings DYE
+		}
+	}
+	
+	proc page_close { {action {}} } {
+		variable data
+		
+		set apply_to {}
+		foreach what {beans equipment ratio extraction note people profile} {
+			if { $::plugins::DYE::settings(apply_action_to_$what) && \
+					[dui item cget dye_edit_dlg apply_to_$what -state] eq "normal" } {
+				lappend apply_to $what
+			}
+		}
+		
+		dui::page::close_dialog $action $apply_to
+	}
 }
 
 ### VISUALIZER DIALOG PAGE #########################################################################################
