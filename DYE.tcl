@@ -10,6 +10,8 @@
 #set ::skindebug 1 
 #plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
+dui config debug_buttons 1
+
 package require zint
 package require http
 package require tls
@@ -64,6 +66,7 @@ proc ::plugins::DYE::main {} {
 	# Default slice/button height in menu dialogs: 120
 	dui page add dye_edit_dlg -namespace true -type dialog -bbox {0 0 1150 840}
 	dui page add dye_visualizer_dlg -namespace true -type dialog -bbox {0 0 900 960}
+	dui page add dye_which_shot_dlg -namespace true -type dialog -bbox {0 0 1100 700}
 	
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
@@ -833,6 +836,39 @@ proc ::plugins::DYE::import_profile_from_shot { shot_clock } {
 	return 1
 }
 
+proc ::plugins::DYE::import_profile_from_visualizer { vis_shot } {
+	if { ![dict exists $vis_shot profile] } {
+		msg -WARNING [namespace current] import_profile_from_visualizer: "'profile' field not found on downloaded shot"
+		return 0
+	}
+	
+	array set profile [dict get $vis_shot profile]
+	
+	foreach fn [::profile_vars] {
+		if { [info exists profile($fn)] } {
+			#msg -INFO "SETTINGS($fn)=$profile($fn)"
+			set ::settings($fn) $profile($fn)
+		} else {
+			msg -WARNING [namespace current] import_profile_from_visualizer: "field '$fn' not found on downloaded profile"
+		}
+	}
+	
+	# ensure the profile is saved under the new name and not duplicated if saved several times
+	set ::settings(profile_filename) "Visualizer__$profile(profile_filename)"
+	set ::settings(original_profile_title) $profile(profile_title)
+	set ::settings(profile_to_save) $profile(profile_title)
+	
+	set ::settings(profile_has_changed) 1
+	set ::settings(profile_hide) 0
+	
+	fill_profiles_listbox
+	update_de1_explanation_chart
+	profile_has_changed_set_colors
+	
+	::save_settings	
+	return 1
+}
+
 proc ::plugins::DYE::open { args } {
 	if { [llength $args] == 1 } {
 		set use_dye_v3 0
@@ -957,7 +993,7 @@ proc ::dui::pages::DYE::setup {} {
 	# Roast date
 	incr y 100
 	dui add entry $page $x_left_field $y -tags roast_date -width $width_left_field \
-		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_pos [list $x_left_label $y] \
+		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_pos [list $x_left_label $y]
 
 	# Roast level
 	incr y 100
@@ -1197,8 +1233,6 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 		dui item enable $page_to_show $fields
 		
 		dui item enable_or_disable $is_not_next $page_to_show $cond_fields
-#		dui item enable_or_disable $is_not_next $page_to_show {move_forward move_to_next grinder_dose_weight* 
-#			drink_weight* drink_tds* drink_ey* espresso_enjoyment* espresso_enjoyment_rater* espresso_enjoyment_label}
 	}
 	
 	if { $is_not_next } {
@@ -1955,23 +1989,28 @@ proc ::dui::pages::DYE::update_visualizer_button { {check_page 1} } {
 	set data(visualizer_status_label) {}
 	
 	if { [plugins available visualizer_upload] } {
+#		if { $data(describe_which_shot) eq "next" } {
+#			dui item disable $page visualizer_dialog*
+#		}
+		
 		if { $data(describe_which_shot) eq "next" } {
-			dui item disable $page visualizer_dialog*
-		}
-				
-		if { $data(repository_links) ne {} } {
-			set data(visualizer_status_label) [translate "Uploaded"]
-		} elseif { [plugins enabled visualizer_upload] && $::plugins::visualizer_upload::settings(last_upload_shot) == $data(clock) } {
-			set data(visualizer_status_label) [translate [lrange $::plugins::visualizer_upload::settings(last_upload_result) 0 1]]
+			set data(visualizer_status_label) {}
 		} else {
-			set data(visualizer_status_label) [translate "Not uploaded"]
-		} 
+			if { $data(repository_links) ne {} } {
+				set data(visualizer_status_label) [translate "Uploaded"]
+			} elseif { [plugins enabled visualizer_upload] && $::plugins::visualizer_upload::settings(last_upload_shot) == $data(clock) } {
+				set data(visualizer_status_label) [translate [regsub -all {[^a-zA-Z ]} [lrange $::plugins::visualizer_upload::settings(last_upload_result) 0 1] ""]]
+			} else {
+				set data(visualizer_status_label) [translate "Not uploaded"]
+			}
+		}
 	} else {
 		dui item hide $page visualizer_dialog* -current yes -initial yes
 	}
 }
 
-proc ::dui::pages::DYE::process_visualizer_dlg { {repo_link {}} {downloaded_shot {}} } {
+# If 'apply_download_to' is not empty, that means we have downloaded a shot by code
+proc ::dui::pages::DYE::process_visualizer_dlg { {repo_link {}} {downloaded_shot {}} {apply_download_to {}} } {
 	variable data
 	
 	if { $repo_link ne {} && $data(repository_links) eq {} } {
@@ -1979,22 +2018,36 @@ proc ::dui::pages::DYE::process_visualizer_dlg { {repo_link {}} {downloaded_shot
 	}
 	
 	if { $downloaded_shot ne {} } {
-		foreach f {drink_tds drink_ey espresso_enjoyment bean_weight drink_weight grinder_model grinder_setting 
-				bean_brand bean_type roast_date espresso_notes roast_level bean_notes} {
-			set down_value [dict get $downloaded_shot $f]			
-			if { $f eq "bean_weight" } {
-				set f "grinder_dose_weight"
-			} 
+		array set categories {
+			beans {bean_brand bean_type roast_date roast_level bean_notes}
+			equipment {grinder_model grinder_setting}
+			ratio {bean_weight drink_weight}
+			other {drink_tds drink_ey espresso_enjoyment espresso_notes}
+		}
 			
-			if { $down_value ne "null" && $down_value ne {} && $down_value ne $data($f) } {
-				lassign [metadata get $f data_type] data_type
-				if { $data_type eq "number" } {
-					if { $down_value > 0 } {
-						set data($f) [number_in_range $down_value]
+		foreach cat [array names categories] {
+			if { $apply_download_to eq {} || $cat in $apply_download_to } {
+				foreach f $categories($cat) {
+					set down_value [dict get $downloaded_shot $f]
+					if { $f eq "bean_weight" } {
+						set f "grinder_dose_weight"
+					} 
+					
+					if { $down_value ne "null" && $down_value ne {} && $down_value ne $data($f) } {
+						lassign [metadata get $f data_type] data_type
+						if { $data_type eq "number" } {
+							if { $down_value > 0 } {
+								set data($f) [number_in_range $down_value]
+							}
+						}
+						set data($f) $down_value
 					}
 				}
-				set data($f) $down_value
 			}
+		}
+		
+		if { $data(describe_which_shot) eq "next" && "profile" in $apply_download_to } {
+			::plugins::DYE::import_profile_from_visualizer $downloaded_shot
 		}
 	}
 	
@@ -2177,9 +2230,16 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		repo_link {}
 		upload_status_msg {}
 		download_status_msg {}
+		download_by_code_status_msg {}
 		browse_msg {}
 		warning_msg {}
 		downloaded_shot {}
+		download_code {}
+		download_beans 1
+		download_equipment 1
+		download_ratio 1
+		download_profile 1
+		apply_download_to {}
 	}
 
 	variable qr_img
@@ -2203,7 +2263,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags upload -style menu_dlg_btn \
-			-label [translate "Upload shot"] -symbol cloud-upload -label1variable upload_status_msg
+			-label [translate "Upload this shot"] -symbol cloud-upload -label1variable upload_status_msg
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline -tags line_up_down
 
 		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg -fill red -font_size +3 
@@ -2211,7 +2271,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags download -style menu_dlg_btn \
-			-label [translate "Download shot"] -symbol cloud-download -label1variable download_status_msg
+			-label [translate "Download this shot"] -symbol cloud-download -label1variable download_status_msg
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
 		set y0 $y1
@@ -2225,6 +2285,17 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			-height [dui::platform::rescale_y 1500]
 		dui add image $page 0.5 [expr {$y0+100}] {} -tags qr
 		dui item config $page qr -image [namespace current]::qr_img
+	
+		dui add entry $page 0.85 [expr {$y0+25}] -tags download_code -width 6 -canvas_anchor ne
+		dui add dcheckbox $page 0.15 [expr {$y0+140}] -tags download_beans -label [translate "Beans"] 
+		dui add dcheckbox $page 0.55 [expr {$y0+140}] -tags download_equipment -label [translate "Grinder"] 
+		dui add dcheckbox $page 0.15 [expr {$y0+240}] -tags download_ratio -label [translate "Ratio"] 
+		dui add dcheckbox $page 0.55 [expr {$y0+240}] -tags download_profile -label [translate "Profile"] 
+
+		dui add variable $page 0.1 [expr {$y1-50}] -anchor nw -justify left -width 0.3 -tags download_by_code_status_msg 
+				
+		dui add dbutton $page 0.85 [expr {$y1-35}] -bwidth 0.4 -bheight 100 -anchor se -tags download_by_code \
+			-label [translate "Download"] -style insight_ok
 		
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
@@ -2236,7 +2307,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 
 	
 	proc load { page_to_hide page_to_show {shot_clock {}} {visualizer_id {}} {repo_link {}} } {
-		variable data		
+		variable data
 		if { ![plugins available visualizer_upload] } {
 			return 0
 		}
@@ -2254,54 +2325,75 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 	
 		set data(upload_status_msg) {}
 		set data(download_status_msg) {}
+		set data(download_by_code_status_msg) {}
 		set data(browse_msg) {}
 		set data(settings_msg) {}
 		set data(warning_msg) {}
 		set data(downloaded_shot) {}
+		set data(download_code) {}
+		set data(apply_download_to) {}
 		
+		if { $shot_clock eq {} } {
+			# Next
+			dui item config $page_to_show browse-lbl -text [translate "Download code"]
+			dui item config $page_to_show browse-sym -text [dui symbol get cloud-download]
+		} else {
+			dui item config $page_to_show browse-lbl -text [translate "Browse shot"]
+			dui item config $page_to_show browse-sym -text [dui symbol get chart-line]
+		}
 		return 1
 	}
 	
 	proc show { page_to_hide page_to_show } {
 		variable data
-		set page [namespace tail [namespace current]]
 		
 		if { ![plugins enabled visualizer_upload] } {
 			set data(warning_msg) [translate "\"Upload to Visualizer\" extension is not enabled"]
-			dui item config $page settings-lbl -text [translate "Enable Visualizer"]
+			dui item config $page_to_show settings-lbl -text [translate "Enable Visualizer"]
 			#set data(settings_msg) [translate "Requires app restart"]
 		} elseif { $::android == 1 && [borg networkinfo] eq "none" } {
 			set data(warning_msg) [translate "No wifi, can't access Visualizer"]
 		} elseif { ![::plugins::visualizer_upload::has_credentials] } {
 			set data(warning_msg) [translate "Visualizer username or password is not defined, can't access Visualizer"]
 		} else {
-			dui item config $page settings-lbl -text "[translate {Visualizer settings}]..."
+			dui item config $page_to_show settings-lbl -text "[translate {Visualizer settings}]..."
 			set data(settings_msg) {}
 			set data(warning_msg) {}
 		}
 		
 		if { $data(warning_msg) eq {} } {
-			dui item show $page {upload* download* line_up_down}
-			dui item enable_or_disable [expr {$data(shot_clock) ne {} }] $page upload*
-			dui item enable_or_disable [expr {$data(shot_clock) ne {} && $data(repo_link) ne {}}] $page {download* browse*}
+			dui item show $page_to_show {upload* download* line_up_down}
+			dui item enable_or_disable [expr {$data(shot_clock) ne {} }] $page_to_show upload*
+			
+			if { $data(shot_clock) ne {} } {
+				dui item enable_or_disable [expr {$data(repo_link) ne {}}] $page_to_show {download* browse*}
+				dui item hide $page_to_show {download_code* download_beans* download_equipment* download_ratio*
+					download_profile* download_by_code*}
+			} else {
+				# Next shot
+				dui item disable $page_to_show download*
+				dui item enable $page_to_show browse*
+				dui item show $page_to_show {download_code* download_beans* download_equipment* download_ratio*
+					download_profile* download_by_code*}
+			}
 		} else {
-			dui item hide $page {upload* download* line_up_down}
-			dui item enable_or_disable [expr {$data(shot_clock) ne {} && $data(repo_link) ne {}}] $page browse*
+			dui item hide $page_to_show {upload* download* line_up_down}
+			dui item enable_or_disable [expr {$data(shot_clock) ne {} && $data(repo_link) ne {}}] $page_to_show browse*
 		}
 		
 		if { $data(repo_link) eq {} } {
-			dui item config $page upload-lbl -text [translate "Upload shot"]
+			dui item config $page_to_show upload-lbl -text [translate "Upload shot"]
 			set data(browse_msg) ""
 		} else {
-			dui item config $page upload-lbl -text [translate "Re-upload shot"]
+			dui item config $page_to_show upload-lbl -text [translate "Re-upload shot"]
 			set data(browse_msg) [translate "Scan the QR code or tap here to open the link in the system browser"]
-		}
+		}		
 		generate_qr $data(repo_link)
 	}
 	
 	proc close_dialog {} {
 		variable data
-		dui page close_dialog $data(repo_link) $data(downloaded_shot)
+		dui page close_dialog $data(repo_link) $data(downloaded_shot) $data(apply_download_to)
 	}
 	
 	proc upload {} {
@@ -2319,9 +2411,9 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			set data(repo_link) [lindex $new_repo_link 1]
 			set data(visualizer_id) [file tail $data(repo_link)]
 			set data(upload_status_msg) [translate "Successful"]
-			show {} $page
+			#show {} $page
+			dui page close_dialog $data(repo_link) {} {} 
 		}
-		
 	}
 	
 	# See http://www.androwish.org/index.html/file?name=jni/zint/backend_tcl/demo/demo.tcl&ci=b68e63bacab3647f
@@ -2339,24 +2431,50 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			return
 		}
 		
-		set data(download_status_msg) "[translate Downloading]..."
+		set data(download_by_code_status_msg) "[translate Downloading]..."
 		set vis_shot [plugins::visualizer_upload::download $data(visualizer_id)]
+
+		if { [dict size $vis_shot] == 0 } {
+			set data(download_by_code_status_msg) [translate "Failed"]
+		} else {
+			set data(download_by_code_status_msg) [translate "Successful"]
+			set data(downloaded_shot) $vis_shot
+			dui page close_dialog {} $vis_shot {}
+		}
+		
+		#return $vis_shot
+	}
+	
+	proc download_by_code {} {
+		variable data
+		if { $data(download_code) eq {} } {
+			return
+		}
+
+		set data(download_status_msg) "[translate Downloading]..."
+		set vis_shot [plugins::visualizer_upload::download $data(download_code)]
 
 		if { [dict size $vis_shot] == 0 } {
 			set data(download_status_msg) [translate "Failed"]
 		} else {
 			set data(download_status_msg) [translate "Successful"]
+			set data(downloaded_shot) $vis_shot
+			set data(apply_download_to) {}
+			foreach what {beans equipment ratio profile} {
+				if { $data(download_$what) } {
+					lappend data(apply_download_to) $what
+				}
+			}
+			
+			dui page close_dialog {} $vis_shot $data(apply_download_to)
 		}
-		set data(downloaded_shot) $vis_shot	
-		
-		return $vis_shot
-		
 	}
-	
+		
 	proc browse {} {
 		variable data
 		if { $data(repo_link) ne {} } {
 			web_browser $data(repo_link)
+			dui page close_dialog {} {} {}
 		}
 	}
 	
@@ -2374,6 +2492,54 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		}
 	}
 	
+}
+
+### DESCRIBE WHICH SHOT SELECTOR DIALOG ################################################################################
+
+namespace eval ::dui::pages::dye_which_shot_dlg {
+	variable widgets
+	array set widgets {}
+		
+	variable data
+	array set data {
+		next_shot_summary "18.0g in : 36.0 g out (1:2.0)\rDefault - Gardelli Ethiopia Koji Gone 04/10/2021\rNZ @ 18"
+		last_shot_summary "20 Apr 2021 18:25\r18.1g in : 36.2 g out (1:2.1) in 25.1 s\rMy/Default - Gardelli Ethiopia Koji Gone 04/10/2021\rNZ @ 17.25"
+	}
+	
+	# Actions: Plan next shot, describe last shot, select past shot to describe, history viewer?, DYE settings?
+	proc setup {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		set splits [dui page split_space 0 [dui page height $page 0] 0.12 0.15 0.1]
+		
+		set i 0		
+		set y0 [lindex $splits $i]
+		set y1 [lindex $splits [incr i]]
+
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags plan_next -style menu_dlg_btn \
+			-symbol fast-forward -symbol_pos {0.1 0.5} -label [translate "Plan NEXT shot:"] -label_pos {0.2 0.15} -label_anchor nw \
+			-label_font_family notosansuibold -label_font_size -1 -label_width 0.75 \
+			-label1variable next_shot_summary -label1_pos {0.2 0.35} -label1_width 0.75 -label1_anchor nw -label1_justify left
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags describe_last -style menu_dlg_btn \
+			-symbol backward -symbol_pos {0.1 0.5} -label [translate "Describe LAST shot:"] -label_pos {0.2 0.15} -label_anchor nw \
+			-label_font_family notosansuibold -label_font_size -1 -label_width 0.75 \
+			-label1variable last_shot_summary -label1_pos {0.2 0.35} -label1_width 0.75 -label1_anchor nw -label1_justify left
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags search_shot -style menu_dlg_btn \
+			-symbol search -symbol_pos {0.1 0.5} -label "[translate {Search shot to describe}]..." -label_pos {0.2 0.5} \
+			-label_width 0.75 
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
+		
+	}
+
 }
 
 ### "FILTER SHOT HISTORY" PAGE #########################################################################################

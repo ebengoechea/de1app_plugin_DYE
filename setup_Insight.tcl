@@ -6,8 +6,12 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 		
 	### INSIGHT HOME PAGE ###
 	# Add an icon on the bottom-right Insight home page to open the demo page.
-	dui add symbol {off espresso_3} 2450 960 -tags launch_dye -symbol $settings(describe_icon) -style small \
-		-command [list ::plugins::DYE::open -which_shot last]
+#	set widgets(launch_dye) [dui add symbol {off espresso_3} 2450 960 -tags launch_dye -symbol $settings(describe_icon) -style small \
+#		-command [list ::plugins::DYE::open -which_shot last]]
+	set widgets(launch_dye) [dui add dbutton {off espresso_3} 2400 900 2580 1050 -tags launch_dye -symbol $settings(describe_icon) \
+		-symbol_pos {0.4 0.5} -symbol_anchor center -symbol_justify center -command [list ::plugins::DYE::open -which_shot last]]		
+	[dui canvas] bind $widgets(launch_dye) [dui platform button_long_press] \
+		[list dui::page::open_dialog dye_which_shot_dlg -coords {2400 975} -anchor e]
 	
 	### SCREENSAVER ###
 	# Makes the left side of the app screensaver clickable so that you can describe your last shot without waking up 
@@ -21,5 +25,5 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 	}
 	set widgets(describe_from_sleep) [dui add dbutton saver {*}$sleep_describe_button_coords -tags saver_to_dye \
 		-symbol $sleep_describe_symbol -symbol_pos {0.5 0.5} -symbol_font_size 45 -canvas_anchor center -justify center \
-		-command [list ::plugins::DYE::open -which_shot last]]
+		-command [list ::plugins::DYE::open -which_shot last]]	
 }
