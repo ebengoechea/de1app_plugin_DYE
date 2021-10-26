@@ -144,8 +144,8 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dcheckbox.anchor nw
 		dcheckbox.justify left
 		
-		dcheckbox_label.pos "en 30 -10"
-		dcheckbox_label.anchor nw
+		dcheckbox_label.pos "e 30 0"
+		dcheckbox_label.anchor w
 		dcheckbox_label.justify left
 		
 		listbox.relief sunken
@@ -277,24 +277,35 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dbutton.shape.menu_dlg_btn rect
 		dbutton.fill.menu_dlg_btn {}
 		dbutton.disabledfill.menu_dlg_btn {}
-		dbutton_label.pos.menu_dlg_btn {0.3 0.4} 
+		dbutton_label.pos.menu_dlg_btn {0.25 0.4} 
 		dbutton_label.anchor.menu_dlg_btn w
 		dbutton_label.fill.menu_dlg_btn $::DSx_settings(font_colour)
 		dbutton_label.disabledfill.menu_dlg_btn $disabled_colour
 		
-		dbutton_label1.pos.menu_dlg_btn {0.3 0.78} 
+		dbutton_label1.pos.menu_dlg_btn {0.25 0.78} 
 		dbutton_label1.anchor.menu_dlg_btn w
 		dbutton_label1.fill.menu_dlg_btn #bbb
 		dbutton_label1.disabledfill.menu_dlg_btn $disabled_colour
 		dbutton_label1.font_size.menu_dlg_btn -3
 		
-		dbutton_symbol.pos.menu_dlg_btn {0.18 0.5} 
+		dbutton_symbol.pos.menu_dlg_btn {0.15 0.5} 
 		dbutton_symbol.anchor.menu_dlg_btn center
 		dbutton_symbol.fill.menu_dlg_btn white
 		dbutton_symbol.disabledfill.menu_dlg_btn $disabled_colour
 		
 		line.fill.menu_dlg_sepline #ddd
-		line.width.menu_dlg_sepline 1 
+		line.width.menu_dlg_sepline 1
+		
+		dtext.fill.menu_dlg $::DSx_settings(font_colour)
+		dtext.disabledfill.menu_dlg $disabled_colour
+		dcheckbox.fill.menu_dlg $::DSx_settings(font_colour)
+		dcheckbox.disabledfill.menu_dlg $disabled_colour
+		dcheckbox_label.fill.menu_dlg $::DSx_settings(font_colour)
+		dcheckbox_label.disabledfill.menu_dlg $disabled_colour
+		
+		dbutton.shape.menu_dlg outline
+		dbutton.arc_offset.menu_dlg 25
+		dbutton.width.menu_dlg 3
 	}]
 	
 	# History Viewer styles

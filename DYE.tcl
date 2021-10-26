@@ -10,7 +10,7 @@
 #set ::skindebug 1 
 #plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
-dui config debug_buttons 1
+#dui config debug_buttons 0
 
 package require zint
 package require http
@@ -20,7 +20,7 @@ package require json
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.12
+	variable version 2.13
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -899,7 +899,7 @@ namespace eval ::dui::pages::DYE {
 	# describe_which_shot: next / current / past / DSx_past / DSx_past2	
 	variable data
 	array set data {		
-		page_title {translate {Describe your espresso}}
+		page_title {Describe your last espresso}
 		describe_which_shot {current}
 		shot_file {}
 		clock 0
@@ -1136,11 +1136,8 @@ proc ::dui::pages::DYE::setup {} {
 proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } {
 	variable data
 	
-	if { [info exists ::settings(espresso_clock)] && $::settings(espresso_clock) ne "" && $::settings(espresso_clock) > 0} {
-		set current_clock $::settings(espresso_clock)
-	} else {	
-		set current_clock 0
-	}
+	ifexists ::settings(espresso_clock) 0
+	set current_clock $::settings(espresso_clock)
 		
 	set data(describe_which_shot) $which_shot
 	if { [string is integer $which_shot] && $which_shot > 0 } {
@@ -1153,12 +1150,13 @@ proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } 
 	} elseif { $which_shot in {last current} } {
 		set which_shot "current"
 		set data(describe_which_shot) "current"
-		if { $current_clock == 0 } {
-			info_page [translate "Last shot is not available to describe"] [translate Ok]
-			return
-		} else {
-			set data(clock) $current_clock
-		}
+		set data(clock) $current_clock
+#		if { $current_clock == 0 } {
+#			info_page [translate "Last shot is not available to describe"] [translate Ok]
+#			return
+#		} else {
+#			set data(clock) $current_clock
+#		}
 	} elseif { $which_shot eq "next" } {
 		set data(clock) {}
 	} elseif { [string range $which_shot 0 2] eq "DSx" } {
@@ -1191,12 +1189,13 @@ proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } 
 		info_page "[translate {Unrecognized shot type to show in 'Describe Your Espresso'}]: '$which_shot'" [translate Ok]
 		return 0
 	}
-	
-	if { ![load_description] } {
+
+	load_description
+#	if { ![load_description] } {
 #		info_page [translate "The requested shot description for '$which_shot' is not available"] [translate Ok]
 #		return 0
 		#set data()
-	}
+#	}
 	
 	return 1
 }
@@ -1267,7 +1266,9 @@ proc ::dui::pages::DYE::hide { page_to_hide page_to_show } {
 
 proc ::dui::pages::DYE::propagate_state_msg {} {
 	variable data
+	set page [namespace tail [namespace current]]
 	
+	dui item config $page propagate_state_msg -fill [dui aspect get dtext fill -theme [dui page theme $page]]
 	if { $data(describe_which_shot) eq "next" } {
 		if { ![string is true $::plugins::DYE::settings(propagate_previous_shot_desc)] } {
 			return [translate "Propagation is disabled"]
@@ -1277,6 +1278,7 @@ proc ::dui::pages::DYE::propagate_state_msg {} {
 			return [translate "Changes in last shot metadata will propagate here"]
 		}
 	} elseif { $data(path) eq {} } {
+		dui item config $page propagate_state_msg -fill [dui aspect get dtext fill -theme [dui page theme $page] -style error]
 		return [translate "Shot not saved to history"]
 	} elseif { $data(describe_which_shot) eq "current" || $data(clock) == $::settings(espresso_clock) } {
 		if { ![string is true $::plugins::DYE::settings(propagate_previous_shot_desc)] } {
@@ -1341,9 +1343,11 @@ proc ::dui::pages::DYE::search_shot_callback { selected_shots matched_shots } {
 
 proc ::dui::pages::DYE::select_shot {} {
 	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
-	dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
-		-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
-		-theme [dui theme get]
+	if { [array size shots] > 0 } {
+		dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
+			-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
+			-theme [dui theme get]
+	}
 }
 
 proc ::dui::pages::DYE::select_shot_callback { shot_desc shot_id args } {
@@ -1466,7 +1470,7 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 	variable data
 	say "read" $::settings(sound_button_in)
 
-	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
+	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes clock]
 	
 	# Next shot spec doesn't have a clock
 	if { $data(clock) == 0 || $data(clock) eq {} } {
@@ -1481,14 +1485,22 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 	
 	if { $what eq "selected" } {
 		array set shots [::plugins::SDB::shots "clock shot_desc" 1 "$filter AND ([join $sql_conditions { OR }])" 500]
-		dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
-			-page_title [translate "Select the shot to read the data from"] -theme [dui theme get] \
-			-return_callback [namespace current]::select_read_from_shot_callback -listbox_width 2300
+		if { [array size shots] > 0 } {
+			dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
+				-page_title [translate "Select the shot to read the data from"] -theme [dui theme get] \
+				-return_callback [namespace current]::select_read_from_shot_callback -listbox_width 2300
+		}
 	} else {
 		array set last_shot [::plugins::SDB::shots $read_fields 1 "$filter AND ([join $sql_conditions { OR }])" 1]
-		foreach f [array names last_shot] {
-			if { [field_in_apply_to $f $apply_to ] } {
-				set data($f) [lindex $last_shot($f) 0]
+		if { [array size last_shot] > 0 } {
+			foreach f [array names last_shot] {
+				if { $f ne "clock" && [field_in_apply_to $f $apply_to ] } {
+					set data($f) [lindex $last_shot($f) 0]
+				}
+			}
+			
+			if { $data(describe_which_shot) eq "next" && "profile" in $apply_to } {
+				::plugins::DYE::import_profile_from_shot $last_shot(clock)
 			}
 		}
 	}
@@ -1589,10 +1601,12 @@ proc ::dui::pages::DYE::load_description {} {
 		return 1
 	} else {
 		set src_next_modified {}
-		if { $data(clock) == [value_or_default ::settings(espresso_clock) 0] } {
-			set data(page_title) "Describe last espresso: [formatted_shot_date]"
+		if { $data(clock) == 0 } {
+			set data(page_title) "[translate {Describe last espresso}]"
+		} elseif { $data(clock) == $::settings(espresso_clock) } {			
+			set data(page_title) "[translate {Describe last espresso}]: [formatted_shot_date]"
 		} else {
-			set data(page_title) "Describe past espresso: [formatted_shot_date]"
+			set data(page_title) "[translate {Describe past espresso}]: [formatted_shot_date]"
 		}
 		
 		array set shot [::plugins::SDB::load_shot $data(clock)]	
@@ -2109,26 +2123,27 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
 			-command dui::page::close_dialog
 
-		dui add dtext $page 0.05 [expr {$y0+50}] -tags apply_action_to -text [translate "Apply edition to:"] -font_family notosansuibold
+		dui add dtext $page 0.05 [expr {$y0+50}] -tags apply_action_to -text [translate "Apply edition to:"] \
+			-style menu_dlg -font_family notosansuibold
 		
-		dui add dbutton $page 0.60 [expr {$y0+70}] -bwidth 0.35 -bheight 80 -anchor center -tags select_apply_to -shape outline -arc_offset 20 \
-			-label [translate "Select all"] -label_pos {0.5 0.5}
+		dui add dbutton $page 0.60 [expr {$y0+70}] -bwidth 0.35 -bheight 80 -anchor center -tags select_apply_to \
+			-style menu_dlg -label [translate "Select all"]
 		
 		dui add dcheckbox $page 0.05 [expr {$y0+150}] -tags apply_to_beans -textvariable ::plugins::DYE::settings(apply_action_to_beans) \
-			-label [translate "Beans"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+			-style menu_dlg -label [translate "Beans"] -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}			
 		dui add dcheckbox $page 0.30 [expr {$y0+150}] -tags apply_to_equipment -textvariable ::plugins::DYE::settings(apply_action_to_equipment) \
-			-label [translate "Equipment"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+			-style menu_dlg -label [translate "Equipment"] -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}			
 		dui add dcheckbox $page 0.57 [expr {$y0+150}] -tags apply_to_ratio -textvariable ::plugins::DYE::settings(apply_action_to_ratio) \
-			-label [translate "Ratio"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+			-style menu_dlg -label [translate "Ratio"] -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
 		dui add dcheckbox $page 0.75 [expr {$y0+150}] -tags apply_to_extraction -textvariable ::plugins::DYE::settings(apply_action_to_extraction) \
-			-label [translate "Extraction"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+			-style menu_dlg -label [translate "Extraction"] -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
 		
 		dui add dcheckbox $page 0.05 [expr {$y0+260}] -tags apply_to_note -textvariable ::plugins::DYE::settings(apply_action_to_note) \
-			-label [translate "Esp. Note"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+			-style menu_dlg -label [translate "Esp. Note"] -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
 		dui add dcheckbox $page 0.30 [expr {$y0+260}] -tags apply_to_people -textvariable ::plugins::DYE::settings(apply_action_to_people) \
-			-label [translate "People"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+			-style menu_dlg -label [translate "People"] -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
 		dui add dcheckbox $page 0.57 [expr {$y0+260}] -tags apply_to_profile -textvariable ::plugins::DYE::settings(apply_action_to_profile) \
-			-label [translate "Profile"] -label_pos {e 30 0} -label_anchor w -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
+			-style menu_dlg -label [translate "Profile"] -command { set ::dui::pages::dye_edit_dlg::data(settings_changed) 1}
 		
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline -width 3
 		
@@ -2177,16 +2192,26 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		variable data
 		variable widgets
 		
-		set activate [expr {$data(select_apply_to) eq "all"}]
 		foreach what {beans equipment ratio extraction note people profile} {
 			if { [dui item cget $widgets(apply_to_$what) -state] eq "normal" } {
-				set ::plugins::DYE::settings(apply_action_to_$what) $activate
+				if { $data(select_apply_to) eq "all" } {
+					set ::plugins::DYE::settings(apply_action_to_$what) 1
+				} elseif { $data(select_apply_to) eq "none" } {
+					set ::plugins::DYE::settings(apply_action_to_$what) 0
+				} elseif { $what in {beans equipment ratio people} } {
+					set ::plugins::DYE::settings(apply_action_to_$what) 1
+				} else {
+					set ::plugins::DYE::settings(apply_action_to_$what) 0
+				}
 			}
 		}
 		
-		if { $activate } {
-			dui item config $widgets(select_apply_to-lbl) -text [translate "Unselect all"]
+		if { $data(select_apply_to) eq "all" } {
+			dui item config $widgets(select_apply_to-lbl) -text [translate "Select none"]
 			set data(select_apply_to) "none"
+		} elseif { $data(select_apply_to) eq "none" } {
+			dui item config $widgets(select_apply_to-lbl) -text [translate "Select default"]
+			set data(select_apply_to) "default"
 		} else {
 			dui item config $widgets(select_apply_to-lbl) -text [translate "Select all"]
 			set data(select_apply_to) "all"
@@ -2286,16 +2311,20 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		dui add image $page 0.5 [expr {$y0+100}] {} -tags qr
 		dui item config $page qr -image [namespace current]::qr_img
 	
-		dui add entry $page 0.85 [expr {$y0+25}] -tags download_code -width 6 -canvas_anchor ne
-		dui add dcheckbox $page 0.15 [expr {$y0+140}] -tags download_beans -label [translate "Beans"] 
-		dui add dcheckbox $page 0.55 [expr {$y0+140}] -tags download_equipment -label [translate "Grinder"] 
-		dui add dcheckbox $page 0.15 [expr {$y0+240}] -tags download_ratio -label [translate "Ratio"] 
-		dui add dcheckbox $page 0.55 [expr {$y0+240}] -tags download_profile -label [translate "Profile"] 
+		set w [dui add entry $page 0.85 [expr {$y0+25}] -tags download_code -width 6 -canvas_anchor ne \
+			-vcmd [list [namespace current]::validate_download_code %P] -validate key]
+		bind $w <KeyRelease> [namespace current]::download_code_modified
+		
+		dui add dcheckbox $page 0.15 [expr {$y0+140}] -tags download_beans -label [translate "Beans"] -style menu_dlg 
+		dui add dcheckbox $page 0.55 [expr {$y0+140}] -tags download_equipment -label [translate "Grinder"] -style menu_dlg  
+		dui add dcheckbox $page 0.15 [expr {$y0+240}] -tags download_ratio -label [translate "Ratio"] -style menu_dlg 
+		dui add dcheckbox $page 0.55 [expr {$y0+240}] -tags download_profile -label [translate "Profile"] -style menu_dlg 
 
-		dui add variable $page 0.1 [expr {$y1-50}] -anchor nw -justify left -width 0.3 -tags download_by_code_status_msg 
+		dui add variable $page 0.05 [expr {$y1-160}] -anchor nw -justify left -width 0.4 -tags download_by_code_status_msg \
+			-font_size -1 -style menu_dlg
 				
-		dui add dbutton $page 0.85 [expr {$y1-35}] -bwidth 0.4 -bheight 100 -anchor se -tags download_by_code \
-			-label [translate "Download"] -style insight_ok
+		dui add dbutton $page 0.9 [expr {$y1-35}] -bwidth 0.4 -bheight 100 -anchor se -tags download_by_code \
+			-style menu_dlg -label [translate "Download"]
 		
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
@@ -2371,10 +2400,10 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 					download_profile* download_by_code*}
 			} else {
 				# Next shot
-				dui item disable $page_to_show download*
-				dui item enable $page_to_show browse*
 				dui item show $page_to_show {download_code* download_beans* download_equipment* download_ratio*
 					download_profile* download_by_code*}
+				dui item disable $page_to_show {download* download_by_code*}
+				dui item enable $page_to_show browse*
 			}
 		} else {
 			dui item hide $page_to_show {upload* download* line_up_down}
@@ -2402,10 +2431,13 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		if { $data(shot_clock) eq {} } {
 			return
 		}
+		
+		dui item config $page upload-lbl1 -fill [dui aspect get dtext fill -theme [dui page theme $page]]
 		set data(upload_status_msg) "[translate Uploading]..."
 		set new_repo_link [::plugins::DYE::upload_to_visualizer_and_save $data(shot_clock)]
 
 		if { $new_repo_link eq "" } {
+			dui item config $page upload-lbl1 -fill [dui aspect get dtext fill -theme [dui page theme $page] -style error]
 			set data(upload_status_msg) [translate "Failed, see details on settings page"]
 		} else {
 			set data(repo_link) [lindex $new_repo_link 1]
@@ -2427,17 +2459,20 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 	
 	proc download {} {
 		variable data
+		set page [namespace tail [namespace current]]
 		if { $data(visualizer_id) eq {} } {
 			return
 		}
 		
-		set data(download_by_code_status_msg) "[translate Downloading]..."
+		dui item config $page download-lbl1 -fill [dui aspect get dtext fill -theme [dui page theme $page]]
+		set data(download_status_msg) "[translate Downloading]..."
 		set vis_shot [plugins::visualizer_upload::download $data(visualizer_id)]
 
-		if { [dict size $vis_shot] == 0 } {
-			set data(download_by_code_status_msg) [translate "Failed"]
+		if { [dict size $vis_shot] == 0 } {	
+			dui item config $page download-lbl1 -fill [dui aspect get dtext fill -theme [dui page theme $page] -style error]
+			set data(download_status_msg) [translate "Failed, see details on settings page"]
 		} else {
-			set data(download_by_code_status_msg) [translate "Successful"]
+			set data(download_status_msg) [translate "Successful"]
 			set data(downloaded_shot) $vis_shot
 			dui page close_dialog {} $vis_shot {}
 		}
@@ -2447,17 +2482,22 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 	
 	proc download_by_code {} {
 		variable data
+		variable widgets
+		set page [namespace tail [namespace current]]
 		if { $data(download_code) eq {} } {
 			return
 		}
 
-		set data(download_status_msg) "[translate Downloading]..."
+		dui item config $widgets(download_by_code_status_msg) -fill [dui aspect get dtext fill -theme [dui page theme $page]]
+		set data(download_by_code_status_msg) "[translate Downloading]..."
 		set vis_shot [plugins::visualizer_upload::download $data(download_code)]
 
 		if { [dict size $vis_shot] == 0 } {
-			set data(download_status_msg) [translate "Failed"]
+			dui item config $widgets(download_by_code_status_msg) \
+				-fill [dui aspect get dtext fill -theme [dui page theme $page] -style error]
+			set data(download_by_code_status_msg) [translate "Failed. Check code or details on settings page"]
 		} else {
-			set data(download_status_msg) [translate "Successful"]
+			set data(download_by_code_status_msg) [translate "Successful"]
 			set data(downloaded_shot) $vis_shot
 			set data(apply_download_to) {}
 			foreach what {beans equipment ratio profile} {
@@ -2469,7 +2509,16 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			dui page close_dialog {} $vis_shot $data(apply_download_to)
 		}
 	}
-		
+	
+	proc download_code_modified {} {
+		variable data
+		dui item enable_or_disable [expr {[string len $data(download_code)]==4}] [namespace tail [namespace current]] download_by_code*
+	}
+	
+	proc validate_download_code { value } {
+		return [expr {[string len $value]<=4}]
+	}
+	
 	proc browse {} {
 		variable data
 		if { $data(repo_link) ne {} } {

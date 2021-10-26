@@ -2,6 +2,16 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.13] - 2021-10-17
+
+### New
+- The "Edit data" dialog in the DYE page now allows selecting to which block of data any of the edit actions have to be applied, including the new option "Profile" that imports profiles from past shots. The profile option is only enabled on the "Next" shot plan.
+- The "Browse" section in the Visualizer dialog now changes to "Download by code" on the "Next" shot plan, and allows to download shots of any user from Visualizer. This is only available with the new version 1.2 of the visualizer_upload extension, and only works with shots recently uploaded to Visualizer (as the profile was not kept in previous versions).
+
+### Changed
+- When the propagation subtitle is "Shot not saved to history", it is now shown in error (usually red, depends on theme) color.
+- Prevent runtime errors and log warnings when DYE is launched on a brand new DE1app install with no shots on the history.
+
 ## [2.12] - 2021-10-17
 
 ### Changed
