@@ -547,26 +547,24 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	set x [lindex $settings(next_shot_DSx_home_coords) 0]
 	set y [lindex $settings(next_shot_DSx_home_coords) 1]
 	if { $x > 0 && $y > 0 } {
-		set w [dui add dbutton $::DSx_standby_pages [expr {$x-375}] [expr {$y-85}] [expr {$x+400}] [expr {$y+85}] \
+		dui add dbutton $::DSx_standby_pages [expr {$x-375}] [expr {$y-85}] [expr {$x+400}] [expr {$y+85}] \
 			-tags launch_dye_next -symbol $settings(describe_icon) -symbol_pos {0.01 0.5} -symbol_anchor w -symbol_justify left \
 			-symbol_font_size 28 -labelvariable {$::plugins::DYE::settings(next_shot_desc)} -label_pos {0.575 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
-			-command [list ::plugins::DYE::open -which_shot next]]
-		[dui canvas] bind $w [dui platform button_long_press] \
-			[list dui::page::open_dialog dye_which_shot_dlg -coords [list [expr {$x-375}] [expr {$y-80}]] -anchor sw]
+			-command [::list ::plugins::DYE::open -which_shot next] \
+			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[list [expr {$x-375}] [expr {$y-80}]\] -anchor sw]
 	}
 	
 	# Icon and summary of the current (last) shot description below the shot chart and steam chart (right side)
 	set x [lindex $settings(last_shot_DSx_home_coords) 0]
 	set y [lindex $settings(last_shot_DSx_home_coords) 1]
 	if { $x > 0 && $y > 0 } {
-		set w [dui add dbutton $::DSx_standby_pages [expr {$x-375}] [expr {$y-85}] [expr {$x+400}] [expr {$y+85}] \
+		dui add dbutton $::DSx_standby_pages [expr {$x-375}] [expr {$y-85}] [expr {$x+400}] [expr {$y+85}] \
 			-tags launch_dye_last -symbol $settings(describe_icon) -symbol_pos {0.99 0.5} -symbol_anchor e -symbol_justify right \
 			-symbol_font_size 28 -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.45 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
-			-command [list ::plugins::DYE::open -which_shot last]]
-		[dui canvas] bind $w [dui platform button_long_press] \
-			[list dui::page::open_dialog dye_which_shot_dlg -coords [list [expr {$x+375}] [expr {$y-80}]] -anchor se]
+			-command [list ::plugins::DYE::open -which_shot last] \
+			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[list [expr {$x+375}] [expr {$y-80}]\] -anchor se]
 	}
 		
 	### HISTORY VIEWER PAGE ###
@@ -662,3 +660,4 @@ proc ::plugins::DYE::history_godshots_switch_leave_hook { args } {
 		set ::plugins::DYE::past_shot_desc_one_line2 {}
 	}
 }
+

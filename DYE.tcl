@@ -2736,8 +2736,9 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		} else {
 			set data(last_shot_date) [::plugins::DYE::format_date $::settings(espresso_clock)]
 			
-			array set shot [::plugins::SDB::shots {profile_title grinder_dose_weight drink_weight bean_brand bean_type
-					roast_date grinder_model grinder_setting espresso_enjoyment} 1 "clock=$::settings(espresso_clock)" 1]
+			array set shot [::plugins::SDB::shots {profile_title grinder_dose_weight drink_weight extraction_time 
+				bean_brand bean_type roast_date grinder_model grinder_setting espresso_enjoyment} 1 \
+				"clock=$::settings(espresso_clock)" 1]
 			if { [array size shot] == 0 } {
 				set data(last_shot_summary) [translate "Not saved to history"] 
 			} else {
