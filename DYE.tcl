@@ -66,7 +66,7 @@ proc ::plugins::DYE::main {} {
 	# Default slice/button height in menu dialogs: 120
 	dui page add dye_edit_dlg -namespace true -type dialog -bbox {0 0 1150 840}
 	dui page add dye_visualizer_dlg -namespace true -type dialog -bbox {0 0 900 960}
-	dui page add dye_which_shot_dlg -namespace true -type dialog -bbox {0 0 1100 700}
+	dui page add dye_which_shot_dlg -namespace true -type dialog -bbox {0 0 1100 820}
 	
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
@@ -2451,7 +2451,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags settings -style menu_dlg_btn \
-			-label "[translate {Visualizer settings}]..." -symbol cogs -label1variable settings_msg
+			-label "[translate {Visualizer settings}]" -symbol cogs -label1variable settings_msg
 	}
 
 	
@@ -2505,7 +2505,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		} elseif { ![::plugins::visualizer_upload::has_credentials] } {
 			set data(warning_msg) [translate "Visualizer username or password is not defined, can't access Visualizer"]
 		} else {
-			dui item config $page_to_show settings-lbl -text "[translate {Visualizer settings}]..."
+			dui item config $page_to_show settings-lbl -text "[translate {Visualizer settings}]"
 			set data(settings_msg) {}
 			set data(warning_msg) {}
 		}
@@ -2681,7 +2681,7 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		variable data
 		set page [namespace tail [namespace current]]
 		
-		set splits [dui page split_space 0 [dui page height $page 0] 0.2 0.2 0.1 0.1]
+		set splits [dui page split_space 0 [dui page height $page 0] 0.2 0.2 0.1 0.1 0.1]
 		
 		set i 0		
 		set y0 [lindex $splits $i]
@@ -2714,7 +2714,14 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags search_shot -style menu_dlg_btn \
 			-symbol search -symbol_pos {0.1 0.5} -label "[translate {Search shot to describe}]..." -label_pos {0.2 0.5} \
-			-label_width 0.75		
+			-label_width 0.75
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+		
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags dye_settings -style menu_dlg_btn \
+			-symbol cogs -symbol_pos {0.1 0.5} -label "[translate {Describe Your Espresso settings}]" -label_pos {0.2 0.5} \
+			-label_width 0.75
 	}
 
 	proc load { page_to_hide page_to_show args } {
@@ -2806,8 +2813,8 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 	}
 	
 	proc select_shot_callback { shot_desc shot_id args } {
-		if { [llength $shot_id] > 0 } {
-			dui page close_dialog
+		dui page close_dialog
+		if { [llength $shot_id] > 0 } {			
 			::plugins::DYE::open [lindex $shot_id 0]
 		}
 	}
@@ -2818,12 +2825,16 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 	}
 	
 	proc search_shot_callback { selected_shots matched_shots } {
-		if { [llength $selected_shots] > 0 } {
-			dui page close_dialog
+		dui page close_dialog
+		if { [llength $selected_shots] > 0 } {			
 			::plugins::DYE::open [lindex $selected_shots 0] 
 		}
 	}
 	
+	proc dye_settings {} {
+		dui page close_dialog
+		dui page open_dialog DYE_settings
+	}
 }
 
 ### "FILTER SHOT HISTORY" PAGE #########################################################################################
