@@ -190,7 +190,7 @@ proc ::plugins::DYE::check_settings {} {
 		ifexists settings(last_shot_DSx_home_coords) {2120 1165}
 	}
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
-	ifexists settings(use_dye_v3) 0
+	set settings(use_dye_v3) 0
 	ifexists settings(relative_dates) 1
 	
 	ifexists settings(apply_action_to_beans) 1
@@ -870,6 +870,110 @@ proc ::plugins::DYE::import_profile_from_visualizer { vis_shot } {
 	return 1
 }
 
+proc ::plugins::DYE::singular_or_plural { value singular plural } {
+	set str "$value "
+	if { $value == 1 } {
+		append str [translate $singular]
+	} else {
+		append str [translate $plural]
+	}
+	return $str
+}
+
+# aclock must be in SECONDS
+proc ::plugins::DYE::relative_date { aclock {ampm {}} } {
+	set reldate {}
+	set now [clock seconds]
+
+	set yesterday_threshold [clock scan [clock format $now -format {%Y%m%d 00:00:00}] -format {%Y%m%d %H:%M:%S}]
+	set 2days_threshold [clock scan [clock format [clock add $now -24 hours] -format {%Y%m%d 00:00:00}] -format {%Y%m%d %H:%M:%S}]
+	
+	if { $ampm eq {} } {
+		set ampm [value_or_default ::settings(enable_ampm) 0]
+	}	
+	if { [string is true $ampm] } {
+		set hourformat "%I:%M %p"
+	} else {
+		set hourformat "%H:%M"
+	}
+	
+	if { $aclock >= $yesterday_threshold } {		
+		set mindiff [expr {int(($now-$aclock)/60.0)}]
+		if { $mindiff < 60 } {
+			set reldate [singular_or_plural $mindiff {minute ago} {minutes ago}]
+		} else {
+			set hourdiff [expr {$mindiff/60}]
+			set reldate [singular_or_plural $hourdiff {hour} {hours}]
+				
+			set mindiff [expr {$mindiff-($hourdiff*60)}]
+			if { $mindiff == 0 } {
+				append reldate " [translate {ago}]"
+			} else {
+				append reldate " [singular_or_plural $mindiff {minute ago} {minutes ago}]"
+			}
+		}
+	} elseif { $aclock >= $2days_threshold } {
+		set reldate "[translate {Yesterday at}] [clock format $aclock -format $hourformat]"
+	} else {
+		set daysdiff [expr {int(($yesterday_threshold-$aclock)/(60.0*60.0*24.0))+1}]
+		if { $daysdiff < 31 } {
+			set reldate "[singular_or_plural $daysdiff {day ago} {days ago}] [translate at] [clock format $aclock -format $hourformat]"
+		} else {
+			set reldate [clock format $aclock -format "%b %d %Y $hourformat"]
+		}
+	}
+
+	return $reldate
+}
+
+## Adapted from Damian's DSx last_shot_date. 
+#proc ::dui::pages::DYE::formatted_shot_date {} {
+#	variable data
+#	set shot_clock $data(clock)
+#	if { $shot_clock eq "" || $shot_clock <= 0 } {
+#		return ""
+#	}
+#	
+#	set date [clock format $shot_clock -format {%a %d %b}]
+#	if { [ifexists ::settings(enable_ampm) 0] == 0} {
+#		set a [clock format $shot_clock -format {%H}]
+#		set b [clock format $shot_clock -format {:%M}]
+#		set c $a
+#	} else {
+#		set a [clock format $shot_clock -format {%I}]
+#		set b [clock format $shot_clock -format {:%M}]
+#		set c $a
+#		regsub {^[0]} $c {\1} c
+#	}
+#	if { $::settings(enable_ampm) == 1 } {
+#		set pm [clock format $shot_clock -format %P]
+#	} else {
+#		set pm ""
+#	}
+#	return "$date $c$b$pm"
+#}
+
+proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} } {
+	if { $relative eq {} } {
+		set relative [value_or_default ::plugins::DYE::settings(relative_dates) 0]
+	}
+	if { $ampm eq {} } {
+		set ampm [value_or_default ::settings(enable_ampm) 0]
+	}
+	
+	if { [string is true $relative] } {
+		return [relative_date $aclock]
+	} else {		
+		if { [string is true $ampm] } {
+			set hourformat "%I:%M %p"
+		} else {
+			set hourformat "%H:%M"
+		}
+		return [clock format $aclock -format "%b %d %Y $hourformat"]
+	}
+}
+
+
 proc ::plugins::DYE::open { args } {
 	if { [llength $args] == 1 } {
 		set use_dye_v3 0
@@ -943,8 +1047,10 @@ proc ::dui::pages::DYE::setup {} {
 	set page [namespace tail [namespace current]]
 	set skin $::settings(skin)	
 	
-	::plugins::DYE::page_skeleton $page "" page_title yes no center insight_ok
+	::plugins::DYE::page_skeleton $page "" "" yes no center insight_ok
 
+	dui add variable $page 1280 60 -tags page_title -style page_title -command {%NS::toggle_title}
+	
 	dui add variable $page 1280 125 -textvariable {[::dui::pages::DYE::propagate_state_msg]} -tags propagate_state_msg \
 		-anchor center -justify center -font_size -3
 	
@@ -1265,6 +1371,12 @@ proc ::dui::pages::DYE::hide { page_to_hide page_to_show } {
 	dui say [translate "Saved"] ""
 }
 
+proc ::dui::pages::DYE::toggle_title { } {
+	set ::plugins::DYE::settings(relative_dates) [expr {!$::plugins::DYE::settings(relative_dates)}]
+	define_title
+	plugins save_settings DYE
+}
+
 proc ::dui::pages::DYE::propagate_state_msg {} {
 	variable data
 	set page [namespace tail [namespace current]]
@@ -1532,6 +1644,19 @@ proc ::dui::pages::DYE::select_read_from_shot_callback { shot_desc shot_clock it
 	}
 }
 
+proc ::dui::pages::DYE::define_title {} {
+	variable data
+	if { $data(describe_which_shot) eq "next" } {
+		set data(page_title) [translate "Plan your NEXT shot"]
+	} elseif { $data(clock) eq {} || $data(clock) == 0 } {
+		set data(page_title) "[translate {Describe LAST shot}]"
+	} elseif { $data(describe_which_shot) eq "current" || $data(clock) == $::settings(espresso_clock) } {
+		set data(page_title) "[translate {Describe LAST shot}]: [::plugins::DYE::format_date $data(clock)]"
+	} else {
+		set data(page_title) "[translate {Describe shot}]: [::plugins::DYE::format_date $data(clock)]"
+	}
+}
+
 # Opens the last shot, the shot on the left of the history viewer, or the shot on the right of the history
 # 	viewer, and writes all relevant DYE fields to the ::dui::pages::DYE page variables.
 # Returns 1 if successful, 0 otherwise.
@@ -1546,12 +1671,13 @@ proc ::dui::pages::DYE::load_description {} {
 	variable src_next_modified
 	
 	array set src_data {}
+
+	define_title
 	
 	if { $data(describe_which_shot) eq "next" } {
 		#set data(clock) {}
 		set src_next_modified $::plugins::DYE::settings(next_modified)
 		set data(path) {}
-		set data(page_title) "Plan your next espresso"
 
 		foreach fn [metadata fields -domain shot -category description -propagate 1] {
 			set src_data($fn) $::plugins::DYE::settings(next_$fn)
@@ -1602,13 +1728,6 @@ proc ::dui::pages::DYE::load_description {} {
 		return 1
 	} else {
 		set src_next_modified {}
-		if { $data(clock) == 0 } {
-			set data(page_title) "[translate {Describe last espresso}]"
-		} elseif { $data(clock) == $::settings(espresso_clock) } {			
-			set data(page_title) "[translate {Describe last espresso}]: [formatted_shot_date]"
-		} else {
-			set data(page_title) "[translate {Describe past espresso}]: [formatted_shot_date]"
-		}
 		
 		array set shot [::plugins::SDB::load_shot $data(clock)]	
 		if { [array size shot] == 0 } {
@@ -2608,7 +2727,7 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		if { [value_or_default ::settings(espresso_clock)] == 0 } {
 			set data(last_shot_date) [translate {No shot}]
 		} else {
-			set data(last_shot_date) [clock format $::settings(espresso_clock) -format {%b %d %Y %H:%M}]
+			set data(last_shot_date) [::plugins::DYE::format_date $::settings(espresso_clock)]
 			
 			array set shot [::plugins::SDB::shots {profile_title grinder_dose_weight drink_weight bean_brand bean_type
 					roast_date grinder_model grinder_setting espresso_enjoyment} 1 "clock=$::settings(espresso_clock)" 1]
@@ -3481,13 +3600,12 @@ proc ::dui::pages::DYE_settings::setup {} {
 		
 	dui add dcheckbox $page $x [incr y $vspace] -tags propagate_previous_shot_desc -command propagate_previous_shot_desc_change \
 		-textvariable ::plugins::DYE::settings(propagate_previous_shot_desc) \
-		-label [translate "Propagate Beans, Equipment & People from last to next shot"] -label_width $lwidth
+		-label [translate "Propagate Beans, Equipment & People from last to next shot"] -label_width $lwidth -label_pos {ne 30 -10}
 	
 	dui add dcheckbox $page $x [incr y $vspace] -tags describe_from_sleep -command describe_from_sleep_change \
 		-textvariable ::plugins::DYE::settings(describe_from_sleep) \
 		-label [translate "Icon on screensaver to describe last shot without waking up the DE1"] -label_width $lwidth
 
-	
 	dui add dcheckbox $page $x [incr y $vspace] -tags backup_modified_shot_files -command backup_modified_shot_files_change \
 		-textvariable ::plugins::DYE::settings(backup_modified_shot_files) \
 		-label [translate "Backup past shot files when they are modified (.bak)"] -label_width $lwidth
@@ -3497,9 +3615,12 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth \
 		-command [list ::plugins::save_settings DYE]
 
+	dui add dcheckbox $page $x [incr y $vspace] -tags relative_dates -textvariable ::plugins::DYE::settings(relative_dates) \
+		-label [translate "Use relative shot dates"] -label_width $lwidth -command [list ::plugins::save_settings DYE]
+	
 	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
 		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
-		-command [list ::plugins::save_settings DYE]
+		-command [list ::plugins::save_settings DYE] -initial_state disabled
 	
 	# RIGHT SIDE
 	set x 1350; set y 250
