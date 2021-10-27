@@ -10,7 +10,7 @@
 #set ::skindebug 1 
 #plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
-#dui config debug_buttons 0
+dui config debug_buttons 0
 
 package require zint
 package require http
@@ -302,7 +302,8 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	dui aspect set -theme $theme -style dsx_done [list dbutton.shape round dbutton.bwidth 220 dbutton.bheight 140 \
 		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
 	
-	dui aspect set -theme $theme -type symbol -style dye_main_nav_button { font_size 24 fill "#35363d" }
+	dui aspect set -theme $theme -style dye_main_nav_button { dbutton.shape {} dbutton.fill {} dbutton_symbol.font_size 28 
+		dbutton_symbol.fill "#35363d" dbutton_symbol.disabledfill "#ccc"}
 	
 	dui aspect set -theme $theme -type dtext -style section_header [list font_family $bold_font font_size 20]
 	
@@ -1054,7 +1055,7 @@ proc ::dui::pages::DYE::setup {} {
 	set page [namespace tail [namespace current]]
 	set skin $::settings(skin)	
 	
-	::plugins::DYE::page_skeleton $page "" "" yes no center insight_ok
+	#::plugins::DYE::page_skeleton $page "" "" yes no center insight_ok
 
 	dui add variable $page 1280 60 -tags page_title -style page_title -command {%NS::toggle_title}
 	
@@ -1063,22 +1064,29 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# NAVIGATION
 	set x_left_label 100; set y 40; set hspace 110
-	dui add symbol $page $x_left_label $y -symbol backward -tags move_backward -style dye_main_nav_button -command yes
 	
-	dui add symbol $page [expr {$x_left_label+$hspace}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
-		-command yes
+	dui add dbutton $page 0 0 200 175 -tags move_backward -symbol backward -symbol_pos {0.7 0.4} -style dye_main_nav_button  
+	#dui add symbol $page $x_left_label $y -symbol backward -tags move_backward -style dye_main_nav_button -command yes
 	
-	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol fast-forward -tags move_to_next -style dye_main_nav_button \
-		-command yes
+	dui add dbutton $page 200 0 350 175 -tags move_forward -symbol forward -symbol_pos {0.5 0.4} -style dye_main_nav_button
+#	dui add symbol $page [expr {$x_left_label+$hspace}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
+#		-command yes
+	
+	dui add dbutton $page 350 0 550 175 -tags move_to_next -symbol fast-forward -symbol_pos {0.35 0.4} -style dye_main_nav_button
+#	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol fast-forward -tags move_to_next -style dye_main_nav_button \
+#		-command yes
 
 	set x_right 2360
-	dui add symbol $page $x_right $y -symbol history -tags open_history_viewer -style dye_main_nav_button -command yes
+	dui add dbutton $page 2360 0 2560 175 -tags open_history_viewer -symbol history -symbol_pos {0.35 0.4} -style dye_main_nav_button
+#	dui add symbol $page $x_right $y -symbol history -tags open_history_viewer -style dye_main_nav_button -command yes
 	
-	dui add symbol $page [expr {$x_right-$hspace}] $y -symbol search -tags search_shot -style dye_main_nav_button \
-		-command yes
+	dui add dbutton $page 2210 0 2360 175 -tags search_shot -symbol search -symbol_pos {0.5 0.4} -style dye_main_nav_button
+#	dui add symbol $page [expr {$x_right-$hspace}] $y -symbol search -tags search_shot -style dye_main_nav_button \
+#		-command yes
 
-	dui add symbol $page [expr {$x_right-$hspace*2}] $y -symbol list -tags select_shot -style dye_main_nav_button \
-		-command yes
+	dui add dbutton $page 2010 0 2210 175 -tags select_shot -symbol list -symbol_pos {0.6 0.4} -style dye_main_nav_button
+#	dui add symbol $page [expr {$x_right-$hspace*2}] $y -symbol list -tags select_shot -style dye_main_nav_button \ 
+#		-command yes
 	
 	# LEFT COLUMN 
 	set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
@@ -1239,9 +1247,11 @@ proc ::dui::pages::DYE::setup {} {
 		-listbox_width 800
 	
 	# BOTTOM BUTTONS
+	dui add dbutton $page 1280 1460 -label [translate Done] -tags page_done -style insight_ok -anchor n
+	
 	set y 1415 	
 	dui add dbutton $page 100 $y -tags edit_dialog -style dsx_settings -symbol chevron-up -label [translate "Edit data"] -bheight 160
-
+	
 	dui add dbutton $page 2440 $y -anchor ne -tags visualizer_dialog -style dsx_settings -symbol chevron-up -symbol_pos {0.8 0.45} \
 		-label [translate "Visualizer"] -label_pos {0.35 0.45} -label1variable visualizer_status_label -label1_pos {0.5 0.8} \
 		-label1_anchor center -label1_justify center -label1_font_size -3 -bheight 160

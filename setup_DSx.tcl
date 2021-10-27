@@ -413,8 +413,9 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	dui aspect set -style dsx_done [list dbutton.shape outline dbutton.bwidth 220 dbutton.bheight 140 dbutton.width 5 \
 		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
 	
-	dui aspect set -type symbol -style dye_main_nav_button { font_size 24 fill "#7f879a" }
-	
+	dui aspect set -style dye_main_nav_button [subst { dbutton.shape {} dbutton.fill {} dbutton_symbol.font_size 28 
+		dbutton_symbol.fill "#7abefd" dbutton_symbol.disabledfill $disabled_colour}]
+
 	dui aspect set -type dtext -style section_header [list font_family $bold_font font_size 20]
 	
 	dui aspect set -type dclicker -style dye_double [subst {shape {} fill $::DSx_settings(bg_colour) 
