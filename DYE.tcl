@@ -2836,9 +2836,11 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 			}
 		}
 		
-		set beans_items [list_remove_element [list $profile_title - $bean_brand $bean_type $roast_date] ""]
-		set grinder_items [list_remove_element [list $grinder_model $grinder_setting] ""]
-		if { $enjoyment > 0} { lappend grinder_items "[translate Enjoyment] $espresso_enjoyment" }
+		set beans_items [list_remove_element [list {*}$profile_title - {*}$bean_brand {*}$bean_type {*}$roast_date] ""]
+		set grinder_items [list_remove_element [list {*}$grinder_model {*}$grinder_setting] ""]
+		if { $enjoyment > 0} { 
+			lappend grinder_items "[translate Enjoyment] $espresso_enjoyment" 
+		}
 		
 		set each_line {}
 		if {[string length $ratio] > 0} { lappend each_line $ratio }
