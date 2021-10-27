@@ -192,7 +192,7 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
 	set settings(use_dye_v3) 0
 	ifexists settings(relative_dates) 1
-	ifexists settings(date_input_formats) {"%d/%m/%Y %H:%M" "%d/%m/%y %H:%M" "%d/%m/%Y" "%d/%m/%y" "%d.%m.%Y %H:%M" "%d.%m.%y %H:%M" "%d.%m.%Y" "%d.%m.%y"}
+	ifexists settings(date_input_formats) {"%m/%d/%Y %H:%M" "%m/%d/%y %H:%M" "%m/%d/%Y" "%m/%d/%y" "%m.%d.%Y %H:%M" "%m.%d.%y %H:%M" "%m.%d.%Y" "%m.%d.%y"}
 	ifexists settings(date_output_format) "%b %d %Y"
 	ifexists settings(time_output_format) "%H:%M"
 	ifexists settings(time_output_format_ampm) "%I:%M %p"
