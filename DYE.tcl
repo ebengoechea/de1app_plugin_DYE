@@ -192,6 +192,10 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
 	set settings(use_dye_v3) 0
 	ifexists settings(relative_dates) 1
+	ifexists settings(date_input_formats) {"%d/%m/%Y %H:%M" "%d/%m/%y %H:%M" "%d/%m/%Y" "%d/%m/%y" "%d.%m.%Y %H:%M" "%d.%m.%y %H:%M" "%d.%m.%Y" "%d.%m.%y"}
+	ifexists settings(date_output_format) "%b %d %Y"
+	ifexists settings(time_output_format) "%H:%M"
+	ifexists settings(time_output_format_ampm) "%I:%M %p"
 	
 	ifexists settings(apply_action_to_beans) 1
 	ifexists settings(apply_action_to_equipment) 1
@@ -954,6 +958,8 @@ proc ::plugins::DYE::relative_date { aclock {ampm {}} } {
 #}
 
 proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} } {
+	variable settings
+	
 	if { $relative eq {} } {
 		set relative [value_or_default ::plugins::DYE::settings(relative_dates) 0]
 	}
@@ -965,11 +971,11 @@ proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} } {
 		return [relative_date $aclock]
 	} else {		
 		if { [string is true $ampm] } {
-			set hourformat "%I:%M %p"
+			set hourformat $settings(time_output_format_ampm)
 		} else {
-			set hourformat "%H:%M"
+			set hourformat $settings(time_output_format)
 		}
-		return [clock format $aclock -format "%b %d %Y $hourformat"]
+		return [clock format $aclock -format "$settings(date_output_format) $hourformat"]
 	}
 }
 
@@ -1029,6 +1035,7 @@ namespace eval ::dui::pages::DYE {
 		repository_links {}
 		warning_msg {}
 		apply_action_to {beans equipment ratio people}
+		days_offroast_msg {}
 	}
 	#		other_equipment {}
 
@@ -1099,9 +1106,13 @@ proc ::dui::pages::DYE::setup {} {
 
 	# Roast date
 	incr y 100
-	dui add entry $page $x_left_field $y -tags roast_date -width $width_left_field \
+	dui add entry $page $x_left_field $y -tags roast_date -width [expr {$width_left_field/2}] \
 		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_pos [list $x_left_label $y]
-
+	bind $widgets(roast_date) <Leave> [list + [namespace current]::compute_days_offroast]
+	
+	dui add variable $page [expr {$x_left_field+400}] $y -tags days_offroast_msg
+	bind $widgets(roast_date) <Configure> [list ::dui::item::relocate_text_wrt DYE days_offroast_msg roast_date e 30 0 w]
+		
 	# Roast level
 	incr y 100
 	dui add dcombobox $page $x_left_field $y -tags roast_level -width $width_left_field \
@@ -1527,6 +1538,53 @@ proc ::dui::pages::DYE::select_beans_callback { clock bean_desc item_type } {
 	}
 }
 
+proc ::dui::pages::DYE::compute_days_offroast {} {
+	variable data
+	set roast_date [string trim $data(roast_date)]
+	if { $roast_date eq "" } {
+		set data(days_offroast_msg) ""
+		return
+	} 
+		
+	set input_formats $::plugins::DYE::settings(date_input_formats)
+	if { "" ni $input_formats } {
+		lappend input_formats ""
+	}
+	
+	set roast_clock ""
+	set i 0
+	set fmt [lindex $input_formats 0]
+	while { $i < [llength $input_formats] && $roast_clock eq "" } {
+		try { 
+			if { $fmt eq "" } {
+				set roast_clock [clock scan $roast_date]
+			} else {
+				set roast_clock [clock scan $roast_date -format $fmt]
+			}
+		} on error err {}
+		
+		incr i
+		set fmt [lindex $input_formats $i]
+	}
+	
+	if { $roast_clock eq "" } {
+		set data(days_offroast_msg) ""
+		msg -NOTICE [namespace current] compute_days_offroast: "can't parse roast date '$data(roast_date)'"
+	} else {
+		if { $data(describe_which_shot) eq "next" } {
+			set ref [clock seconds]
+		} elseif { $data(clock) ne {} && $data(clock) > 0 } {
+			set ref $data(clock)
+		} else {
+			set data(days_offroast_msg) ""
+			return
+		}
+		
+		set days [expr {int(($ref-$roast_clock)/(24.0*60.0*60.0))}]
+		set data(days_offroast_msg) [::plugins::DYE::singular_or_plural $days {day off-roast} {days off-roast}]
+	}
+}
+
 # Callback procedure returning control from the item_selection page to the describe_espresso page when a grinder
 #	model is selected from the list. We need a callback proc, unlike with other fields, because we need to invoke
 #	'grinder_model_change'.
@@ -1724,8 +1782,6 @@ proc ::dui::pages::DYE::load_description {} {
 				set data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
 			}
 		}
-			
-		return 1
 	} else {
 		set src_next_modified {}
 		
@@ -1736,6 +1792,7 @@ proc ::dui::pages::DYE::load_description {} {
 				set data($fn) {}
 			}
 			set data(path) {}
+			set data(days_offroast_msg) ""
 			return 0 
 		} else {			
 			foreach fn [metadata fields -domain shot -category description] {
@@ -1743,9 +1800,11 @@ proc ::dui::pages::DYE::load_description {} {
 				set data($fn) $shot($fn)
 			}
 			set data(path) $shot(path)
-			return 1
 		}
 	}
+	
+	compute_days_offroast
+	return 1
 }
 
 proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
