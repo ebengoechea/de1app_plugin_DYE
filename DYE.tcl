@@ -191,6 +191,7 @@ proc ::plugins::DYE::check_settings {} {
 	}
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
 	ifexists settings(use_dye_v3) 0
+	ifexists settings(relative_dates) 1
 	
 	ifexists settings(apply_action_to_beans) 1
 	ifexists settings(apply_action_to_equipment) 1
@@ -1332,7 +1333,7 @@ proc ::dui::pages::DYE::move_to_next {} {
 
 proc ::dui::pages::DYE::search_shot {} {
 	dui page open_dialog DYE_fsh -page_title [translate "Select the shot to describe"] \
-		-return_callback ::dui::pages::DYE::search_shot_callback
+		-return_callback [namespace current]::search_shot_callback -theme [dui theme get]
 }
 
 proc ::dui::pages::DYE::search_shot_callback { selected_shots matched_shots } {
@@ -1550,7 +1551,7 @@ proc ::dui::pages::DYE::load_description {} {
 		#set data(clock) {}
 		set src_next_modified $::plugins::DYE::settings(next_modified)
 		set data(path) {}
-		set data(page_title) "Describe your next espresso"
+		set data(page_title) "Plan your next espresso"
 
 		foreach fn [metadata fields -domain shot -category description -propagate 1] {
 			set src_data($fn) $::plugins::DYE::settings(next_$fn)
@@ -2551,8 +2552,9 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		
 	variable data
 	array set data {
-		next_shot_summary "18.0g in : 36.0 g out (1:2.0)\rDefault - Gardelli Ethiopia Koji Gone 04/10/2021\rNZ @ 18"
-		last_shot_summary "20 Apr 2021 18:25\r18.1g in : 36.2 g out (1:2.1) in 25.1 s\rMy/Default - Gardelli Ethiopia Koji Gone 04/10/2021\rNZ @ 17.25"
+		next_shot_summary {}
+		last_shot_date {}
+		last_shot_summary {}
 	}
 	
 	# Actions: Plan next shot, describe last shot, select past shot to describe, history viewer?, DYE settings?
@@ -2560,14 +2562,14 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		variable data
 		set page [namespace tail [namespace current]]
 		
-		set splits [dui page split_space 0 [dui page height $page 0] 0.12 0.15 0.1]
+		set splits [dui page split_space 0 [dui page height $page 0] 0.2 0.2 0.1 0.1]
 		
 		set i 0		
 		set y0 [lindex $splits $i]
 		set y1 [lindex $splits [incr i]]
 
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags plan_next -style menu_dlg_btn \
-			-symbol fast-forward -symbol_pos {0.1 0.5} -label [translate "Plan NEXT shot:"] -label_pos {0.2 0.15} -label_anchor nw \
+			-symbol fast-forward -symbol_pos {0.1 0.5} -label [translate "Plan NEXT shot"] -label_pos {0.2 0.1} -label_anchor nw \
 			-label_font_family notosansuibold -label_font_size -1 -label_width 0.75 \
 			-label1variable next_shot_summary -label1_pos {0.2 0.35} -label1_width 0.75 -label1_anchor nw -label1_justify left
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
@@ -2575,20 +2577,134 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags describe_last -style menu_dlg_btn \
-			-symbol backward -symbol_pos {0.1 0.5} -label [translate "Describe LAST shot:"] -label_pos {0.2 0.15} -label_anchor nw \
+			-symbol backward -symbol_pos {0.1 0.5} -label [translate "Describe LAST shot"] -label_pos {0.2 0.08} -label_anchor nw \
 			-label_font_family notosansuibold -label_font_size -1 -label_width 0.75 \
-			-label1variable last_shot_summary -label1_pos {0.2 0.35} -label1_width 0.75 -label1_anchor nw -label1_justify left
+			-label1variable last_shot_summary -label1_pos {0.2 0.32} -label1_width 0.75 -label1_anchor nw -label1_justify left \
+			-label2variable last_shot_date -label2_pos {0.9 0.08} -label2_anchor ne -label2_justify right -label2_font_size -2
+		
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags select_shot -style menu_dlg_btn \
+			-symbol list -symbol_pos {0.1 0.5} -label "[translate {Select shot to describe}]..." -label_pos {0.2 0.5} \
+			-label_width 0.75 
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags search_shot -style menu_dlg_btn \
 			-symbol search -symbol_pos {0.1 0.5} -label "[translate {Search shot to describe}]..." -label_pos {0.2 0.5} \
-			-label_width 0.75 
-		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
-		
+			-label_width 0.75		
 	}
 
+	proc load { page_to_hide page_to_show args } {
+		variable data
+		set data(next_shot_summary) "[format_shot_description $::settings(profile_title) \
+			$::plugins::DYE::settings(next_grinder_dose_weight) $::plugins::DYE::settings(next_drink_weight) {} \
+			$::plugins::DYE::settings(next_bean_brand) $::plugins::DYE::settings(next_bean_type) \
+			$::plugins::DYE::settings(next_roast_date) $::plugins::DYE::settings(next_grinder_model) \
+			$::plugins::DYE::settings(next_grinder_setting)]"
+		if { [value_or_default ::settings(espresso_clock)] == 0 } {
+			set data(last_shot_date) [translate {No shot}]
+		} else {
+			set data(last_shot_date) [clock format $::settings(espresso_clock) -format {%b %d %Y %H:%M}]
+			
+			array set shot [::plugins::SDB::shots {profile_title grinder_dose_weight drink_weight bean_brand bean_type
+					roast_date grinder_model grinder_setting espresso_enjoyment} 1 "clock=$::settings(espresso_clock)" 1]
+			if { [array size shot] == 0 } {
+				set data(last_shot_summary) [translate "Not saved to history"] 
+			} else {
+				set data(last_shot_summary) "[format_shot_description $shot(profile_title) $shot(grinder_dose_weight) \
+					$shot(drink_weight) $shot(extraction_time) $shot(bean_brand) $shot(bean_type) $shot(roast_date) \
+					$shot(grinder_model) $shot(grinder_setting)]"
+			}
+		}
+		
+		return 1
+	}
+	
+	# Returns a 2 or 3-lines formatted string with the summary of a shot description.
+	proc format_shot_description { {profile_title {}} {dose {}} {yield {}} {time {}} {bean_brand {}} {bean_type {}} \
+			{roast_date {}} {grinder_model {}} {grinder_setting {}} {enjoyment 0} {default_if_empty "No description" }} {
+		set shot_desc ""
+	
+		set ratio {}
+		if { $dose ne {} || $yield ne {} || $time ne {} } {
+			if { $dose eq {} || ![string is double $dose] } { 
+				set dose "?" 
+			} else {
+				set dose [round_to_one_digits $dose]
+			}
+			if { $yield eq {} || ![string is double $yield] } { 
+				set yield "?" 			
+			} else {
+				set yield [round_to_one_digits $yield]
+			}
+			append ratio "${dose}[translate g] [translate in]:${yield}[translate g] [translate out]"
+			if { $dose ne "?" && $yield ne "?" } {
+				append ratio " (1:[round_to_one_digits [expr {$yield*1.0/$dose}]])"
+			}
+			if { $time ne {} && [string is double $time] } {
+				append ratio " [translate in] [expr {int(${time})}][translate s]"
+			}
+		}
+		
+		set beans_items [list_remove_element [list $profile_title - $bean_brand $bean_type $roast_date] ""]
+		set grinder_items [list_remove_element [list $grinder_model $grinder_setting] ""]
+		if { $enjoyment > 0} { lappend grinder_items "[translate Enjoyment] $espresso_enjoyment" }
+		
+		set each_line {}
+		if {[string length $ratio] > 0} { lappend each_line $ratio }
+		if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
+		if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " \@ "]] }
+				
+		set shot_desc [join $each_line "\n"]
+	
+		if {$shot_desc eq ""} { 
+			set shot_desc "\[[translate $default_if_empty]\]" 
+		}
+		return $shot_desc
+	}	
+	
+	proc plan_next {} {
+		dui page close_dialog
+		::plugins::DYE::open next
+	}
+	
+	proc describe_last {} {
+		dui page close_dialog
+		::plugins::DYE::open current
+	}
+
+	proc select_shot {} {
+		array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
+		if { [array size shots] > 0 } {
+			dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
+				-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
+				-theme [dui theme get]
+		}
+	}
+	
+	proc select_shot_callback { shot_desc shot_id args } {
+		if { [llength $shot_id] > 0 } {
+			dui page close_dialog
+			::plugins::DYE::open [lindex $shot_id 0]
+		}
+	}
+	
+	proc search_shot {} {
+		dui page open_dialog DYE_fsh -page_title [translate "Select the shot to describe"] \
+			-return_callback [namespace current]::search_shot_callback
+	}
+	
+	proc search_shot_callback { selected_shots matched_shots } {
+		if { [llength $selected_shots] > 0 } {
+			dui page close_dialog
+			::plugins::DYE::open [lindex $selected_shots 0] 
+		}
+	}
+	
 }
 
 ### "FILTER SHOT HISTORY" PAGE #########################################################################################

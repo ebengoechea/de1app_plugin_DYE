@@ -10,8 +10,8 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 #		-command [list ::plugins::DYE::open -which_shot last]]
 	set widgets(launch_dye) [dui add dbutton {off espresso_3} 2400 900 2580 1050 -tags launch_dye -symbol $settings(describe_icon) \
 		-symbol_pos {0.4 0.5} -symbol_anchor center -symbol_justify center -command [list ::plugins::DYE::open -which_shot last]]		
-#	[dui canvas] bind $widgets(launch_dye) [dui platform button_long_press] \
-#		[list dui::page::open_dialog dye_which_shot_dlg -coords {2400 975} -anchor e]
+	[dui canvas] bind $widgets(launch_dye) [dui platform button_long_press] \
+		[list dui::page::open_dialog dye_which_shot_dlg -coords {2400 975} -anchor e]
 	
 	### SCREENSAVER ###
 	# Makes the left side of the app screensaver clickable so that you can describe your last shot without waking up 
