@@ -2,7 +2,22 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2.13] - 2021-10-17
+## [2.14] - 2021-10-28
+
+### New
+- New dialog page `dye_which_shot_dlg` shows a menu of main DYE actions (plan next shot, describe last shot,
+select shot, search shot and go to DYE settings). It is launched by long tapping the DYE icons/labels in Insight & DSx.
+- New setting `relative_dates` makes DYE show shot dates relative to today (e.g. "25 minutes ago", "Yesterday at 07:55", or "4 days ago at 12:01"). This can be modified either on the DYE settings page, or tapping on DYE page title.
+- Show "days off-roast" near the "Roast date" field, whenever the roast date can be parsed as a date. Input format can be modified by manually editing the new setting `input_date_formats`, which is a list of valid formats accepted by `clock scan`. Each format is tried from the first to the last until a parsing raises no error.
+- Shot output date/time format can now also be user-modified through the new settings `date_output_format`, `time_output_format`and `time_output_format_ampm`.
+
+### Changed
+- The DYE icon in Insight home page now has a bigger tapping area.
+- The top navigation buttons in the DYE page now have much bigger tapping areas.
+- Update theme aspects for DYE top navigation buttons.
+- Modify DYE page titles (shorter titles, replace "espresso" by "shot", capitalize "NEXT" and "LAST", remove "past")
+
+## [2.13] - 2021-10-26
 
 ### New
 - The "Edit data" dialog in the DYE page now allows selecting to which block of data any of the edit actions have to be applied, including the new option "Profile" that imports profiles from past shots. The profile option is only enabled on the "Next" shot plan.
