@@ -8,7 +8,7 @@
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
 #set ::skindebug 1 
-#plugins enable DYE
+plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
 dui config debug_buttons 0
 
@@ -196,6 +196,7 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(date_output_format) "%b %d %Y"
 	ifexists settings(time_output_format) "%H:%M"
 	ifexists settings(time_output_format_ampm) "%I:%M %p"
+	ifexists settings(default_launch_action) last
 	
 	ifexists settings(apply_action_to_beans) 1
 	ifexists settings(apply_action_to_equipment) 1
@@ -3673,8 +3674,8 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add canvas_item line $page 2551 188 2552 1426 -fill "#c7c9d5" -width 2
 	
 	dui add canvas_item rect $page 22 210 1270 1410 -fill white -width 0
-	#dui add canvas_item rect $page 22 1200 1270 1410 -fill white -width 0
-	dui add canvas_item rect $page 1290 210 2536 1410 -fill white -width 0	
+	dui add canvas_item rect $page 1290 210 2536 850 -fill white -width 0	
+	dui add canvas_item rect $page 1290 870 2536 1410 -fill white -width 0
 		
 	# LEFT SIDE
 	set x 75; set y 250; set vspace 130; set lwidth 1050
@@ -3705,7 +3706,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
 		-command [list ::plugins::save_settings DYE] -initial_state disabled
 	
-	# RIGHT SIDE
+	# RIGHT SIDE, TOP
 	set x 1350; set y 250
 	dui add dtext $page $x $y -text [translate "DSx skin options"] -style section_header
 	
@@ -3713,14 +3714,34 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-textvariable ::plugins::DYE::settings(show_shot_desc_on_home) \
 		-label [translate "Show next & last shot description summaries on DSx home page"] -label_width $lwidth 
 	
-	incr y [expr {int($vspace * 1.60)}]
-	dui add dbutton $page [expr {$x+100}] $y -tags shot_desc_font_color -style dsx_settings -label [translate "Shots\rsummaries\rcolor"] \
-		-symbol paint-brush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color) -command shot_desc_font_color_change 
-	incr y [expr {[dui aspect get dbutton bheight -style dsx_settings]+35}]
+	incr y [expr {int($vspace * 1.40)}]
 	
-	dui add dtext $page [expr {int($x+100+[dui aspect get dbutton bwidth -style dsx_settings]/2)}] $y \
-		-text "\[ [translate {Use default color}] \]" -anchor center -justify center \
-		-fill  $::plugins::DYE::default_shot_desc_font_color -command set_default_shot_desc_font_color
+	dui add dtext $page $x $y -tags shot_desc_font_color_label -width 725 -text [translate "Color of shot descriptions summaries"]
+
+	dui add dbutton $page 2475 $y -anchor ne -tags shot_desc_font_color -style dsx_settings -label [translate "Shots summaries color"] \
+		-label_width 300 -symbol paint-brush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color) \
+		-command shot_desc_font_color_change 
+
+	dui add dbutton $page [expr {$x+700}] [expr {$y+[dui aspect get dbutton bheight -style dsx_settings]}] \
+		-bwidth 425 -bheight 100 -anchor se -tags use_default_color \
+		-shape outline -outline $::plugins::DYE::default_shot_desc_font_color -arc_offset 35 \
+		-label [translate {Use default color}] -label_fill $::plugins::DYE::default_shot_desc_font_color \
+		-label_font_size -1 -command set_default_shot_desc_font_color 
+	# [dui aspect get dbutton fill]
+	
+#	dui add dtext $page [expr {int($x+100+[dui aspect get dbutton bwidth -style dsx_settings]/2)}] $y \
+#		-text "\[ [translate {Use default color}] \]" -anchor center -justify center \
+#		-fill  $::plugins::DYE::default_shot_desc_font_color -command set_default_shot_desc_font_color
+
+	# RIGHT SIDE, BOTTOM
+	set y 925
+	dui add dtext $page $x $y -text [translate "Insight / MimojaCafe skin options"] -style section_header
+	
+	dui add dtext $page $x [incr y 100] -tags default_launch_action_label -width 725 \
+		-text [translate "Default action when DYE icon or button is tapped"]
+	
+	dui add dselector $page 2475 $y -bwidth 400 -bheight 270 -orient v -anchor ne -values {last next dialog} \
+		-variable ::plugins::DYE::settings(default_launch_action) -labels {"Describe last" "Plan next" "Launch dialog"}
 	
 	# FOOTER
 	dui add dbutton $page 1035 1460 -tags page_done -style insight_ok -command page_done -label [translate Ok]
