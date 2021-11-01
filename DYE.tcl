@@ -2568,7 +2568,6 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		if { ![plugins enabled visualizer_upload] } {
 			set data(warning_msg) [translate "\"Upload to Visualizer\" extension is not enabled"]
 			dui item config $page_to_show settings-lbl -text [translate "Enable Visualizer"]
-			#set data(settings_msg) [translate "Requires app restart"]
 		} elseif { $::android == 1 && [borg networkinfo] eq "none" } {
 			set data(warning_msg) [translate "No wifi, can't access Visualizer"]
 		} elseif { ![::plugins::visualizer_upload::has_credentials] } {
@@ -2579,7 +2578,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			set data(warning_msg) {}
 		}
 		
-		if { $data(warning_msg) eq {} } {
+		if { $data(warning_msg) eq {} } {			
 			dui item show $page_to_show {upload* download* line_up_down}
 			dui item enable_or_disable [expr {$data(shot_clock) ne {} }] $page_to_show upload*
 			
@@ -2595,7 +2594,8 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 				dui item enable $page_to_show browse*
 			}
 		} else {
-			dui item hide $page_to_show {upload* download* line_up_down}
+			dui item hide $page_to_show {upload* download* line_up_down download_code* download_beans* download_equipment* 
+				download_ratio* download_profile* download_by_code*}
 			dui item enable_or_disable [expr {$data(shot_clock) ne {} && $data(repo_link) ne {}}] $page_to_show browse*
 		}
 		
