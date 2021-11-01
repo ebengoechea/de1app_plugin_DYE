@@ -10,17 +10,22 @@
 #set ::skindebug 1 
 #plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
-dui config debug_buttons 0
+#dui config debug_buttons 0
 
-package require zint
 package require http
 package require tls
 package require json
+# zint may not be available in some standard Tcl/Tk distributions, for example on MacOS.
+try {
+	package require zinto
+} on error err {
+	msg -WARNING "::plugins::DYE can't generate QR codes: $err"
+}
 
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.14
+	variable version 2.15
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -302,8 +307,8 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	dui aspect set -theme $theme -style dsx_done [list dbutton.shape round dbutton.bwidth 220 dbutton.bheight 140 \
 		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
 	
-	dui aspect set -theme $theme -style dye_main_nav_button { dbutton.shape {} dbutton.fill {} dbutton_symbol.font_size 28 
-		dbutton_symbol.fill "#35363d" dbutton_symbol.disabledfill "#ccc"}
+	dui aspect set -theme $theme -style dye_main_nav_button { dbutton.shape {} dbutton.fill {} dbutton.disabledfill {} 
+		dbutton_symbol.font_size 28 dbutton_symbol.fill "#35363d" dbutton_symbol.disabledfill "#ccc"}
 	
 	dui aspect set -theme $theme -type dtext -style section_header [list font_family $bold_font font_size 20]
 	
@@ -2604,7 +2609,12 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			set data(browse_msg) ""
 		} else {
 			dui item config $page_to_show upload-lbl -text [translate "Re-upload shot"]
-			set data(browse_msg) [translate "Scan the QR code or tap here to open the link in the system browser"]
+			try {
+				package present zint
+				set data(browse_msg) [translate "Scan the QR code or tap here to open the link in the system browser"]
+			} on error err {
+				set data(browse_msg) [translate "Tap here to open the link in the system browser"]
+			}
 		}		
 		generate_qr $data(repo_link)
 	}
@@ -2641,8 +2651,10 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 	proc generate_qr { repo_link } {
 		if { $repo_link eq {} } {
 			[namespace current]::qr_img blank
-		} else {			
-			zint encode $repo_link [namespace current]::qr_img -barcode QR -scale 2.5
+		} else {
+			catch {
+				zint encode $repo_link [namespace current]::qr_img -barcode QR -scale 2.5
+			}
 		}
 	}
 	
