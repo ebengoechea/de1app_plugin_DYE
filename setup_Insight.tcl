@@ -14,6 +14,7 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 		
 	#dui add dselector off 2025 1200 2525 1300 -values {Yes No Cancel} -variable ::testvar -multiple yes
 	#dui add dselector off 2025 1100 2525 1500 -values {Yes No Cancel} -variable ::testvar -multiple yes -orient v
+	#dui add dtoggle off 2150 1300 -variable ::testvar
 	
 	### SCREENSAVER ###
 	# Makes the left side of the app screensaver clickable so that you can describe your last shot without waking up 

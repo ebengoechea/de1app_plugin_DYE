@@ -7,7 +7,8 @@
 ### By Enrique Bengoechea <enri.bengoechea@gmail.com> 
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
-#set ::skindebug 1 
+#set ::skindebug 1
+plugins enable SDB
 plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
 dui config debug_buttons 0
@@ -3678,49 +3679,87 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add canvas_item rect $page 1290 870 2536 1410 -fill white -width 0
 		
 	# LEFT SIDE
-	set x 75; set y 250; set vspace 130; set lwidth 1050
+	set x 75; set y 250; set vspace 150; set lwidth 1050
+	set panel_width 1248
 	
 	dui add dtext $page $x $y -text [translate "General options"] -style section_header
 		
-	dui add dcheckbox $page $x [incr y $vspace] -tags propagate_previous_shot_desc -command propagate_previous_shot_desc_change \
-		-textvariable ::plugins::DYE::settings(propagate_previous_shot_desc) \
-		-label [translate "Propagate Beans, Equipment & People from last to next shot"] -label_width $lwidth -label_pos {ne 30 -10}
+#	dui add dcheckbox $page $x [incr y $vspace] -tags propagate_previous_shot_desc -command propagate_previous_shot_desc_change \
+#		-textvariable ::plugins::DYE::settings(propagate_previous_shot_desc) \
+#		-label [translate "Propagate Beans, Equipment & People from last to next shot"] -label_width $lwidth -label_pos {ne 30 -10}
+	dui add dtext $page $x [incr y $vspace] -tags {propagate_previous_shot_desc_lbl propagate_previous_shot_desc*} \
+		-width [expr {$panel_width-250}] -text [translate "Propagate Beans, Equipment & People from last to next shot"]
+#	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 250 -anchor ne -tags propagate_previous_shot_desc \
+#		-variable ::plugins::DYE::settings(propagate_previous_shot_desc) -values {1 0} -labels [list [translate Yes] [translate No]] \
+#		-command propagate_previous_shot_desc_change	
+	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags propagate_previous_shot_desc \
+		-variable ::plugins::DYE::settings(propagate_previous_shot_desc) -command propagate_previous_shot_desc_change 
 	
-	dui add dcheckbox $page $x [incr y $vspace] -tags describe_from_sleep -command describe_from_sleep_change \
-		-textvariable ::plugins::DYE::settings(describe_from_sleep) \
-		-label [translate "Icon on screensaver to describe last shot without waking up the DE1"] -label_width $lwidth
+#	dui add dcheckbox $page $x [incr y $vspace] -tags describe_from_sleep -command describe_from_sleep_change \
+#		-textvariable ::plugins::DYE::settings(describe_from_sleep) \
+#		-label [translate "Icon on screensaver to describe last shot without waking up the DE1"] -label_width $lwidth
+	dui add dtext $page $x [incr y $vspace] -tags {describe_from_sleep_lbl describe_from_sleep*} \
+		-width [expr {$panel_width-250}] -text [translate "Icon on screensaver to describe last shot without waking up the DE1"]
+	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags describe_from_sleep \
+		-variable ::plugins::DYE::settings(describe_from_sleep) -command describe_from_sleep_change 
+#	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 250 -anchor ne -tags describe_from_sleep \
+#		-variable ::plugins::DYE::settings(describe_from_sleep) -values {1 0} -labels [list [translate Yes] [translate No]] \
+#		-command describe_from_sleep_change
 
-	dui add dcheckbox $page $x [incr y $vspace] -tags backup_modified_shot_files -command backup_modified_shot_files_change \
-		-textvariable ::plugins::DYE::settings(backup_modified_shot_files) \
-		-label [translate "Backup past shot files when they are modified (.bak)"] -label_width $lwidth
-
-	dui add dcheckbox $page $x [incr y $vspace] -tags use_stars_to_rate_enjoyment \
-		-textvariable ::plugins::DYE::settings(use_stars_to_rate_enjoyment) \
-		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth \
-		-command [list ::plugins::save_settings DYE]
-
-	dui add dcheckbox $page $x [incr y $vspace] -tags relative_dates -textvariable ::plugins::DYE::settings(relative_dates) \
-		-label [translate "Use relative shot dates"] -label_width $lwidth -command [list ::plugins::save_settings DYE]
 	
-	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
-		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
-		-command [list ::plugins::save_settings DYE] -initial_state disabled
+#	dui add dcheckbox $page $x [incr y $vspace] -tags backup_modified_shot_files -command backup_modified_shot_files_change \
+#		-textvariable ::plugins::DYE::settings(backup_modified_shot_files) \
+#		-label [translate "Backup past shot files when they are modified (.bak)"] -label_width $lwidth
+	dui add dtext $page $x [incr y $vspace] -tags {backup_modified_shot_files_lbl backup_modified_shot_files*} \
+		-width [expr {$panel_width-250}] -text [translate "Backup past shot files when they are modified (.bak extension)"]
+#	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 250 -anchor ne -tags backup_modified_shot_files \
+#		-variable ::plugins::DYE::settings(backup_modified_shot_files) -values {1 0} -labels [list [translate Yes] [translate No]] \
+#		-command backup_modified_shot_files_change
+	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags backup_modified_shot_files \
+		-variable ::plugins::DYE::settings(backup_modified_shot_files) -command backup_modified_shot_files_change 
+
+#	dui add dcheckbox $page $x [incr y $vspace] -tags use_stars_to_rate_enjoyment \
+#		-textvariable ::plugins::DYE::settings(use_stars_to_rate_enjoyment) \
+#		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth \
+#		-command [list ::plugins::save_settings DYE]
+	dui add dtext $page $x [incr y $vspace] -tags {use_stars_to_rate_enjoyment_lbl use_stars_to_rate_enjoyment*} \
+		-width [expr {$panel_width-600}] -text [translate "Rate enjoyment using"]
+	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 600 -anchor ne -tags use_stars_to_rate_enjoyment \
+		-variable ::plugins::DYE::settings(use_stars_to_rate_enjoyment) -values {1 0} \
+		-labels [list [translate {0-5 stars}] [translate {0-100 slider}]] -command [list ::plugins::save_settings DYE]
+
+#	dui add dcheckbox $page $x [incr y $vspace] -tags relative_dates -textvariable ::plugins::DYE::settings(relative_dates) \
+#		-label [translate "Use relative shot dates"] -label_width $lwidth -command [list ::plugins::save_settings DYE]	
+	dui add dtext $page $x [incr y $vspace] -tags {relative_dates_lbl relative_dates*} \
+		-width [expr {$panel_width-600}] -text [translate "Show shot dates"]
+	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 600 -anchor ne -tags relative_dates \
+		-variable ::plugins::DYE::settings(relative_dates) -values {1 0} \
+		-labels [list [translate Relative] [translate Absolute]] -command [list ::plugins::save_settings DYE]
+	
+#	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
+#		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
+#		-command [list ::plugins::save_settings DYE] -initial_state disabled
 	
 	# RIGHT SIDE, TOP
 	set x 1350; set y 250
 	dui add dtext $page $x $y -text [translate "DSx skin options"] -style section_header
 	
-	dui add dcheckbox $page $x [incr y 100] -tags show_shot_desc_on_home -command show_shot_desc_on_home_change \
-		-textvariable ::plugins::DYE::settings(show_shot_desc_on_home) \
-		-label [translate "Show next & last shot description summaries on DSx home page"] -label_width $lwidth 
+#	dui add dcheckbox $page $x [incr y 100] -tags show_shot_desc_on_home -command show_shot_desc_on_home_change \
+#		-textvariable ::plugins::DYE::settings(show_shot_desc_on_home) \
+#		-label [translate "Show next & last shot description summaries on DSx home page"] -label_width $lwidth 
+	dui add dtext $page $x [incr y 100] -tags {show_shot_desc_on_home_lbl show_shot_desc_on_home*} \
+		-width [expr {$panel_width-375}] -text [translate "Show next & last shot description summaries on DSx home page"]
+	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 250 -anchor ne -tags show_shot_desc_on_home \
+		-variable ::plugins::DYE::settings(show_shot_desc_on_home) -values {1 0} \
+		-labels [list [translate Yes] [translate No]] -command show_shot_desc_on_home_change
 	
 	incr y [expr {int($vspace * 1.40)}]
 	
 	dui add dtext $page $x $y -tags shot_desc_font_color_label -width 725 -text [translate "Color of shot descriptions summaries"]
 
-	dui add dbutton $page 2475 $y -anchor ne -tags shot_desc_font_color -style dsx_settings -label [translate "Shots summaries color"] \
-		-label_width 300 -symbol paint-brush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color) \
-		-command shot_desc_font_color_change 
+	dui add dbutton $page [expr {$x+$panel_width-100}] $y -anchor ne -tags shot_desc_font_color -style dsx_settings \
+		-command shot_desc_font_color_change -label [translate "Shots summaries color"] -label_width 300 \
+		-symbol paint-brush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color)
 
 	dui add dbutton $page [expr {$x+700}] [expr {$y+[dui aspect get dbutton bheight -style dsx_settings]}] \
 		-bwidth 425 -bheight 100 -anchor se -tags use_default_color \
@@ -3740,7 +3779,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add dtext $page $x [incr y 100] -tags default_launch_action_label -width 725 \
 		-text [translate "Default action when DYE icon or button is tapped"]
 	
-	dui add dselector $page 2475 $y -bwidth 400 -bheight 270 -orient v -anchor ne -values {last next dialog} \
+	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 400 -bheight 270 -orient v -anchor ne -values {last next dialog} \
 		-variable ::plugins::DYE::settings(default_launch_action) -labels {"Describe last" "Plan next" "Launch dialog"}
 	
 	# FOOTER
@@ -3766,6 +3805,7 @@ proc ::dui::pages::DYE_settings::show_shot_desc_on_home_change {} {
 }
 
 proc ::dui::pages::DYE_settings::propagate_previous_shot_desc_change {} {
+msg -INFO "RUNNING propagate_previous_shot_desc_change"
 	if { $::plugins::DYE::settings(propagate_previous_shot_desc) == 1 } {
 		if { $::plugins::DYE::settings(next_modified) == 0 } {
 			foreach field_name $::plugins::DYE::propagated_fields {
