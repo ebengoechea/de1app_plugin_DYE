@@ -8,20 +8,25 @@
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
 #set ::skindebug 1
-plugins enable SDB
-plugins enable DYE
+#plugins enable SDB
+#plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
-dui config debug_buttons 0
+#dui config debug_buttons 0
 
-package require zint
 package require http
 package require tls
 package require json
+# zint may not be available in some standard Tcl/Tk distributions, for example on MacOS.
+try {
+	package require zint
+} on error err {
+	msg -WARNING "::plugins::DYE can't generate QR codes: $err"
+}
 
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.14
+	variable version 2.16
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -304,8 +309,8 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	dui aspect set -theme $theme -style dsx_done [list dbutton.shape round dbutton.bwidth 220 dbutton.bheight 140 \
 		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
 	
-	dui aspect set -theme $theme -style dye_main_nav_button { dbutton.shape {} dbutton.fill {} dbutton_symbol.font_size 28 
-		dbutton_symbol.fill "#35363d" dbutton_symbol.disabledfill "#ccc"}
+	dui aspect set -theme $theme -style dye_main_nav_button { dbutton.shape {} dbutton.fill {} dbutton.disabledfill {} 
+		dbutton_symbol.font_size 28 dbutton_symbol.fill "#35363d" dbutton_symbol.disabledfill "#ccc"}
 	
 	dui aspect set -theme $theme -type dtext -style section_header [list font_family $bold_font font_size 20]
 	
@@ -984,18 +989,26 @@ proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} } {
 
 
 proc ::plugins::DYE::open { args } {
+	variable settings
+	
 	if { [llength $args] == 1 } {
 		set use_dye_v3 0
 		set which_shot [lindex $args 0]
 		set args {}
 	} else {
-		array set opts $args
 		set use_dye_v3 [string is true [dui::args::get_option -use_dye_v3 [value_or_default ::plugins::DYE::settings(use_dye_v3) 0] 1]]
-		set which_shot [dui::args::get_option -which_shot "last" 1] 
+		set which_shot [dui::args::get_option -which_shot "default" 1] 
+	}
+	
+	if { $which_shot eq {} || $which_shot eq "default" } {
+		set which_shot $settings(default_launch_action) 
 	}
 	
 	if { $use_dye_v3 } {	
 		dui page load DYE_v3 -which_shot $which_shot {*}$args 
+	} elseif { $which_shot eq "dialog" } {
+		dui page open_dialog dye_which_shot_dlg -coords [dui::args::get_option -coords \{2400 975\}] \
+			-anchor [dui::args::get_option -anchor "e"]
 	} else {
 		dui page load DYE $which_shot
 	}
@@ -1263,12 +1276,19 @@ proc ::dui::pages::DYE::setup {} {
 
 # 'which_shot' can be either a clock value matching a past shot clock, or any of 'current', 'next', 'DSx_past' or 
 #	'DSx_past2'.
-proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot current} } {
+proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot default} } {
 	variable data
 	
 	ifexists ::settings(espresso_clock) 0
 	set current_clock $::settings(espresso_clock)
 		
+	if { $which_shot eq {} || $which_shot eq "default" } {
+		set which_shot $::plugins::DYE::settings(default_launch_action)
+	}
+	if { $which_shot eq "dialog" } {
+		set which_shot last
+	}
+	
 	set data(describe_which_shot) $which_shot
 	if { [string is integer $which_shot] && $which_shot > 0 } {
 		if { $which_shot == $current_clock } {
@@ -2570,7 +2590,6 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		if { ![plugins enabled visualizer_upload] } {
 			set data(warning_msg) [translate "\"Upload to Visualizer\" extension is not enabled"]
 			dui item config $page_to_show settings-lbl -text [translate "Enable Visualizer"]
-			#set data(settings_msg) [translate "Requires app restart"]
 		} elseif { $::android == 1 && [borg networkinfo] eq "none" } {
 			set data(warning_msg) [translate "No wifi, can't access Visualizer"]
 		} elseif { ![::plugins::visualizer_upload::has_credentials] } {
@@ -2581,7 +2600,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			set data(warning_msg) {}
 		}
 		
-		if { $data(warning_msg) eq {} } {
+		if { $data(warning_msg) eq {} } {			
 			dui item show $page_to_show {upload* download* line_up_down}
 			dui item enable_or_disable [expr {$data(shot_clock) ne {} }] $page_to_show upload*
 			
@@ -2597,7 +2616,8 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 				dui item enable $page_to_show browse*
 			}
 		} else {
-			dui item hide $page_to_show {upload* download* line_up_down}
+			dui item hide $page_to_show {upload* download* line_up_down download_code* download_beans* download_equipment* 
+				download_ratio* download_profile* download_by_code*}
 			dui item enable_or_disable [expr {$data(shot_clock) ne {} && $data(repo_link) ne {}}] $page_to_show browse*
 		}
 		
@@ -2606,7 +2626,12 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 			set data(browse_msg) ""
 		} else {
 			dui item config $page_to_show upload-lbl -text [translate "Re-upload shot"]
-			set data(browse_msg) [translate "Scan the QR code or tap here to open the link in the system browser"]
+			try {
+				package present zint
+				set data(browse_msg) [translate "Scan the QR code or tap here to open the link in the system browser"]
+			} on error err {
+				set data(browse_msg) [translate "Tap here to open the link in the system browser"]
+			}
 		}		
 		generate_qr $data(repo_link)
 	}
@@ -2643,8 +2668,10 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 	proc generate_qr { repo_link } {
 		if { $repo_link eq {} } {
 			[namespace current]::qr_img blank
-		} else {			
-			zint encode $repo_link [namespace current]::qr_img -barcode QR -scale 2.5
+		} else {
+			catch {
+				zint encode $repo_link [namespace current]::qr_img -barcode QR -scale 2.5
+			}
 		}
 	}
 	
@@ -3684,81 +3711,48 @@ proc ::dui::pages::DYE_settings::setup {} {
 	
 	dui add dtext $page $x $y -text [translate "General options"] -style section_header
 		
-#	dui add dcheckbox $page $x [incr y $vspace] -tags propagate_previous_shot_desc -command propagate_previous_shot_desc_change \
-#		-textvariable ::plugins::DYE::settings(propagate_previous_shot_desc) \
-#		-label [translate "Propagate Beans, Equipment & People from last to next shot"] -label_width $lwidth -label_pos {ne 30 -10}
 	dui add dtext $page $x [incr y $vspace] -tags {propagate_previous_shot_desc_lbl propagate_previous_shot_desc*} \
-		-width [expr {$panel_width-250}] -text [translate "Propagate Beans, Equipment & People from last to next shot"]
-#	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 250 -anchor ne -tags propagate_previous_shot_desc \
-#		-variable ::plugins::DYE::settings(propagate_previous_shot_desc) -values {1 0} -labels [list [translate Yes] [translate No]] \
-#		-command propagate_previous_shot_desc_change	
+		-width [expr {$panel_width-250}] -text [translate "Propagate Beans, Equipment, Ratio & People from last to next shot"]
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags propagate_previous_shot_desc \
 		-variable ::plugins::DYE::settings(propagate_previous_shot_desc) -command propagate_previous_shot_desc_change 
 	
-#	dui add dcheckbox $page $x [incr y $vspace] -tags describe_from_sleep -command describe_from_sleep_change \
-#		-textvariable ::plugins::DYE::settings(describe_from_sleep) \
-#		-label [translate "Icon on screensaver to describe last shot without waking up the DE1"] -label_width $lwidth
 	dui add dtext $page $x [incr y $vspace] -tags {describe_from_sleep_lbl describe_from_sleep*} \
 		-width [expr {$panel_width-250}] -text [translate "Icon on screensaver to describe last shot without waking up the DE1"]
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags describe_from_sleep \
 		-variable ::plugins::DYE::settings(describe_from_sleep) -command describe_from_sleep_change 
-#	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 250 -anchor ne -tags describe_from_sleep \
-#		-variable ::plugins::DYE::settings(describe_from_sleep) -values {1 0} -labels [list [translate Yes] [translate No]] \
-#		-command describe_from_sleep_change
-
 	
-#	dui add dcheckbox $page $x [incr y $vspace] -tags backup_modified_shot_files -command backup_modified_shot_files_change \
-#		-textvariable ::plugins::DYE::settings(backup_modified_shot_files) \
-#		-label [translate "Backup past shot files when they are modified (.bak)"] -label_width $lwidth
 	dui add dtext $page $x [incr y $vspace] -tags {backup_modified_shot_files_lbl backup_modified_shot_files*} \
 		-width [expr {$panel_width-250}] -text [translate "Backup past shot files when they are modified (.bak extension)"]
-#	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 250 -anchor ne -tags backup_modified_shot_files \
-#		-variable ::plugins::DYE::settings(backup_modified_shot_files) -values {1 0} -labels [list [translate Yes] [translate No]] \
-#		-command backup_modified_shot_files_change
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags backup_modified_shot_files \
 		-variable ::plugins::DYE::settings(backup_modified_shot_files) -command backup_modified_shot_files_change 
 
-#	dui add dcheckbox $page $x [incr y $vspace] -tags use_stars_to_rate_enjoyment \
-#		-textvariable ::plugins::DYE::settings(use_stars_to_rate_enjoyment) \
-#		-label [translate "Use 1-5 stars rating to evaluate enjoyment"] -label_width $lwidth \
-#		-command [list ::plugins::save_settings DYE]
 	dui add dtext $page $x [incr y $vspace] -tags {use_stars_to_rate_enjoyment_lbl use_stars_to_rate_enjoyment*} \
-		-width [expr {$panel_width-600}] -text [translate "Rate enjoyment using"]
+		-width [expr {$panel_width-700}] -text [translate "Rate enjoyment using"]
 	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 600 -anchor ne -tags use_stars_to_rate_enjoyment \
 		-variable ::plugins::DYE::settings(use_stars_to_rate_enjoyment) -values {1 0} \
 		-labels [list [translate {0-5 stars}] [translate {0-100 slider}]] -command [list ::plugins::save_settings DYE]
 
-#	dui add dcheckbox $page $x [incr y $vspace] -tags relative_dates -textvariable ::plugins::DYE::settings(relative_dates) \
-#		-label [translate "Use relative shot dates"] -label_width $lwidth -command [list ::plugins::save_settings DYE]	
 	dui add dtext $page $x [incr y $vspace] -tags {relative_dates_lbl relative_dates*} \
-		-width [expr {$panel_width-600}] -text [translate "Show shot dates"]
+		-width [expr {$panel_width-700}] -text [translate "Format of shot dates in DYE pages"]
 	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 600 -anchor ne -tags relative_dates \
 		-variable ::plugins::DYE::settings(relative_dates) -values {1 0} \
 		-labels [list [translate Relative] [translate Absolute]] -command [list ::plugins::save_settings DYE]
-	
-#	dui add dcheckbox $page $x [incr y $vspace] -tags use_dye_v3 -textvariable ::plugins::DYE::settings(use_dye_v3) \
-#		-label [translate "Use DYE version 3 (EXPERIMENTAL/ALPHA CODE)"] -label_width $lwidth \
-#		-command [list ::plugins::save_settings DYE] -initial_state disabled
-	
+		
 	# RIGHT SIDE, TOP
 	set x 1350; set y 250
 	dui add dtext $page $x $y -text [translate "DSx skin options"] -style section_header
 	
-#	dui add dcheckbox $page $x [incr y 100] -tags show_shot_desc_on_home -command show_shot_desc_on_home_change \
-#		-textvariable ::plugins::DYE::settings(show_shot_desc_on_home) \
-#		-label [translate "Show next & last shot description summaries on DSx home page"] -label_width $lwidth 
 	dui add dtext $page $x [incr y 100] -tags {show_shot_desc_on_home_lbl show_shot_desc_on_home*} \
 		-width [expr {$panel_width-375}] -text [translate "Show next & last shot description summaries on DSx home page"]
-	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 250 -anchor ne -tags show_shot_desc_on_home \
-		-variable ::plugins::DYE::settings(show_shot_desc_on_home) -values {1 0} \
-		-labels [list [translate Yes] [translate No]] -command show_shot_desc_on_home_change
+	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags show_shot_desc_on_home \
+		-variable ::plugins::DYE::settings(show_shot_desc_on_home) -command show_shot_desc_on_home_change 
 	
 	incr y [expr {int($vspace * 1.40)}]
 	
 	dui add dtext $page $x $y -tags shot_desc_font_color_label -width 725 -text [translate "Color of shot descriptions summaries"]
 
 	dui add dbutton $page [expr {$x+$panel_width-100}] $y -anchor ne -tags shot_desc_font_color -style dsx_settings \
-		-command shot_desc_font_color_change -label [translate "Shots summaries color"] -label_width 300 \
+		-command shot_desc_font_color_change -label [translate "Change color"] -label_width 250 \
 		-symbol paint-brush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color)
 
 	dui add dbutton $page [expr {$x+700}] [expr {$y+[dui aspect get dbutton bheight -style dsx_settings]}] \
@@ -3766,11 +3760,6 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-shape outline -outline $::plugins::DYE::default_shot_desc_font_color -arc_offset 35 \
 		-label [translate {Use default color}] -label_fill $::plugins::DYE::default_shot_desc_font_color \
 		-label_font_size -1 -command set_default_shot_desc_font_color 
-	# [dui aspect get dbutton fill]
-	
-#	dui add dtext $page [expr {int($x+100+[dui aspect get dbutton bwidth -style dsx_settings]/2)}] $y \
-#		-text "\[ [translate {Use default color}] \]" -anchor center -justify center \
-#		-fill  $::plugins::DYE::default_shot_desc_font_color -command set_default_shot_desc_font_color
 
 	# RIGHT SIDE, BOTTOM
 	set y 925
@@ -3779,8 +3768,9 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add dtext $page $x [incr y 100] -tags default_launch_action_label -width 725 \
 		-text [translate "Default action when DYE icon or button is tapped"]
 	
-	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 400 -bheight 270 -orient v -anchor ne -values {last next dialog} \
-		-variable ::plugins::DYE::settings(default_launch_action) -labels {"Describe last" "Plan next" "Launch dialog"}
+	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 400 -bheight 271 -orient v -anchor ne -values {last next dialog} \
+		-variable ::plugins::DYE::settings(default_launch_action) -labels {"Describe last" "Plan next" "Launch dialog"} \
+		-command [list ::plugins::save_settings DYE]
 	
 	# FOOTER
 	dui add dbutton $page 1035 1460 -tags page_done -style insight_ok -command page_done -label [translate Ok]

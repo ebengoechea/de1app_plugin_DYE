@@ -9,8 +9,9 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 	### INSIGHT HOME PAGE ###
 	# Add an icon on the bottom-right Insight home page to open the demo page.
 	set widgets(launch_dye) [dui add dbutton {off espresso_3} 2400 900 2580 1050 -tags launch_dye -symbol $settings(describe_icon) \
-		-symbol_pos {0.4 0.5} -symbol_anchor center -symbol_justify center -command [list ::plugins::DYE::open -which_shot last] \
-		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \{2400 975\} -anchor e]]
+		-symbol_pos {0.4 0.5} -symbol_anchor center -symbol_justify center \
+		-command [list ::plugins::DYE::open -which_shot default -coords {2400 975} -anchor e] \
+		-longpress_cmd [::list ::plugins::DYE::open -which_shot dialog -coords \{2400 975\} -anchor e]]
 		
 	#dui add dselector off 2025 1200 2525 1300 -values {Yes No Cancel} -variable ::testvar -multiple yes
 	#dui add dselector off 2025 1100 2525 1500 -values {Yes No Cancel} -variable ::testvar -multiple yes -orient v

@@ -2,6 +2,21 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.16] - 2021-11-?
+
+### New
+- Add setting variable `default_launch_action` with possible values `last`, `next` and `dialog` that determines what is done when the DYE icon or button is tapped. Its value can be set in a new section of the DYE settings page.
+
+### Changed
+- Correct mispelled package name "zint**o**".
+- DYE settings page use the new DUI widgets "dselector" and "dtoggle".
+
+## [2.15] - 2021-11-01
+
+### Changed
+- Hide the "download by code" controls in the dye_visualizer_dlg page if the visualizer_upload is not enabled, as they were being shown overlapping the browse controls.
+- Avoid runtime errors if the zint package (that generates QR codes) is not available, as may happen in non-androwish installs.
+
 ## [2.14] - 2021-10-28
 
 ### New
