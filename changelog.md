@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### New
 - Add setting variable `default_launch_action` with possible values `last`, `next` and `dialog` that determines what is done when the DYE icon or button is tapped. Its value can be set in a new section of the DYE settings page.
 - Support for the new **Insight Dark** skin. New "Insight_Dark" DUI theme.
+- Add `filelist.txt`.
 
 ### Changed
 - Correct mispelled package name "zint**o**".
