@@ -2757,6 +2757,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		variable data
 		
 		if { [plugins enabled visualizer_upload] } {
+			dui page close_dialog {} {} {}
 			dui page open_dialog visualizer_settings
 		} else {
 			if { [plugins enable visualizer_upload] } {

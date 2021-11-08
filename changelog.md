@@ -12,6 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 - Correct mispelled package name "zint**o**".
 - DYE settings page use the new DUI widgets "dselector" and "dtoggle".
+- Close the Visualizer dialog when selecting "Visualizer settings" and coming back.
 
 ## [2.15] - 2021-11-01
 
