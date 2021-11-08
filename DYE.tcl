@@ -59,13 +59,22 @@ proc ::plugins::DYE::main {} {
 	msg "Starting the 'Describe Your Espresso' plugin"
 	check_versions
 		
-	set skin $::settings(skin)
+	regsub -all { } $::settings(skin) "_" skin
 	set skin_src_fn "[plugin_directory]/DYE/setup_${skin}.tcl"
-	if { [file exists $skin_src_fn] } { source $skin_src_fn }
-		
-	if { [namespace which -command "::plugins::DYE::setup_ui_$::settings(skin)"] ne "" } {
-		::plugins::DYE::setup_ui_$::settings(skin)
+	if { [file exists $skin_src_fn] } { 
+		source $skin_src_fn
 	}
+	if { $skin eq "Insight_Dark" } {
+		source "[plugin_directory]/DYE/setup_Insight.tcl"
+	}
+		
+	if { [namespace which -command "::plugins::DYE::setup_ui_$skin"] ne "" } {
+		::plugins::DYE::setup_ui_$skin
+	} 
+	if { $skin eq "Insight_Dark" } {
+		::plugins::DYE::setup_ui_Insight
+	}
+	
 	foreach page {DYE DYE_fsh} {
 		dui page add $page -namespace true -type fpdialog
 	}
@@ -135,8 +144,8 @@ DE1app v$::plugins::DYE::min_de1app_version [translate {or higher}]\r\r[translat
 		[translate Ok]
 	}	
 	
-	set skin $::settings(skin)
-	if { $skin ni {Insight DSx MimojaCafe} } {
+	regsub -all { } $::settings(skin) "_" skin
+	if { $skin ni {Insight Insight_Dark DSx MimojaCafe} } {
 		plugins disable DYE
 		error [translate "The 'Describe Your Espresso' (DYE) plugin does not yet work with your skin. Please reach out to your skins author"]
 		return
@@ -1068,10 +1077,9 @@ proc ::dui::pages::DYE::setup {} {
 	variable data
 	variable widgets
 	set page [namespace tail [namespace current]]
-	set skin $::settings(skin)	
+	regsub -all { } $::settings(skin) "_" skin
 	
 	#::plugins::DYE::page_skeleton $page "" "" yes no center insight_ok
-
 	dui add variable $page 1280 60 -tags page_title -style page_title -command {%NS::toggle_title}
 	
 	dui add variable $page 1280 125 -textvariable {[::dui::pages::DYE::propagate_state_msg]} -tags propagate_state_msg \

@@ -1,6 +1,5 @@
 
 # Setup the UI integration with the Insight skin.
-set ::testvar {Yes Cancel}
 
 proc ::plugins::DYE::setup_ui_Insight {} {
 	variable widgets 
@@ -13,10 +12,6 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 		-command [list ::plugins::DYE::open -which_shot default -coords {2400 975} -anchor e] \
 		-longpress_cmd [::list ::plugins::DYE::open -which_shot dialog -coords \{2400 975\} -anchor e]]
 		
-	#dui add dselector off 2025 1200 2525 1300 -values {Yes No Cancel} -variable ::testvar -multiple yes
-	#dui add dselector off 2025 1100 2525 1500 -values {Yes No Cancel} -variable ::testvar -multiple yes -orient v
-	#dui add dtoggle off 2150 1300 -variable ::testvar
-	
 	### SCREENSAVER ###
 	# Makes the left side of the app screensaver clickable so that you can describe your last shot without waking up 
 	# the DE1. Note that this would overlap with the DSx plugin management option, if enabled. Provided by Damian.
