@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.17] - 2021-11-?
+
+### Changed
+- Improve handling of arguments in `plugins::DYE::open` (for launching DYE from MimojaCafe)
+
 ## [2.16] - 2021-11-08
 
 ### New

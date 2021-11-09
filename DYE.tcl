@@ -1004,22 +1004,29 @@ proc ::plugins::DYE::open { args } {
 		set use_dye_v3 0
 		set which_shot [lindex $args 0]
 		set args {}
-	} else {
-		set use_dye_v3 [string is true [dui::args::get_option -use_dye_v3 [value_or_default ::plugins::DYE::settings(use_dye_v3) 0] 1]]
-		set which_shot [dui::args::get_option -which_shot "default" 1] 
+	} elseif { [llength $args] > 1 } {
+		if { [string range [lindex $args 0] 0 0] ne "-" } {
+			set which_shot [lindex $args 0]
+			set args [lrange $args 1 end]
+		} else {
+			set which_shot [dui::args::get_option -which_shot "default" 1]
+		}
+		set use_dye_v3 [string is true [dui::args::get_option -use_dye_v3 [value_or_default ::plugins::DYE::settings(use_dye_v3) 0] 1]]		 
 	}
 	
 	if { $which_shot eq {} || $which_shot eq "default" } {
 		set which_shot $settings(default_launch_action) 
 	}
 	
+	set dlg_coords [dui::args::get_option -coords {2400 975} 1]
+	set dlg_anchor [dui::args::get_option -anchor "e" 1]
+	
 	if { $use_dye_v3 } {	
 		dui page load DYE_v3 -which_shot $which_shot {*}$args 
 	} elseif { $which_shot eq "dialog" } {
-		dui page open_dialog dye_which_shot_dlg -coords [dui::args::get_option -coords \{2400 975\}] \
-			-anchor [dui::args::get_option -anchor "e"]
+		dui page open_dialog dye_which_shot_dlg -coords $dlg_coords -anchor $dlg_anchor {*}$args
 	} else {
-		dui page load DYE $which_shot
+		dui page load DYE $which_shot {*}$args
 	}
 }
 
