@@ -80,6 +80,7 @@ proc ::plugins::DYE::main {} {
 	}
 	# Default slice/button height in menu dialogs: 120
 	dui page add dye_edit_dlg -namespace true -type dialog -bbox {0 0 1150 840}
+	dui page add dye_manage_dlg -namespace true -type dialog -bbox {0 0 800 600}
 	dui page add dye_visualizer_dlg -namespace true -type dialog -bbox {0 0 900 960}
 	dui page add dye_which_shot_dlg -namespace true -type dialog -bbox {0 0 1100 820}
 	
@@ -1041,7 +1042,7 @@ namespace eval ::dui::pages::DYE {
 	# right of the history viewer). Values are actually saved only when tapping the "Done" button.
 	# describe_which_shot: next / current / past / DSx_past / DSx_past2	
 	variable data
-	array set data {		
+	array set data {
 		page_title {Describe your last espresso}
 		describe_which_shot {current}
 		shot_file {}
@@ -1281,6 +1282,9 @@ proc ::dui::pages::DYE::setup {} {
 	
 	set y 1415 	
 	dui add dbutton $page 100 $y -tags edit_dialog -style dsx_settings -symbol chevron-up -label [translate "Edit data"] -bheight 160
+
+	dui add dbutton $page [expr {150+[dui aspect get dbutton bwidth -style dsx_settings]}] $y -tags manage_dialog \
+		-style dsx_settings -symbol chevron-up -label [translate "Manage"] -bheight 160
 	
 	dui add dbutton $page 2440 $y -anchor ne -tags visualizer_dialog -style dsx_settings -symbol chevron-up -symbol_pos {0.8 0.45} \
 		-label [translate "Visualizer"] -label_pos {0.35 0.45} -label1variable visualizer_status_label -label1_pos {0.5 0.8} \
@@ -1469,13 +1473,17 @@ proc ::dui::pages::DYE::move_backward {} {
 	save_description
 
 	if { $data(describe_which_shot) eq "next" } {
-		dui page load DYE current -reload yes		
+		dui page load DYE current -reload yes
 	} else {
 		set previous_clock [::plugins::SDB::previous_shot $data(clock)]
 		if { $previous_clock ne "" && $previous_clock > 0 } {
 			dui page load DYE $previous_clock -reload yes
+		} else {
+			return 0
 		}
 	}
+	
+	return 1
 }
 
 proc ::dui::pages::DYE::move_forward {} {
@@ -2073,6 +2081,62 @@ proc ::dui::pages::DYE::undo_changes { {apply_to {}} } {
 	}
 }
 
+proc ::dui::pages::DYE::delete_shot { } {
+	variable data
+	if { $data(describe_which_shot) eq "next" || $data(path) eq "" } {
+		msg -WARNING [namespace current] "can't delete shot '$data(describe_which_shot)' with path '$data(path)'"
+		return 0
+	}
+
+	# Save now to avoid later saving a shot that has been removed (in [move_backward])
+	save_description
+	
+	set backup_path "[homedir]/bin/"
+	if { ![file exists $backup_path] } {
+		try {
+			file mkdir $backup_path
+		} on error err {
+			msg -ERROR [namespace current] "can't create folder '$backup_path': $err"
+			return 0
+		}
+	}
+	
+	set target_file "${backup_path}[file tail $data(path)]"
+	if { [file exists $data(path)] } {
+		try {
+			file copy -force -- "$data(path)" "$target_file"
+		} on error err {
+			msg -ERROR [namespace current] "can't copy file '$data(path)' to '$target_file': $err"
+			return 0			
+		}
+		if { [file exists $target_file] } {
+			try {
+				file delete -force -- "$data(path)"
+			} on error err {
+				msg -ERROR [namespace current] "can't delete file '$data(path)': $err"
+				return 0
+			}
+			
+			try {
+				set db [::plugins::SDB::get_db]
+				db eval {UPDATE shot SET removed=1 WHERE clock=$data(clock)}
+			} on error err {
+				msg -ERROR [namespace current] "can't flag shot '$data(clock)' in DB as removed: $err"
+				return 0
+			}
+		}
+	}
+	
+	
+	if { ![move_backward] } {
+		move_forward
+	}
+	
+	dui page open_dialog dui_confirm_dialog "Shot file has been moved to the 'bin' folder. Move it back to 'history' folder to undelete" "Ok"
+	
+	return 1
+}
+
 # A clone of DSx last_shot_date, but uses settings(espresso_clock) if DSx_settings(live_graph_time) is not
 # available (e.g. if DSx_settings.tdb were manually removed). Also will allow future skin-independence.
 proc ::dui::pages::DYE::last_shot_date {} {
@@ -2200,6 +2264,30 @@ proc ::dui::pages::DYE::process_edit_dialog { {action {}} {apply_to {}} } {
 		read_from selected $apply_to
 	} elseif { $action eq "undo" } {
 		undo_changes $apply_to
+	}
+}
+
+proc ::dui::pages::DYE::manage_dialog {} {
+	variable data
+	dui sound make sound_button_in
+	set is_next [expr {$data(describe_which_shot) eq "next"}]
+	
+	dui page open_dialog dye_manage_dlg $is_next $data(path) -anchor sw -disable_items 1 \
+		-coords [list [expr {150+[dui aspect get dbutton bwidth -style dsx_settings]}] 1390] \
+		-return_callback [namespace current]::process_manage_dialog
+}
+
+proc ::dui::pages::DYE::process_manage_dialog { {action {}} } {
+	variable data
+	
+	if { $action eq "delete" } {
+		delete_shot 
+	} elseif { $action eq "export" } {
+		#export_shot
+	} elseif { $action eq "profile" } {
+		#view_profile_dialog
+	} elseif { $action eq "settings" } {
+		dui page open_dialog DYE_settings
 	}
 }
 
@@ -2466,6 +2554,83 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		
 		dui::page::close_dialog $action $apply_to
 	}
+}
+
+### DYE MANAGE DIALOG PAGE ###########################################################################################
+
+namespace eval ::dui::pages::dye_manage_dlg {
+	variable widgets
+	array set widgets {}
+		
+	variable data
+	array set data {
+		shot_path ""
+	}
+
+	# Actions: Delete shot, Export shot, View profile, DYE settings
+	proc setup {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		set page_width [dui page width $page 0]
+		set page_height [dui page height $page 0]
+		set splits [dui page split_space 0 $page_height 0.1 0.1 0.1 0.1 0.1]
+		
+		set i 0		
+		set y0 [lindex $splits $i]
+		set y1 [lindex $splits [incr i]]
+
+		dui add dtext $page 0.45 [expr {int(($y1-$y0)/2)}] -tags title -style menu_dlg_title -text [translate "Choose a management action:"]
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
+			-command dui::page::close_dialog
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+				
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags delete_shot -style menu_dlg_btn -label [translate "Delete shot"] \
+			-symbol trash -command [list dui::page::close_dialog delete] -label1variable shot_path
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+
+		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg -fill red -font_size +3 
+		
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags export_shot -style menu_dlg_btn -label "[translate {Export shot}]..." \
+			-symbol file-export -command [list dui::page::close_dialog export]
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags view_profile -style menu_dlg_btn -label "[translate {View profile}]..." \
+			-symbol sliders-h -command [list dui::page::close_dialog profile] -label1variable {$::settings(profile_title)}
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+		
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags dye_settings -style menu_dlg_btn -label [translate "DYE settings"] \
+			-symbol cogs -command [list dui::page::close_dialog settings] 
+	}
+
+	proc load { page_to_hide page_to_show {is_next 0} {shot_path {}} args } {
+		variable data
+		
+		if { [string is true $is_next] || $shot_path eq "" } {
+			set data(shot_path) {}
+		} else {
+			set data(shot_path) [string range $shot_path [string length [homedir]] end]
+		}
+		
+		return 1
+	}
+	
+	proc show { page_to_hide page_to_show } {
+		variable data
+		
+		if { $data(shot_path) eq {} } {
+			dui item disable dye_manage_dlg {delete_shot* export_shot*}
+		}
+	}
+	
 }
 
 ### VISUALIZER DIALOG PAGE #########################################################################################
