@@ -2101,12 +2101,15 @@ proc ::dui::pages::DYE::delete_shot { } {
 		}
 	}
 	
+	dui say [translate "Deleting shot"]
+	
 	set target_file "${backup_path}[file tail $data(path)]"
 	if { [file exists $data(path)] } {
 		try {
 			file copy -force -- "$data(path)" "$target_file"
 		} on error err {
 			msg -ERROR [namespace current] "can't copy file '$data(path)' to '$target_file': $err"
+			dui say [translate "Deletion failed"]
 			return 0			
 		}
 		if { [file exists $target_file] } {
@@ -2114,6 +2117,7 @@ proc ::dui::pages::DYE::delete_shot { } {
 				file delete -force -- "$data(path)"
 			} on error err {
 				msg -ERROR [namespace current] "can't delete file '$data(path)': $err"
+				dui say [translate "Deletion failed"]
 				return 0
 			}
 			
@@ -2122,9 +2126,11 @@ proc ::dui::pages::DYE::delete_shot { } {
 				db eval {UPDATE shot SET removed=1 WHERE clock=$data(clock)}
 			} on error err {
 				msg -ERROR [namespace current] "can't flag shot '$data(clock)' in DB as removed: $err"
+				dui say [translate "Deletion failed in database"]
 				return 0
 			}
 		}
+		dui say [translate "Shot deleted"]
 	}
 	
 	
@@ -2135,6 +2141,70 @@ proc ::dui::pages::DYE::delete_shot { } {
 	dui page open_dialog dui_confirm_dialog "Shot file has been moved to the 'bin' folder. Move it back to 'history' folder to undelete" "Ok"
 	
 	return 1
+}
+
+proc ::dui::pages::DYE::export_shot {} {
+	variable data
+	if { $data(describe_which_shot) eq "next" || $data(path) eq "" } {
+		msg -WARNING [namespace current] "can't delete shot '$data(describe_which_shot)' with path '$data(path)'"
+		return
+	} elseif { ![file exists $data(path)] } {
+		msg -WARNING [namespace current] "can't find shot file '$data(path)'"
+		return
+	}
+
+	# Ensure latest editions are saved before exporting
+	save_description
+	
+	dui page open_dialog dui_confirm_dialog "Please choose the export format:" {"Tcl .shot" "CSV" "JSON v2" "Cancel"} \
+		-return_callback [namespace current]::process_export_shot_confirm
+}
+
+proc  ::dui::pages::DYE::process_export_shot_confirm { choice } {
+	variable data
+	if { $choice == 4 } {
+		return
+	}
+	
+	if { $choice == 3 } {
+		set ext "json"
+	} elseif { $choice == 2 } {
+		set ext "csv"
+	} else {
+		set ext "shot"
+	}
+	
+	set target_file [tk_getSaveFile -title [translate {Choose the export path}] -initialdir "[homedir]/history/export/" \
+		-initialfile "[file rootname [file tail $data(path)]].$ext" -defaultextension ".$ext"]
+	
+	dui say [translate "Exporting shot"]
+	
+	if { $choice == 2 } {
+		array set arr {}
+		catch {
+			array set arr [read_file $data(path)]
+		}
+		if { [array size arr] == 0 } {
+			msg -ERROR [namespace current] "corrupted shot history item: 'history/$d'"
+			dui say [translate "Export failed"]
+			return
+		}
+		
+		export_csv arr $target_file
+	} elseif { $choice == 3 } {
+		::shot::convert_legacy_to_v2 $data(path) [file dirname $target_file] [file tail $target_file]
+	} else {
+		try {
+			file copy -force -- "$data(path)" "$target_file"
+		} on error err {
+			msg -ERROR [namespace current] "can't copy shot file to '$target_file': $err"
+			dui say [translate "Export failed"]
+			return
+		}
+	}
+	
+	msg -INFO [namespace current] "shot file '$data(path)' exported to '$target_file'"
+	dui say [translate "Shot exported"]	
 }
 
 # A clone of DSx last_shot_date, but uses settings(espresso_clock) if DSx_settings(live_graph_time) is not
@@ -2283,7 +2353,7 @@ proc ::dui::pages::DYE::process_manage_dialog { {action {}} } {
 	if { $action eq "delete" } {
 		delete_shot 
 	} elseif { $action eq "export" } {
-		#export_shot
+		export_shot
 	} elseif { $action eq "profile" } {
 		#view_profile_dialog
 	} elseif { $action eq "settings" } {
@@ -2564,6 +2634,7 @@ namespace eval ::dui::pages::dye_manage_dlg {
 		
 	variable data
 	array set data {
+		is_next 0
 		shot_path ""
 	}
 
@@ -2596,7 +2667,7 @@ namespace eval ::dui::pages::dye_manage_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags export_shot -style menu_dlg_btn -label "[translate {Export shot}]..." \
-			-symbol file-export -command [list dui::page::close_dialog export]
+			-symbol file-export -command [list dui::page::close_dialog export] -label1variable shot_path
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
 		set y0 $y1
@@ -2614,7 +2685,8 @@ namespace eval ::dui::pages::dye_manage_dlg {
 	proc load { page_to_hide page_to_show {is_next 0} {shot_path {}} args } {
 		variable data
 		
-		if { [string is true $is_next] || $shot_path eq "" } {
+		set data(is_next) [string is true $is_next]
+		if { $data(is_next) || $shot_path eq "" } {
 			set data(shot_path) {}
 		} else {
 			set data(shot_path) [string range $shot_path [string length [homedir]] end]
@@ -2628,6 +2700,10 @@ namespace eval ::dui::pages::dye_manage_dlg {
 		
 		if { $data(shot_path) eq {} } {
 			dui item disable dye_manage_dlg {delete_shot* export_shot*}
+			
+			if { !$data(is_next) } {
+				dui item disable dye_manage_dlg view_profile*
+			}
 		}
 	}
 	
