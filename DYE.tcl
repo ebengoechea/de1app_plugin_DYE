@@ -83,6 +83,7 @@ proc ::plugins::DYE::main {} {
 	dui page add dye_manage_dlg -namespace true -type dialog -bbox {0 0 800 600}
 	dui page add dye_visualizer_dlg -namespace true -type dialog -bbox {0 0 900 960}
 	dui page add dye_which_shot_dlg -namespace true -type dialog -bbox {0 0 1100 820}
+	dui page add dye_profile_viewer_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
@@ -839,23 +840,97 @@ proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button 
 }
 
 proc ::plugins::DYE::import_profile_from_shot { shot_clock } {
-	array set shot [::plugins::SDB::load_shot $shot_clock 0 0 1]
-	if { [array size shot] == 0 } {
-		msg -WARNING [namespace current] import_profile_from_shot: "shot file for '$shot_clock' not found"
+	import_profile [::plugins::SDB::load_shot $shot_clock 0 0 1]
+}
+
+# Everything in the base app is built around selecting a profile in the GUI and save it in the settings. Base procs
+# don't work with other input/ouput parameters. So we need to circumvent around those restrictions.
+# Here we mimic a bit what is done in vars.tcl, proc select_profile, but without using a saved profile.
+proc ::plugins::DYE::import_profile { profile_list } {
+	array set profile $profile_list
+	if { [array size profile] == 0 } {
+		msg -WARNING [namespace current] import_profile: "profile_list is empty"
 		return 0
 	}
-
-	foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] { 
-		set ::settings($fn) $shot($fn)
+	msg -INFO [namespace current] import_profile: "importing profile '$profile(profile)'"
+	
+	# Predefine some settings that were added later to profiles (we may find older profiles without these features)
+	set ::settings(preinfusion_flow_rate) 4
+	set ::settings(maximum_pressure) 0
+	set ::settings(maximum_flow) 0
+	unset -nocomplain ::settings(profile_video_help)
+	
+	# Read the profile variables from the shot and overwrite the settings
+	foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+		if { [info exists profile($fn)] } {
+			set ::settings($fn) $profile($fn)
+		} else {
+			set ::settings($fn) {}
+		}
 	}
+	
+	# Then modify a few things
 	set ::settings(profile_has_changed) 1
 	set ::settings(profile_hide) 0
+
+	# Ensure the profile type follows the latest app standard values
+	if { $::settings(settings_profile_type) eq "settings_2" || $::settings(settings_profile_type) eq "settings_profile_pressure" } {
+		set ::settings(settings_profile_type) "settings_2a"
+	} elseif { $::settings(settings_profile_type) eq "settings_profile_flow" } {
+		set ::settings(settings_profile_type) "settings_2b"
+	} elseif { $::settings(settings_profile_type) eq "settings_profile_advanced" || $::settings(settings_profile_type) eq "settings_2c2" } {
+		# old profile names that shouldn't exist any more, so upgrade them to the latest name
+		set ::settings(settings_profile_type) "settings_2c"
+	}
 	
+	# Make sure the presets/profile editing GUI pages are updated to reflect the changes 
+	set fn "[homedir]/profiles/$profile(profile_filename).tcl"
+	if { [file exists $fn] } {
+		# Ensure the profile is shown in the presets list, so it can be selected. Only way to do this, with how the 
+		# default skin works, is to modify the profile file. Preserve the sorting order of the lines in the original
+		# profile file.
+		set lprofile [encoding convertfrom utf-8 [read_binary_file $fn]]
+		set sorted_keys {}
+		foreach {k v} $lprofile {
+			lappend sorted_keys $k
+		}
+		array set saved_profile $lprofile
+		ifexists saved_profile(profile_hide) 0
+		if { $saved_profile(profile_hide) == 1 } {
+			msg -INFO [namespace current] import_profile: "unhiding profile '$::settings(profile)'"
+			set saved_profile(profile_hide) 0
+			set txt ""
+			foreach k $sorted_keys {
+				set v $saved_profile($k)
+				append txt "[list $k] [list $v]\n"
+			}			
+			try {
+				write_file $fn $txt
+			} on error err {
+				msg -INFO [namespace current] import_profile: "could not save profile file '$fn': $err"
+				return 0
+			}
+		}
+	} else {
+		msg -INFO [namespace current] import_profile: "no saved profile matches imported profile filename '$::settings(profile_filename)', creating it"
+		save_profile
+	}
+	
+	set ::settings(active_settings_tab) $::settings(settings_profile_type)
 	fill_profiles_listbox
+	if { $::settings(settings_profile_type) eq "settings_2c" } {
+		fill_advanced_profile_steps_listbox
+		load_advanced_profile_step 1
+	}
 	update_de1_explanation_chart
 	profile_has_changed_set_colors
 	
-	::save_settings	
+	# As of v1.3 people can start an espresso from the group head, which means the just imported profile needs to sent 
+	# right away to the DE1, in case the person taps the GH button to start espresso w/o leaving DYE.
+	send_de1_settings_soon
+	
+	::save_settings
+	dui say [translate "Profile applied"]
 	return 1
 }
 
@@ -1805,6 +1880,11 @@ proc ::dui::pages::DYE::load_description {} {
 				set data($fn) {}
 			}
 		}
+		foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+			if { [info exists ::settings($fn)] } {
+				set src_data($fn) $::settings($fn)
+			}
+		}
 		
 		# MimojaCafe and DSx allow you to define some variables of next shot, so we ensure they are coordinated
 		# with DYE next shot description.
@@ -1840,7 +1920,7 @@ proc ::dui::pages::DYE::load_description {} {
 	} else {
 		set src_next_modified {}
 		
-		array set shot [::plugins::SDB::load_shot $data(clock)]	
+		array set shot [::plugins::SDB::load_shot $data(clock) 0 1 1]	
 		if { [array size shot] == 0 } {
 			foreach fn [metadata fields -domain shot -category description] {
 				set src_data($fn) {}
@@ -1848,6 +1928,9 @@ proc ::dui::pages::DYE::load_description {} {
 			}
 			set data(path) {}
 			set data(days_offroast_msg) ""
+			foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+				set src_data($fn) {}
+			}
 			return 0 
 		} else {			
 			foreach fn [metadata fields -domain shot -category description] {
@@ -1855,9 +1938,27 @@ proc ::dui::pages::DYE::load_description {} {
 				set data($fn) $shot($fn)
 			}
 			set data(path) $shot(path)
+			
+			foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+				if { [info exists shot($fn)] } {
+					set src_data($fn) $shot($fn)
+				}
+			}
 		}
 	}
-	
+
+	# Ensure the profile's advanced_shot variable is always defined
+	switch $src_data(settings_profile_type) \
+		settings_2a {
+			array set temp_profile [::profile::pressure_to_advanced_list ::dui::pages::DYE::src_data]
+			#msg -INFO "PRESSURE_ADVANCED_LIST: $temp_profile"
+			set src_data(advanced_shot) $temp_profile(advanced_shot)
+		} settings_2b {
+			array set temp_profile [::profile::flow_to_advanced_list ::dui::pages::DYE::src_data]
+			#msg -INFO "FLOW_ADVANCED_LIST: $temp_profile"
+			set src_data(advanced_shot) $temp_profile(advanced_shot)
+		}
+
 	compute_days_offroast
 	return 1
 }
@@ -2138,7 +2239,8 @@ proc ::dui::pages::DYE::delete_shot { } {
 		move_forward
 	}
 	
-	dui page open_dialog dui_confirm_dialog "Shot file has been moved to the 'bin' folder. Move it back to 'history' folder to undelete" "Ok"
+	dui page open_dialog dui_confirm_dialog -size {800 500} -disable_items 1 -coords {0.5 0.5} -anchor center \
+		"Shot file has been moved to the 'bin' folder. Move it back to 'history' folder to undelete" "Ok" 
 	
 	return 1
 }
@@ -2157,7 +2259,7 @@ proc ::dui::pages::DYE::export_shot {} {
 	save_description
 	
 	dui page open_dialog dui_confirm_dialog "Please choose the export format:" {"Tcl .shot" "CSV" "JSON v2" "Cancel"} \
-		-return_callback [namespace current]::process_export_shot_confirm
+		-coords {0.5 0.5} -anchor center -size {1500 400} -disable_items 1 -return_callback [namespace current]::process_export_shot_confirm
 }
 
 proc  ::dui::pages::DYE::process_export_shot_confirm { choice } {
@@ -2355,7 +2457,7 @@ proc ::dui::pages::DYE::process_manage_dialog { {action {}} } {
 	} elseif { $action eq "export" } {
 		export_shot
 	} elseif { $action eq "profile" } {
-		#view_profile_dialog
+		dui page open_dialog dye_profile_viewer_dlg $data(describe_which_shot) $data(clock)
 	} elseif { $action eq "settings" } {
 		dui page open_dialog DYE_settings
 	}
@@ -2673,7 +2775,7 @@ namespace eval ::dui::pages::dye_manage_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags view_profile -style menu_dlg_btn -label "[translate {View profile}]..." \
-			-symbol sliders-h -command [list dui::page::close_dialog profile] -label1variable {$::settings(profile_title)}
+			-symbol sliders-h -command [list dui::page::close_dialog profile] -label1variable {$::dui::pages::DYE::src_data(profile_title)}
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
 		set y0 $y1
@@ -3192,6 +3294,347 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 	proc dye_settings {} {
 		dui page close_dialog
 		dui page open_dialog DYE_settings
+	}
+}
+
+### PROFILE VIEWER DIALOG ##############################################################################################
+
+namespace eval ::dui::pages::dye_profile_viewer_dlg {
+	variable widgets
+	array set widgets {}
+		
+	# This page looks up its data directly in the DYE page, instead of storing its own.
+	variable data
+	array set data {
+		which_shot {}
+		profile_title {}
+		profile_type {}
+		apply_profile_label "Use profile in next shot"
+	}
+	
+	proc setup {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		set page_width [dui page width $page 0]
+		
+		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -fill CadetBlue2 -radius 20
+		dui add symbol $page 105 75 -anchor center -symbol sliders-h -font_size 40 -fill white 
+		dui add dtext $page 105 165 -anchor center -justify center -text [translate "PROFILE"] -font_size 14 -fill white
+		
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
+			-command dui::page::close_dialog
+
+		dui add variable $page 275 30 -anchor nw -justify left -tags profile_title -width 1200 -font_size +8 -fill black
+		
+		dui add variable $page 275 210 -anchor sw -justify left -tags profile_type -width 1200 -font_size +1 -fill brown
+	
+		dui add text $page 275 225 -tags profile_desc -canvas_width 1200 -canvas_height 1075 -yscrollbar yes \
+			-highlightthickness 0
+		
+		dui add dbutton $page 1700 1100 -bwidth 550 -bheight 200 -style dsx_settings -tags apply_profile -symbol file-export \
+			-labelvariable apply_profile_label  -label_width 375
+	}
+	
+	proc load { page_to_hide page_to_show which_shot shot_clock args } {
+		variable data
+		
+		set data(which_shot) $which_shot
+		if { $which_shot eq "next" } {
+			set data(profile_title) $::settings(profile_title)
+		} else {
+			set data(profile_title) $::dui::pages::DYE::src_data(profile_title)
+		}
+		
+		set bev_type [string toupper [value_or_default ::dui::pages::DYE::src_data(beverage_type) "ESPRESSO"]]
+		if { $bev_type == 0 } {
+			set bev_type "ESPRESSO"
+		}
+		switch $::dui::pages::DYE::src_data(settings_profile_type) \
+			settings_2a {
+				set data(profile_type) [translate "PRESSURE $bev_type PROFILE"]
+			} settings_2b {
+				set data(profile_type) [translate "FLOW $bev_type PROFILE"]
+			} settings_2c {
+				set data(profile_type) [translate "ADVANCED $bev_type PROFILE"]
+			} settings_2c2 {
+				set data(profile_type) [translate "ADVANCED $bev_type PROFILE"]
+			} default {
+				set data(profile_type) "[translate [subst {UNKNOWN $bev_type PROFILE TYPE}]] $::dui::pages::DYE::src_data(settings_profile_type)"
+			}
+		
+		set data(apply_profile_label) [translate {Use profile in next shot}]
+		
+		profile_to_text
+		return 1
+	}
+	
+	proc show { page_to_hide page_to_show } {
+		variable data
+		if { $data(which_shot) eq "next" } {
+			set data(apply_profile_label) [translate {View/Edit profile}]
+			dui item config $page_to_show apply_profile-sym -text [dui symbol get pencil]
+		} else {
+			set data(apply_profile_label) [translate {Use profile in next shot}]
+			dui item config $page_to_show apply_profile-sym -text [dui symbol get file-export]
+		}
+	}
+	
+	# Fill a text description of a profile in a Tk Text widget. 
+	proc profile_to_text { {show_profile_type 0} } {
+		variable widgets
+		variable data
+		set ns [namespace current]
+		set page [namespace tail $ns]
+		
+		# READ PROFILE
+		array set profile {}
+		foreach var [::profile_vars] {
+			set profile($var) $::dui::pages::DYE::src_data($var)
+		}
+		
+		# START TEXT WIDGET
+		set tw $widgets(profile_desc)
+		$tw configure -state normal
+		$tw delete 1.0 end
+		
+		# Define tag styles
+		$tw tag configure profile_type -foreground brown 
+		$tw tag configure step -spacing1 [dui::platform::rescale_y 20] -foreground brown
+		$tw tag configure step_line -lmargin1 [dui::platform::rescale_x 35] -lmargin2 [dui::platform::rescale_x 55] 
+		$tw tag configure value -foreground blue4
+		
+#		$tw tag configure section {*}[dui aspect list -type text_tag -style dyev3_section -as_options yes]
+#		$tw tag configure field {*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
+#		$tw tag configure value {*}[dui aspect list -type text_tag -style dyev3_value -as_options yes]
+#		$tw tag configure measure_unit {*}[dui aspect list -type text_tag -style dyev3_measure_unit -as_options yes]
+#		$tw tag configure compare -elide [expr {!$do_compare}] {*}[dui aspect list -type text_tag -style dyev3_compare -as_options yes]
+#		set non_highlighted_aspects [dui aspect list -type text_tag -style dyev3_field_nonhighlighted -as_options yes]
+		
+		# FILL PROFILE
+		if { [string is true $show_profile_type] } {
+			switch $profile(settings_profile_type) \
+				settings_2a {
+					$tw insert insert "[translate {PRESSURE PROFILE}]" profile_type "\n"
+				} settings_2b {
+					$tw insert insert "[translate {FLOW PROFILE}]" profile_type "\n"
+				} settings_2c {
+					$tw insert insert "[translate {ADVANCED PROFILE}]" profile_type "\n"
+				} settings_2c2 {
+					$tw insert insert "[translate {ADVANCED PROFILE}]" profile_type "\n"
+				} default {
+					$tw insert insert "[translate {UNKNOWN PROFILE TYPE}] $profile(settings_profile_type)" profile_type "\n"
+				}
+		}
+
+		if { $profile(tank_desired_water_temperature) > 0 } {
+			$tw insert insert "[translate {Preheat water tank at}] " {} \
+				[round_to_one_digits $profile(tank_desired_water_temperature)] value "[translate ºC]\n"
+		}
+
+		if { $profile(maximum_pressure_range_advanced) > 0 || $profile(maximum_flow_range_advanced) > 0 } {
+			$tw insert insert "[translate {Limiter ranges of action:}] "
+			if { $profile(maximum_flow_range_advanced) > 0 } {
+				$tw insert insert [round_to_one_digits $profile(maximum_flow_range_advanced)] value " [translate mL/s]"
+			}
+			if { $profile(maximum_pressure_range_advanced) > 0 && $profile(maximum_flow_range_advanced) > 0 } {
+				$tw insert insert " [translate and] "
+			}
+			if { $profile(maximum_pressure_range_advanced) > 0 } {
+				$tw insert insert [round_to_one_digits $profile(maximum_pressure_range_advanced)] value " [translate bar]" 
+			}
+			$tw insert insert "\n"
+		}
+		
+		set stepn 1
+		set prev_temp 0.0
+		set prev_sensor ""
+		set prev_pressure_or_flow 0.0 
+		set prev_pump ""
+		set time_adjust 0.0
+		foreach stepl $profile(advanced_shot) {
+			array set step $stepl
+			if { $profile(espresso_hold_time) > 0 && $step(seconds) == 3 && $step(volume) == 0 && $step(exit_if) == 0 } {
+				set time_adjust 3.0
+				continue
+			}
+			
+			# Step names are already translated in advanced_shot, don't traslate again
+			$tw insert insert "[translate {STEP}] ${stepn}: $step(name)" step "\n"
+		
+			if { $stepn > 1 && $profile(final_desired_shot_volume_advanced_count_start) == $stepn-1 } {
+				$tw insert insert "- [translate {Start tracking water volume}] " step_line "\n" 
+				#"(after step $profile(final_desired_shot_volume_advanced_count_start))" {step_line value} "\n"
+			}
+			
+			if { $stepn == 1 || $prev_sensor ne $step(sensor) } {
+				$tw insert insert "- [translate Set] " step_line $step(sensor) {step_line value} \
+					" [translate {temperature to}] " step_line "[round_to_one_digits $step(temperature)]" {step_line value} \
+					" [translate {ºC}]" step_line "\n"
+			} elseif { $prev_temp == $step(temperature) } {
+				$tw insert insert "- [translate Maintain] " step_line $step(sensor) {step_line value} \
+					" [translate {temperature at}] " step_line "[round_to_one_digits $step(temperature)]" {step_line value} \
+					" [translate {ºC}]" step_line "\n"
+			} elseif { $prev_temp < $step(temperature) } {
+				$tw insert insert "- [translate Increase] " step_line $step(sensor) {step_line value} \
+					" [translate {temperature to}] " step_line "[round_to_one_digits $step(temperature)]" {step_line value} \
+					" [translate {ºC}]" step_line "\n"
+			} else {
+				$tw insert insert "- [translate Decrease] " step_line $step(sensor) {step_line value} \
+				" [translate {temperature to}] " step_line "[round_to_one_digits $step(temperature)]" {step_line value} \
+				" [translate {ºC}]" step_line "\n"				
+			}
+			
+			ifexists step(max_flow_or_pressure) 0
+			if { $step(transition) eq "smooth" } {
+				set step(transition) "gradually"
+			} elseif { $step(transition) eq "fast" } {
+				set step(transition) "quickly"
+			}
+		
+			if { $step(pump) eq "flow" } {
+				$tw insert insert "- [translate Pour] " step_line $step(transition) {step_line value} \
+					" [translate {at a rate of}] " step_line [round_to_one_digits $step(flow)] {step_line value} \
+					" [translate mL/s] " step_line
+				if { $step(max_flow_or_pressure) > 0 } {
+					$tw insert insert " [translate {with a pressure limit of}] " step_line \
+						[round_to_one_digits $step(max_flow_or_pressure)] {step_line value} " [translate bar]" step_line
+				}
+			} elseif { $step(pump) eq "pressure" } {
+				if { $stepn == 1 || ($prev_pump ne "pressure" && $step(pressure) > 0) || \
+						($stepn > 1 && $prev_pump eq "pressure" && $step(pressure) > $prev_pressure_or_flow ) } {
+					$tw insert insert "- [translate {Pressurize}] " step_line $step(transition) {step_line value} \
+						" [translate to] " step_line [round_to_one_digits $step(pressure)] {step_line value} " [translate bar]" step_line
+				} elseif { $step(pressure) == 0 } {
+					$tw insert insert "- [translate {Depressurize}] " step_line $step(transition) {step_line value} \
+						" [translate to] " step_line [round_to_one_digits $step(pressure)] {step_line value} " [translate bar]" step_line
+				} else {
+					$tw insert insert "- [translate {Decrease pressure}] " step_line $step(transition) {step_line value} \
+						" [translate to] " step_line [round_to_one_digits $step(pressure)] {step_line value} " [translate bar]" step_line
+				}
+				
+				if { $step(max_flow_or_pressure) > 0 } {
+					$tw insert insert " [translate {with a flow limit of}] " step_line \
+						[round_to_one_digits $step(max_flow_or_pressure)] {step_line value} " [translate mL/s]" step_line
+				}				
+			}
+			$tw insert insert "\n"
+			
+			if { $time_adjust != 0 } {
+				set step(seconds) [expr {$step(seconds)+$time_adjust}] 
+			}
+			ifexists step(weight) 0
+			set n_max [expr {($step(seconds)>0)+($step(volume)>0)+($step(weight)>0)}]
+			if { $n_max > 0 } {
+				$tw insert insert "- [translate {For a maximum of}]" step_line
+				
+				set n_used 0
+				if { $step(seconds) > 0 } {
+					$tw insert insert " [round_to_one_digits $step(seconds)]" {step_line value} " [translate sec]" step_line
+					incr n_used
+				}
+				if { $step(volume) > 0 } {
+					if { $n_used > 0 } {
+						if { ($n_used + 1) == $n_max } {
+							$tw insert insert ", [translate or]" step_line
+						} else {
+							$tw insert insert "," step_line
+						}
+					} 
+					$tw insert insert " [round_to_one_digits $step(volume)]" {step_line value} " [translate mL]" step_line
+					incr n_used
+				}
+				if { $step(weight) > 0 } {
+					if { $n_used > 0 } {
+						if { $n_used+1 == $n_max } {
+							$tw insert insert ", [translate or]" step_line
+						} else {
+							$tw insert insert "," step_line
+						}
+					}
+					$tw insert insert " [round_to_one_digits $step(weight)]" {step_line value} " [translate g]" step_line
+					incr n_used
+				}
+				$tw insert insert "\n"
+			}
+			
+			if { $step(exit_if) } {
+				if { $step(exit_flow_over) > 0 } {
+					$tw insert insert "- [translate {Move on if flow is}] " step_line \
+						"[translate over] [round_to_one_digits $step(exit_flow_over)]" {step_line value} \
+						" [translate mL/s]" step_line "\n"
+				} elseif { $step(exit_flow_under) > 0 } {
+					$tw insert insert "- [translate {Move on if flow is}] " step_line \
+						"[translate under] [round_to_one_digits $step(exit_flow_under)]" {step_line value} \
+						" [translate mL/s]" step_line "\n"
+				} elseif { $step(exit_pressure_over) > 0 } {
+					$tw insert insert "- [translate {Move on if pressure is}] " step_line \
+						"[translate over] [round_to_one_digits $step(exit_pressure_over)]" {step_line value} \
+						" [translate bar]" step_line "\n"
+				} elseif { $step(exit_pressure_under) > 0 } {
+					$tw insert insert "- [translate {Move on if pressure is}] " step_line \
+						"[translate under] [round_to_one_digits $step(exit_pressure_under)]" {step_line value} \
+						" [translate bar]" step_line "\n"
+				}
+			}
+						
+			set time_adjust 0.0
+			set prev_sensor $step(sensor)
+			set prev_temp $step(temperature)
+			set prev_pump $step(pump)
+			if { $prev_pump eq "flow" } {
+				set prev_pressure_or_flow $step(flow)
+			} else {
+				set prev_pressure_or_flow $step(pressure)
+			}
+			incr stepn
+		}
+		
+		if { $profile(final_desired_shot_volume) > 0 || $profile(final_desired_shot_weight) > 0 } {
+			$tw insert insert [translate {ENDING CRITERIA}] step "\n"
+			
+			$tw insert insert "- [translate {Stop at}] " step_line
+			if { $profile(final_desired_shot_volume) > 0 } {
+				$tw insert insert [round_to_one_digits $profile(final_desired_shot_volume)] {step_line value} \
+					" [translate mL/s] [translate volume]" step_line
+			}
+			if { $profile(final_desired_shot_volume) > 0 && $profile(final_desired_shot_weight) > 0 } {
+				$tw insert insert " [translate or] " step_line
+			}
+			if { $profile(final_desired_shot_weight) > 0 } {
+				$tw insert insert [round_to_one_digits $profile(final_desired_shot_weight)] {step_line value} \
+					" [translate g] [translate weight]" step_line
+			}
+			$tw insert insert "\n"
+		}
+		
+		if { $profile(profile_notes) ne "" } {
+			$tw insert insert "[translate {PROFILE NOTES}]:" step "\n" 
+			$tw insert insert [translate $profile(profile_notes)]
+		}
+
+		$tw configure -state disabled
+	}
+	
+	proc apply_profile {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { $data(which_shot) eq "next" || [dui item cget $page apply_profile-sym -text] eq [dui symbol get pencil] } {
+			::backup_settings
+			dui page load $::dui::pages::DYE::src_data(settings_profile_type)
+			return
+		}
+		
+		set imported [::plugins::DYE::import_profile [array get ::dui::pages::DYE::src_data]]
+		
+		if { $imported } {
+			set data(apply_profile_label) [translate {View/Edit profile}]
+			dui item config $page apply_profile-sym -text [dui symbol get pencil]
+		} else {
+			set data(apply_profile_label) [translate "Failed to apply"]
+			after 2000 [list set [namespace current]::data(apply_profile_label) [translate {Use profile in next shot}]]
+		}
+		 
 	}
 }
 
