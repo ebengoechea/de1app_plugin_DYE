@@ -434,6 +434,19 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	dui aspect set -type dclicker_symbol -style dye_single {pos {0.1 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -type dclicker_symbol1 -style dye_single {pos {0.9 0.5} font_size 24 anchor center fill "#7f879a"} 
 			
+	# Profile viewer
+	dui aspect set [subst {
+		shape.fill.dye_pv_icon_btn CadetBlue4 
+		dtext.fill.dye_pv_profile_title $::DSx_settings(heading_colour)
+		dtext.font_size.dye_pv_profile_title +8
+		dtext.font_family.dye_pv_profile_title notosansuibold
+		text_tag.spacing1.dye_pv_step [dui::platform::rescale_y 20] 
+		text_tag.foreground.dye_pv_step "#865a40" 
+		text_tag.lmargin1.dye_pv_step_line [dui::platform::rescale_x 35]
+		text_tag.lmargin2.dye_pv_step_line [dui::platform::rescale_x 55]
+		text_tag.foreground.dye_pv_value $::plugins::DYE::default_shot_desc_font_color
+	}]
+
 	### DYE V3 STYLES ####
 	set bg_color $::DSx_settings(bg_colour)
 	#[dui aspect get page bg_color]

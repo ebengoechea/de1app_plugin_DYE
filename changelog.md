@@ -2,12 +2,12 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2.17] - 2021-11-?
+## [2.17] - 2021-11-14
 
 ### New
 - New "Manage" button and matching dialog page `dye_managed_dlg` with menus to delete shots, export shots, view profiles, and go to the DYE settings page.
-- Shots can be deleted from the history. They are actually moved to subfolder de1plus/bin, which is created if it doesn't exist, and flagged with removed=1 in the SDB database, so the removal can be manually undone.
-- Shots can be exported to formats "Tcl .shot" (really just moved from de1plus/history) to the target folder, CSV (only the main chart series), and JSON v2. The user is given the choice of format and destination path, which defaults to `de1plus/history/export`.
+- Shots can be deleted from the history. They are actually moved to subfolder `de1plus/bin`, which is created if it doesn't exist, and flagged with removed=1 in the SDB database, so the removal can be manually undone.
+- Shots can be exported to formats "Tcl .shot" (really just copied from `de1plus/history` to the target folder), CSV (only the main chart series), and JSON v2. The user is given the choice of format and destination path, which defaults to `de1plus/history/export`.
 - New dialog to view profiles in a text form for any past shot or the currently selected one (through the "Plan next shot"). The dialog also gives the option to apply the profile to the next shot.
 - Improve profile importing (command `plugins::DYE::import_profile`), now can be done from a shot or an array, plus the GUI is properly updated for the type of profile, and also it is ensure that it is sent to the DE1 in case an espresso is started immediately from the GHC. This works both for local history and Visualizer imports.
 

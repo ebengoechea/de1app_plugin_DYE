@@ -26,7 +26,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.16
+	variable version 2.17
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -865,16 +865,16 @@ proc ::plugins::DYE::import_profile { profile_list } {
 		msg -WARNING [namespace current] import_profile: "profile_list is empty"
 		return 0
 	}
-	msg -INFO [namespace current] import_profile: "importing profile '$profile(profile)'"
+	msg -INFO [namespace current] import_profile: "importing profile '$profile(profile_title)'"
 	
-	# Predefine some settings that were added later to profiles (we may find older profiles without these features)
+	# Predefine some settings that may be missing or were added later to profiles (we may find older profiles without these features)
 	set ::settings(preinfusion_flow_rate) 4
 	set ::settings(maximum_pressure) 0
 	set ::settings(maximum_flow) 0
 	unset -nocomplain ::settings(profile_video_help)
 	
 	# Read the profile variables from the shot and overwrite the settings
-	foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+	foreach fn [concat profile_filename [::profile_vars]] {
 		if { [info exists profile($fn)] } {
 			set ::settings($fn) $profile($fn)
 		} else {
@@ -883,21 +883,22 @@ proc ::plugins::DYE::import_profile { profile_list } {
 	}
 	
 	# Then modify a few things
+	if { ![info exists profile(profile_filename)] } {
+		set ::settings(profile_filename) [::profile::filename_from_title $profile(profile_title)] 
+	}
+	# ensure the profile is saved under the new name and not duplicated if saved several times
+	set ::settings(profile) $::settings(profile_title)
+	set ::settings(original_profile_title) $profile(profile_title)
+	set ::settings(profile_to_save) $profile(profile_title)
+	
 	set ::settings(profile_has_changed) 1
 	set ::settings(profile_hide) 0
 
 	# Ensure the profile type follows the latest app standard values
-	if { $::settings(settings_profile_type) eq "settings_2" || $::settings(settings_profile_type) eq "settings_profile_pressure" } {
-		set ::settings(settings_profile_type) "settings_2a"
-	} elseif { $::settings(settings_profile_type) eq "settings_profile_flow" } {
-		set ::settings(settings_profile_type) "settings_2b"
-	} elseif { $::settings(settings_profile_type) eq "settings_profile_advanced" || $::settings(settings_profile_type) eq "settings_2c2" } {
-		# old profile names that shouldn't exist any more, so upgrade them to the latest name
-		set ::settings(settings_profile_type) "settings_2c"
-	}
+	set ::settings(settings_profile_type) [::profile::fix_profile_type $::settings(settings_profile_type)]
 	
 	# Make sure the presets/profile editing GUI pages are updated to reflect the changes 
-	set fn "[homedir]/profiles/$profile(profile_filename).tcl"
+	set fn "[homedir]/profiles/$::settings(profile_filename).tcl"
 	if { [file exists $fn] } {
 		# Ensure the profile is shown in the presets list, so it can be selected. Only way to do this, with how the 
 		# default skin works, is to modify the profile file. Preserve the sorting order of the lines in the original
@@ -955,29 +956,16 @@ proc ::plugins::DYE::import_profile_from_visualizer { vis_shot } {
 	
 	array set profile [dict get $vis_shot profile]
 	
-	foreach fn [::profile_vars] {
-		if { [info exists profile($fn)] } {
-			#msg -INFO "SETTINGS($fn)=$profile($fn)"
-			set ::settings($fn) $profile($fn)
-		} else {
-			msg -WARNING [namespace current] import_profile_from_visualizer: "field '$fn' not found on downloaded profile"
-		}
+	set pparts [split $profile(profile_title) "/"]
+	if { [llength $pparts] == 1 } {
+		set profile(profile_title) "Visualizer/$profile(profile_title)"
+	} elseif { [lindex $pparts 1] ne "Visualizer" } {
+		set profile(profile_title) "Visualizer/[lindex $pparts 1]"
 	}
 	
-	# ensure the profile is saved under the new name and not duplicated if saved several times
-	set ::settings(profile_filename) "Visualizer__$profile(profile_filename)"
-	set ::settings(original_profile_title) $profile(profile_title)
-	set ::settings(profile_to_save) $profile(profile_title)
+	set profile(profile_filename) [profile::filename_from_title $profile(profile_title)]
 	
-	set ::settings(profile_has_changed) 1
-	set ::settings(profile_hide) 0
-	
-	fill_profiles_listbox
-	update_de1_explanation_chart
-	profile_has_changed_set_colors
-	
-	::save_settings	
-	return 1
+	return [import_profile [array get profile]]
 }
 
 proc ::plugins::DYE::singular_or_plural { value singular plural } {
@@ -3327,10 +3315,11 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 	
 	proc setup {} {
 		variable data
+		variable widgets
 		set page [namespace tail [namespace current]]
 		set page_width [dui page width $page 0]
 		
-		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -radius 20 -style dye_pv_icon_btn
+		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -radius {40 20 20 20} -style dye_pv_icon_btn
 		dui add symbol $page 105 75 -anchor center -symbol sliders-h -font_size 40 -fill white 
 		dui add dtext $page 105 165 -anchor center -justify center -text [translate "PROFILE"] -font_size 14 -fill white
 		
