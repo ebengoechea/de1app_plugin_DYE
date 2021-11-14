@@ -336,6 +336,19 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	dui aspect set -theme $theme -type dclicker_symbol -style dye_single {pos {0.1 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -theme $theme -type dclicker_symbol1 -style dye_single {pos {0.9 0.5} font_size 24 anchor center fill "#7f879a"} 
 	
+	# Profile viewer
+	dui aspect set -theme $theme [subst {
+		shape.fill.dye_pv_icon_btn CadetBlue2 
+		dtext.fill.dye_pv_profile_title black
+		dtext.font_size.dye_pv_profile_title +8
+		dtext.font_family.dye_pv_profile_title notosansuibold
+		text_tag.spacing1.dye_pv_step [dui::platform::rescale_y 20] 
+		text_tag.foreground.dye_pv_step brown 
+		text_tag.lmargin1.dye_pv_step_line [dui::platform::rescale_x 35]
+		text_tag.lmargin2.dye_pv_step_line [dui::platform::rescale_x 55]
+		text_tag.foreground.dye_pv_value blue4
+	}]
+	
 	# DYE v3
 	set bg_color [dui aspect get page bg_color -theme default]
 	set btn_spacing 100
@@ -2262,9 +2275,9 @@ proc ::dui::pages::DYE::export_shot {} {
 		-coords {0.5 0.5} -anchor center -size {1500 400} -disable_items 1 -return_callback [namespace current]::process_export_shot_confirm
 }
 
-proc  ::dui::pages::DYE::process_export_shot_confirm { choice } {
+proc  ::dui::pages::DYE::process_export_shot_confirm { {choice {}} } {
 	variable data
-	if { $choice == 4 } {
+	if { $choice eq "" || $choice == 4 } {
 		return
 	}
 	
@@ -3317,22 +3330,23 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		set page [namespace tail [namespace current]]
 		set page_width [dui page width $page 0]
 		
-		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -fill CadetBlue2 -radius 20
+		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -radius 20 -style dye_pv_icon_btn
 		dui add symbol $page 105 75 -anchor center -symbol sliders-h -font_size 40 -fill white 
 		dui add dtext $page 105 165 -anchor center -justify center -text [translate "PROFILE"] -font_size 14 -fill white
 		
 		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
 			-command dui::page::close_dialog
 
-		dui add variable $page 275 30 -anchor nw -justify left -tags profile_title -width 1200 -font_size +8 -fill black
+		dui add variable $page 275 30 -anchor nw -justify left -tags profile_title -width 1200 -style dye_pv_profile_title 
 		
-		dui add variable $page 275 210 -anchor sw -justify left -tags profile_type -width 1200 -font_size +1 -fill brown
-	
+		dui add variable $page 275 210 -anchor sw -justify left -tags profile_type -width 1200 -font_size +1 \
+			-fill [dui aspect get text_tag foreground -style dye_pv_step]
+			
 		dui add text $page 275 225 -tags profile_desc -canvas_width 1200 -canvas_height 1075 -yscrollbar yes \
 			-highlightthickness 0
 		
 		dui add dbutton $page 1700 1100 -bwidth 550 -bheight 200 -style dsx_settings -tags apply_profile -symbol file-export \
-			-labelvariable apply_profile_label  -label_width 375
+			-labelvariable apply_profile_label -label_width 375
 	}
 	
 	proc load { page_to_hide page_to_show which_shot shot_clock args } {
@@ -3398,18 +3412,11 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		$tw delete 1.0 end
 		
 		# Define tag styles
-		$tw tag configure profile_type -foreground brown 
-		$tw tag configure step -spacing1 [dui::platform::rescale_y 20] -foreground brown
-		$tw tag configure step_line -lmargin1 [dui::platform::rescale_x 35] -lmargin2 [dui::platform::rescale_x 55] 
-		$tw tag configure value -foreground blue4
-		
-#		$tw tag configure section {*}[dui aspect list -type text_tag -style dyev3_section -as_options yes]
-#		$tw tag configure field {*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
-#		$tw tag configure value {*}[dui aspect list -type text_tag -style dyev3_value -as_options yes]
-#		$tw tag configure measure_unit {*}[dui aspect list -type text_tag -style dyev3_measure_unit -as_options yes]
-#		$tw tag configure compare -elide [expr {!$do_compare}] {*}[dui aspect list -type text_tag -style dyev3_compare -as_options yes]
-#		set non_highlighted_aspects [dui aspect list -type text_tag -style dyev3_field_nonhighlighted -as_options yes]
-		
+		$tw tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+		$tw tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+		$tw tag configure step_line {*}[dui aspect list -type text_tag -style dye_pv_step_line -as_options yes]
+		$tw tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
+	
 		# FILL PROFILE
 		if { [string is true $show_profile_type] } {
 			switch $profile(settings_profile_type) \
