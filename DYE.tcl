@@ -1803,6 +1803,7 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 			
 			if { $data(describe_which_shot) eq "next" && "profile" in $apply_to } {
 				::plugins::DYE::import_profile_from_shot $last_shot(clock)
+				load_next_profile
 			}
 		}
 	}
@@ -1829,6 +1830,7 @@ proc ::dui::pages::DYE::select_read_from_shot_callback { shot_desc shot_clock it
 		
 		if { $data(describe_which_shot) eq "next" && "profile" in $data(apply_action_to) } {
 			::plugins::DYE::import_profile_from_shot $shot_clock
+			load_next_profile
 		}
 	}
 }
@@ -1881,11 +1883,8 @@ proc ::dui::pages::DYE::load_description {} {
 				set data($fn) {}
 			}
 		}
-		foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
-			if { [info exists ::settings($fn)] } {
-				set src_data($fn) $::settings($fn)
-			}
-		}
+		
+		load_next_profile
 		
 		# MimojaCafe and DSx allow you to define some variables of next shot, so we ensure they are coordinated
 		# with DYE next shot description.
@@ -1962,6 +1961,20 @@ proc ::dui::pages::DYE::load_description {} {
 
 	compute_days_offroast
 	return 1
+}
+
+proc ::dui::pages::DYE::load_next_profile {} {
+	variable data
+	variable src_data
+	if { $data(describe_which_shot) ne "next" } {
+		return
+	}
+	
+	foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+		if { [info exists ::settings($fn)] } {
+			set src_data($fn) $::settings($fn)
+		}
+	}
 }
 
 proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
@@ -2549,6 +2562,7 @@ proc ::dui::pages::DYE::process_visualizer_dlg { {repo_link {}} {downloaded_shot
 		
 		if { $data(describe_which_shot) eq "next" && "profile" in $apply_download_to } {
 			::plugins::DYE::import_profile_from_visualizer $downloaded_shot
+			load_next_profile
 		}
 	}
 	
