@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.18] - 2021-11-18
+
+### New
+- The Profile Viewer can now compare profiles to their saved versions, and show a "differences only" version.
+
+### Changed
+- The textual representation of profiles has been improved, refactored and moved to `::profile::legacy_to_textual` in the base app, so it can be reused by all skin & plugin authors.
+
 ## [2.17] - 2021-11-14
 
 ### New

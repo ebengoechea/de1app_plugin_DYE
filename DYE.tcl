@@ -26,7 +26,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.17
+	variable version 2.18
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -44,6 +44,8 @@ namespace eval ::plugins::DYE {
 	variable desc_numeric_fields {grinder_dose_weight drink_weight drink_tds drink_ey espresso_enjoyment}
 	variable propagated_fields {bean_brand bean_type roast_date roast_level bean_notes grinder_model grinder_setting \
 		my_name drinker_name}
+
+	variable profile_shot_extra_vars {profile profile_filename profile_to_save original_profile_title}
 	
 	variable default_shot_desc_font_color {#206ad4}
 	variable past_shot_desc {}
@@ -1928,7 +1930,7 @@ proc ::dui::pages::DYE::load_description {} {
 			}
 			set data(path) {}
 			set data(days_offroast_msg) ""
-			foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+			foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
 				set src_data($fn) {}
 			}
 			return 0 
@@ -1939,7 +1941,7 @@ proc ::dui::pages::DYE::load_description {} {
 			}
 			set data(path) $shot(path)
 			
-			foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+			foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
 				if { [info exists shot($fn)] } {
 					set src_data($fn) $shot($fn)
 				}
@@ -1970,7 +1972,7 @@ proc ::dui::pages::DYE::load_next_profile {} {
 		return
 	}
 	
-	foreach fn [concat profile profile_filename profile_to_save original_profile_title [::profile_vars]] {
+	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
 		if { [info exists ::settings($fn)] } {
 			set src_data($fn) $::settings($fn)
 		}
@@ -3325,7 +3327,13 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		profile_title {}
 		profile_type {}
 		apply_profile_label "Use profile in next shot"
+		is_ref_different 0
+		compare_to "saved"
+		show_diff_only 0
 	}
+	
+	variable ref_profile
+	array set ref_profile {}
 	
 	proc setup {} {
 		variable data
@@ -3340,7 +3348,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
 			-command dui::page::close_dialog
 
-		dui add variable $page 275 30 -anchor nw -justify left -tags profile_title -width 1200 -style dye_pv_profile_title 
+		dui add variable $page 275 30 -anchor nw -justify left -tags profile_title -width 1900 -style dye_pv_profile_title 
 		
 		dui add variable $page 275 210 -anchor sw -justify left -tags profile_type -width 1200 -font_size +1 \
 			-fill [dui aspect get text_tag foreground -style dye_pv_step]
@@ -3348,40 +3356,45 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		dui add text $page 275 225 -tags profile_desc -canvas_width 1200 -canvas_height 1075 -yscrollbar yes \
 			-highlightthickness 0
 		
+		# Right side
+		dui add dtext $page 1700 210 -anchor sw -tags compare_lbl -width 650 -text [translate {Compare to:}]
+		
+		dui add dselector $page 1700 225 -bwidth 550 -bheight 220 -anchor nw -tags compare_to -orient vertical \
+			-values {none saved} -labels [list [translate Nothing] [translate {Saved profile}]] \
+			-command profile_to_text
+		
+		dui add dtoggle $page 2250 550 -anchor ne -tags show_diff_only -label [translate {Show differences only}] \
+			-label_pos {1700 554} -label_anchor nw -command profile_to_text
+		
 		dui add dbutton $page 1700 1100 -bwidth 550 -bheight 200 -style dsx_settings -tags apply_profile -symbol file-export \
 			-labelvariable apply_profile_label -label_width 375
 	}
 	
 	proc load { page_to_hide page_to_show which_shot shot_clock args } {
 		variable data
+		variable ref_profile
 		
 		set data(which_shot) $which_shot
 		if { $which_shot eq "next" } {
 			set data(profile_title) $::settings(profile_title)
+			if { [string is true $::settings(profile_has_changed)] } {
+				append  data(profile_title) " *"
+			}
 		} else {
 			set data(profile_title) $::dui::pages::DYE::src_data(profile_title)
 		}
 		
-		set bev_type [string toupper [value_or_default ::dui::pages::DYE::src_data(beverage_type) "ESPRESSO"]]
-		if { $bev_type == 0 } {
-			set bev_type "ESPRESSO"
-		}
-		switch $::dui::pages::DYE::src_data(settings_profile_type) \
-			settings_2a {
-				set data(profile_type) [translate "PRESSURE $bev_type PROFILE"]
-			} settings_2b {
-				set data(profile_type) [translate "FLOW $bev_type PROFILE"]
-			} settings_2c {
-				set data(profile_type) [translate "ADVANCED $bev_type PROFILE"]
-			} settings_2c2 {
-				set data(profile_type) [translate "ADVANCED $bev_type PROFILE"]
-			} default {
-				set data(profile_type) "[translate [subst {UNKNOWN $bev_type PROFILE TYPE}]] $::dui::pages::DYE::src_data(settings_profile_type)"
-			}
-		
 		set data(apply_profile_label) [translate {Use profile in next shot}]
+		set data(is_ref_different) 0
+		array set ref_profile {}
+
 		
+		if { ![file exists "[homedir]/profiles/$::dui::pages::DYE::src_data(profile_filename).tcl"] } {
+			set data(compare_to) "none"
+			set data(show_diff_only) 0
+		}		
 		profile_to_text
+		
 		return 1
 	}
 	
@@ -3394,20 +3407,59 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 			set data(apply_profile_label) [translate {Use profile in next shot}]
 			dui item config $page_to_show apply_profile-sym -text [dui symbol get file-export]
 		}
+		
+		if { ![file exists "[homedir]/profiles/$::dui::pages::DYE::src_data(profile_filename).tcl"] } {
+			dui item disable $page_to_show {compare_to_2* show_diff_only*}
+		}
 	}
-	
-	# Fill a text description of a profile in a Tk Text widget. 
+
+	# Fill a text description of a profile in a Tk Text widget.
+	#
+	# A profile is considered different from another if:
+	#	1. It has a different settings_profile_type (flow / pressure / advanced); or
+	#	2. It has a different number of steps; or
+	#	3. Any user-definable value is different
+	# Changes in text-only descriptive fields such as profile_title, beverage_type, profile_notes or step names are 
+	#	not taken into account for difference considerations.
 	proc profile_to_text { {show_profile_type 0} } {
 		variable widgets
 		variable data
+		variable ref_profile
+		
 		set ns [namespace current]
 		set page [namespace tail $ns]
 		
-		# READ PROFILE
+		# Extract profile data from the shot array in DYE
 		array set profile {}
 		foreach var [::profile_vars] {
 			set profile($var) $::dui::pages::DYE::src_data($var)
 		}
+		set pdict [::profile::legacy_to_textual [array get profile]]
+		
+		# Reference/comparison profile
+		set cdict {}
+		set data(is_ref_different) 0
+		set show_diff_only 0
+		if { $data(compare_to) eq "saved" } {
+			if { $::dui::pages::DYE::src_data(profile_filename) ne "" } {
+				msg -INFO [namespace current] profile_to_text: "loading reference profile"
+				array set ref_profile [profile::read_legacy $::dui::pages::DYE::src_data(profile_filename)]
+				if { [array size ref_profile] > 0 } {
+					set cdict [::profile::legacy_to_textual [array get ref_profile]]
+					
+					if { [dict get $pdict 0 nsteps] != [dict get $cdict 0 nsteps] } {
+						set data(is_ref_different) 1
+					}
+					if { $profile(settings_profile_type) ne $ref_profile(settings_profile_type) } {
+						set data(is_ref_different) 1
+					}
+					
+					set show_diff_only $data(show_diff_only)
+				}
+			}
+		}
+		
+		set data(profile_type) [string toupper [translate [lindex [dict get $pdict 0 type] 0]]]
 		
 		# START TEXT WIDGET
 		set tw $widgets(profile_desc)
@@ -3419,210 +3471,177 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		$tw tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
 		$tw tag configure step_line {*}[dui aspect list -type text_tag -style dye_pv_step_line -as_options yes]
 		$tw tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
+		$tw tag configure compvalue -foreground green
+		#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
 	
-		# FILL PROFILE
-		if { [string is true $show_profile_type] } {
-			switch $profile(settings_profile_type) \
-				settings_2a {
-					$tw insert insert "[translate {PRESSURE PROFILE}]" profile_type "\n"
-				} settings_2b {
-					$tw insert insert "[translate {FLOW PROFILE}]" profile_type "\n"
-				} settings_2c {
-					$tw insert insert "[translate {ADVANCED PROFILE}]" profile_type "\n"
-				} settings_2c2 {
-					$tw insert insert "[translate {ADVANCED PROFILE}]" profile_type "\n"
-				} default {
-					$tw insert insert "[translate {UNKNOWN PROFILE TYPE}] $profile(settings_profile_type)" profile_type "\n"
-				}
-		}
-
-		if { $profile(tank_desired_water_temperature) > 0 } {
-			$tw insert insert "[translate {Preheat water tank at}] " {} \
-				[round_to_one_digits $profile(tank_desired_water_temperature)] value "[translate ºC]\n"
-		}
-
-		if { $profile(maximum_pressure_range_advanced) > 0 || $profile(maximum_flow_range_advanced) > 0 } {
-			$tw insert insert "[translate {Limiter ranges of action:}] "
-			if { $profile(maximum_flow_range_advanced) > 0 } {
-				$tw insert insert [round_to_one_digits $profile(maximum_flow_range_advanced)] value " [translate mL/s]"
-			}
-			if { $profile(maximum_pressure_range_advanced) > 0 && $profile(maximum_flow_range_advanced) > 0 } {
-				$tw insert insert " [translate and] "
-			}
-			if { $profile(maximum_pressure_range_advanced) > 0 } {
-				$tw insert insert [round_to_one_digits $profile(maximum_pressure_range_advanced)] value " [translate bar]" 
-			}
-			$tw insert insert "\n"
-		}
+#		if { $cdict ne {} } {
+#			$tw insert insert "Comparing to reference profile $ref_profile(profile_title)"
+#		}
 		
-		set stepn 1
-		set prev_temp 0.0
-		set prev_sensor ""
-		set prev_pressure_or_flow 0.0 
-		set prev_pump ""
-		set time_adjust 0.0
-		foreach stepl $profile(advanced_shot) {
-			array set step $stepl
-			if { $profile(espresso_hold_time) > 0 && $step(seconds) == 3 && $step(volume) == 0 && $step(exit_if) == 0 } {
-				set time_adjust 3.0
+		# Output the textual description of the profile
+		textual_to_text_insert $pdict {0 preheat} {} value "" "" $cdict compvalue
+		textual_to_text_insert $pdict {0 limiter} {} value "" "" $cdict compvalue
+		
+		for { set stepn 1 } { $stepn <= [dict get $pdict 0 nsteps] } { incr stepn } {
+			if { $show_diff_only && [is_step_equal $pdict $cdict $stepn] } {
 				continue
-			}
-			
-			# Step names are already translated in advanced_shot, don't traslate again
-			$tw insert insert "[translate {STEP}] ${stepn}: $step(name)" step "\n"
-		
-			if { $stepn > 1 && $profile(final_desired_shot_volume_advanced_count_start) == $stepn-1 } {
-				$tw insert insert "- [translate {Start tracking water volume}] " step_line "\n" 
-				#"(after step $profile(final_desired_shot_volume_advanced_count_start))" {step_line value} "\n"
-			}
-			
-			if { $stepn == 1 || $prev_sensor ne $step(sensor) } {
-				$tw insert insert "- [translate Set] " step_line $step(sensor) {step_line value} \
-					" [translate {temperature to}] " step_line "[round_to_one_digits $step(temperature)]" {step_line value} \
-					" [translate {ºC}]" step_line "\n"
-			} elseif { $prev_temp == $step(temperature) } {
-				$tw insert insert "- [translate Maintain] " step_line $step(sensor) {step_line value} \
-					" [translate {temperature at}] " step_line "[round_to_one_digits $step(temperature)]" {step_line value} \
-					" [translate {ºC}]" step_line "\n"
-			} elseif { $prev_temp < $step(temperature) } {
-				$tw insert insert "- [translate Increase] " step_line $step(sensor) {step_line value} \
-					" [translate {temperature to}] " step_line "[round_to_one_digits $step(temperature)]" {step_line value} \
-					" [translate {ºC}]" step_line "\n"
-			} else {
-				$tw insert insert "- [translate Decrease] " step_line $step(sensor) {step_line value} \
-				" [translate {temperature to}] " step_line "[round_to_one_digits $step(temperature)]" {step_line value} \
-				" [translate {ºC}]" step_line "\n"				
-			}
-			
-			ifexists step(max_flow_or_pressure) 0
-			if { $step(transition) eq "smooth" } {
-				set step(transition) "gradually"
-			} elseif { $step(transition) eq "fast" } {
-				set step(transition) "quickly"
-			}
-		
-			if { $step(pump) eq "flow" } {
-				$tw insert insert "- [translate Pour] " step_line $step(transition) {step_line value} \
-					" [translate {at a rate of}] " step_line [round_to_one_digits $step(flow)] {step_line value} \
-					" [translate mL/s] " step_line
-				if { $step(max_flow_or_pressure) > 0 } {
-					$tw insert insert " [translate {with a pressure limit of}] " step_line \
-						[round_to_one_digits $step(max_flow_or_pressure)] {step_line value} " [translate bar]" step_line
-				}
-			} elseif { $step(pump) eq "pressure" } {
-				if { $stepn == 1 || ($prev_pump ne "pressure" && $step(pressure) > 0) || \
-						($stepn > 1 && $prev_pump eq "pressure" && $step(pressure) > $prev_pressure_or_flow ) } {
-					$tw insert insert "- [translate {Pressurize}] " step_line $step(transition) {step_line value} \
-						" [translate to] " step_line [round_to_one_digits $step(pressure)] {step_line value} " [translate bar]" step_line
-				} elseif { $step(pressure) == 0 } {
-					$tw insert insert "- [translate {Depressurize}] " step_line $step(transition) {step_line value} \
-						" [translate to] " step_line [round_to_one_digits $step(pressure)] {step_line value} " [translate bar]" step_line
-				} else {
-					$tw insert insert "- [translate {Decrease pressure}] " step_line $step(transition) {step_line value} \
-						" [translate to] " step_line [round_to_one_digits $step(pressure)] {step_line value} " [translate bar]" step_line
-				}
-				
-				if { $step(max_flow_or_pressure) > 0 } {
-					$tw insert insert " [translate {with a flow limit of}] " step_line \
-						[round_to_one_digits $step(max_flow_or_pressure)] {step_line value} " [translate mL/s]" step_line
-				}				
-			}
-			$tw insert insert "\n"
-			
-			if { $time_adjust != 0 } {
-				set step(seconds) [expr {$step(seconds)+$time_adjust}] 
-			}
-			ifexists step(weight) 0
-			set n_max [expr {($step(seconds)>0)+($step(volume)>0)+($step(weight)>0)}]
-			if { $n_max > 0 } {
-				$tw insert insert "- [translate {For a maximum of}]" step_line
-				
-				set n_used 0
-				if { $step(seconds) > 0 } {
-					$tw insert insert " [round_to_one_digits $step(seconds)]" {step_line value} " [translate sec]" step_line
-					incr n_used
-				}
-				if { $step(volume) > 0 } {
-					if { $n_used > 0 } {
-						if { ($n_used + 1) == $n_max } {
-							$tw insert insert ", [translate or]" step_line
-						} else {
-							$tw insert insert "," step_line
-						}
-					} 
-					$tw insert insert " [round_to_one_digits $step(volume)]" {step_line value} " [translate mL]" step_line
-					incr n_used
-				}
-				if { $step(weight) > 0 } {
-					if { $n_used > 0 } {
-						if { $n_used+1 == $n_max } {
-							$tw insert insert ", [translate or]" step_line
-						} else {
-							$tw insert insert "," step_line
-						}
-					}
-					$tw insert insert " [round_to_one_digits $step(weight)]" {step_line value} " [translate g]" step_line
-					incr n_used
-				}
-				$tw insert insert "\n"
-			}
-			
-			if { $step(exit_if) } {
-				if { $step(exit_flow_over) > 0 } {
-					$tw insert insert "- [translate {Move on if flow is}] " step_line \
-						"[translate over] [round_to_one_digits $step(exit_flow_over)]" {step_line value} \
-						" [translate mL/s]" step_line "\n"
-				} elseif { $step(exit_flow_under) > 0 } {
-					$tw insert insert "- [translate {Move on if flow is}] " step_line \
-						"[translate under] [round_to_one_digits $step(exit_flow_under)]" {step_line value} \
-						" [translate mL/s]" step_line "\n"
-				} elseif { $step(exit_pressure_over) > 0 } {
-					$tw insert insert "- [translate {Move on if pressure is}] " step_line \
-						"[translate over] [round_to_one_digits $step(exit_pressure_over)]" {step_line value} \
-						" [translate bar]" step_line "\n"
-				} elseif { $step(exit_pressure_under) > 0 } {
-					$tw insert insert "- [translate {Move on if pressure is}] " step_line \
-						"[translate under] [round_to_one_digits $step(exit_pressure_under)]" {step_line value} \
-						" [translate bar]" step_line "\n"
-				}
-			}
-						
-			set time_adjust 0.0
-			set prev_sensor $step(sensor)
-			set prev_temp $step(temperature)
-			set prev_pump $step(pump)
-			if { $prev_pump eq "flow" } {
-				set prev_pressure_or_flow $step(flow)
-			} else {
-				set prev_pressure_or_flow $step(pressure)
-			}
-			incr stepn
+			} 
+			textual_to_text_insert $pdict [list $stepn name] step value "[translate STEP] $stepn: " "" $cdict compvalue 0
+			textual_to_text_insert $pdict [list $stepn track] step_line value "- " "" $cdict compvalue
+			textual_to_text_insert $pdict [list $stepn temp] step_line value "- " "" $cdict compvalue
+			textual_to_text_insert $pdict [list $stepn flow_or_pressure] step_line value "- " "" $cdict compvalue
+			textual_to_text_insert $pdict [list $stepn max] step_line value "- " "" $cdict compvalue
+			textual_to_text_insert $pdict [list $stepn exit_if] step_line value "- " "" $cdict compvalue
 		}
 		
-		if { $profile(final_desired_shot_volume) > 0 || $profile(final_desired_shot_weight) > 0 } {
-			$tw insert insert [translate {ENDING CRITERIA}] step "\n"
-			
-			$tw insert insert "- [translate {Stop at}] " step_line
-			if { $profile(final_desired_shot_volume) > 0 } {
-				$tw insert insert [round_to_one_digits $profile(final_desired_shot_volume)] {step_line value} \
-					" [translate mL/s] [translate volume]" step_line
+		# Extra steps in reference profile
+		if { $cdict ne {} && [dict get $cdict 0 nsteps] > [dict get $pdict 0 nsteps] } {
+			for { set stepn $stepn } { $stepn <= [dict get $cdict 0 nsteps] } { incr stepn } {
+				textual_to_text_insert $cdict [list $stepn name] [list step compvalue] compvalue "\[[translate STEP] ${stepn}\]: " ""
+				textual_to_text_insert $cdict [list $stepn track] [list step_line compvalue] compvalue "- " ""
+				textual_to_text_insert $cdict [list $stepn temp] [list step_line compvalue] compvalue "- " ""
+				textual_to_text_insert $cdict [list $stepn flow_or_pressure] [list step_line compvalue] compvalue "- " ""
+				textual_to_text_insert $cdict [list $stepn max] [list step_line compvalue] compvalue "- " ""
+				textual_to_text_insert $cdict [list $stepn exit_if] [list step_line compvalue] compvalue "- " ""
 			}
-			if { $profile(final_desired_shot_volume) > 0 && $profile(final_desired_shot_weight) > 0 } {
-				$tw insert insert " [translate or] " step_line
-			}
-			if { $profile(final_desired_shot_weight) > 0 } {
-				$tw insert insert [round_to_one_digits $profile(final_desired_shot_weight)] {step_line value} \
-					" [translate g] [translate weight]" step_line
-			}
-			$tw insert insert "\n"
 		}
 		
-		if { $profile(profile_notes) ne "" } {
-			$tw insert insert "[translate {PROFILE NOTES}]:" step "\n" 
-			$tw insert insert [translate $profile(profile_notes)]
+		if { [dict exists $pdict 0 stop_at] } {
+			if { !$show_diff_only  || ($show_diff_only && ![is_step_line_equal $pdict $cdict 0 stop_at] ) } {
+				$tw insert insert "[translate {ENDING CRITERIA}]:" step "\n"
+				textual_to_text_insert $pdict {0 stop_at} step_line value "" "" $cdict compvalue
+			}
+		} elseif { $cdict ne {} && [dict exists $cdict 0 stop_at] } {
+			$tw insert insert "\[[translate {ENDING CRITERIA}]\]:" [list step compvalue] "\n"
+			textual_to_text_insert $cdict [list 0 stop_at] [list step_line compvalue] compvalue 
 		}
-
+		
+		if { [dict exists $pdict 0 notes] } {
+			if { !$show_diff_only || ($show_diff_only && ![is_step_line_equal $pdict $cdict 0 notes]) } {
+				$tw insert insert "[translate {PROFILE NOTES}]:" step "\n"
+				textual_to_text_insert $pdict {0 notes} {} {} "" ""
+			}
+		}
+		if { $cdict ne {} && [dict exists $cdict 0 notes] && [dict get $cdict 0 notes] ne [dict get $pdict 0 notes] } {
+			$tw insert insert "\[[translate {PROFILE NOTES}]\]:" [list step compvalue] "\n"
+			textual_to_text_insert $pdict {0 notes} compvalue {} "" ""
+		}
+		
+		if { $show_diff_only && [string trim [$tw get 0.0 end]] eq "" } {
+			$tw insert insert "No differences between the compared profiles\n"
+		}
 		$tw configure -state disabled
+	}
+
+	proc textual_to_text_insert { pdict keys {line_tags {}} {var_tags {}} {prefix {}} {suffix {}}
+			{cdict {}} {comp_var_tags {}} {check_diff_only 1} } {
+		variable widgets
+		variable data
+		
+		set line {}
+		if { [dict exists $pdict {*}$keys] } {
+			set line [dict get $pdict {*}$keys]
+		}
+		
+		if { [llength $line] == 0 || [lindex $line 0] eq "" } {
+			if { $cdict ne {} && [dict exists $cdict {*}$keys] } {
+				set data(is_ref_different) 1
+				textual_to_text_insert $cdict $keys [list $line_tags $comp_var_tags] "" "${prefix}\[" "\]" 
+			}
+			return
+		}
+				
+		set compline ""
+		set ncompvars 0
+		set show_diff_only 0
+		if { $cdict ne {} && [dict exists $cdict {*}$keys] } {
+			set compline [dict get $cdict {*}$keys]
+			set ncompvars [llength $compline]
+			if { [string is true $check_diff_only] && $data(show_diff_only) && $line == $compline } {
+				return
+			}
+		}
+		
+		set tw $widgets(profile_desc)
+		if { $prefix ne "" } {
+			$tw insert insert $prefix $line_tags
+		}
+		
+		set nvars [llength $line]
+		set char 0
+		set txt [translate [lindex $line 0]]
+		while { [regexp -indices {\\[0-9]+} $txt match_idx] } {
+			if { [lindex $match_idx 0] > 0 } {
+				$tw insert insert [string range $txt 0 [lindex $match_idx 0]-1] $line_tags
+			}
+			set varn [string range $txt [lindex $match_idx 0]+1 [lindex $match_idx 1]]
+			if { $varn <= $nvars } {
+				set var [lindex $line $varn]
+				if { ![string is double $var] } {
+					set var [translate $var]
+				}
+				$tw insert insert $var [list $line_tags $var_tags]
+				
+				if { $compline ne "" && $varn <= $ncompvars } {
+					set compvar [lindex $compline $varn]
+					if { $var ne $compvar } {
+						$tw insert insert " \[$compvar\]" [list $line_tags $comp_var_tags]
+						set data(is_ref_different) 1
+					}
+				}
+			} else {
+				msg -NOTICE [namespace current] textual_to_text_insert: "no variable $varn in line $txt"
+			}
+		
+			set txt [string range $txt [lindex $match_idx 1]+1 end]
+		}
+		
+		$tw insert insert $txt $line_tags
+		
+		if { $cdict ne {} && ![dict exists $cdict {*}$keys] } {
+			$tw insert insert " \[NONE\]" $comp_var_tags
+		}
+		
+		if { $suffix ne "" } {
+			$tw insert insert $suffix $line_tags
+		} 
+		
+		$tw insert insert "\n"
+	}
+
+	proc is_step_equal { pdict cdict stepn } {
+		if { [dict exists $pdict $stepn] && [dict exists $cdict $stepn] } {
+			foreach k {track temp flow_or_pressure max exit_if} {
+				if { ![is_step_line_equal $pdict $cdict $stepn $k] } {
+					return 0
+				}
+			}
+
+			return 1
+		} else {
+			return 0
+		}
+	}
+	
+	# Only compares the variables values, not the main text string 
+	proc is_step_line_equal { pdict cdict args } {
+		if { [dict exists $pdict {*}$args] ^ [dict exists $cdict {*}$args] } {
+			return 0
+		} elseif { [dict exists $pdict {*}$args] && [dict exists $cdict {*}$args] } {
+			# Compare only the variables values, not the text
+			set pdict_k [dict get $pdict {*}$args]
+			set cdict_k [dict get $cdict {*}$args]
+			if { [llength $pdict_k] != [llength $cdict_k] } {
+				return 0
+			}
+			for { set i 1 } { $i < [llength $pdict_k] } { incr i } {
+				if { [lindex $pdict_k $i] ne [lindex $cdict_k $i] } {
+					return 0
+				}
+			}
+		}
+		
+		return 1
 	}
 	
 	proc apply_profile {} {
