@@ -242,6 +242,27 @@ proc ::plugins::DYE::setup_ui_Insight_Dark {} {
 		text.highlightthickness 1
 		text.insertbackground orange
 		text.wrap word
+		
+		dselector.radius 40
+		dselector.fill $button_bg
+		dselector.selectedfill "#4e85f4"
+		dselector.outline white
+		dselector.selectedoutline "#4e85f4"
+		dselector.label_fill "#c0c5e3"
+		dselector.label_selectedfill white
+
+		dtoggle.width 120
+		dtoggle.height 68
+		dtoggle.outline_width 0
+		dtoggle.background "#c0c5e3"
+		dtoggle.foreground white
+		dtoggle.outline white
+		dtoggle.selectedbackground "light blue"
+		dtoggle.selectedforeground "#4e85f4"
+		dtoggle.selectedoutline "dark blue"
+		dtoggle.disabledbackground "#ccc"
+		dtoggle.disabledforeground white
+		dtoggle.disabledoutline white		
 	}]
 	
 	# dui_number_editor page styles

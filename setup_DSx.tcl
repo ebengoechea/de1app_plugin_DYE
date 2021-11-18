@@ -223,6 +223,27 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		text.highlightthickness 1
 		text.insertbackground orange
 		text.wrap word
+		
+		dselector.radius 40
+		dselector.fill $::DSx_settings(bg_colour)
+		dselector.selectedfill $::DSx_settings(font_colour)
+		dselector.outline $::DSx_settings(font_colour)
+		dselector.selectedoutline $::DSx_settings(font_colour)
+		dselector.label_fill $::DSx_settings(font_colour)
+		dselector.label_selectedfill $::DSx_settings(bg_colour)
+
+		dtoggle.width 120
+		dtoggle.height 68
+		dtoggle.outline_width 0
+		dtoggle.background "#c0c5e3"
+		dtoggle.foreground white
+		dtoggle.outline white
+		dtoggle.selectedbackground "light blue"
+		dtoggle.selectedforeground "#4e85f4"
+		dtoggle.selectedoutline "dark blue"
+		dtoggle.disabledbackground "#ccc"
+		dtoggle.disabledforeground white
+		dtoggle.disabledoutline white
 	}]
 	
 	# dui_number_editor page styles
