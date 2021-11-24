@@ -586,7 +586,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 			-tags launch_dye_next -symbol $settings(describe_icon) -symbol_pos {0.01 0.5} -symbol_anchor w -symbol_justify left \
 			-symbol_font_size 28 -labelvariable {$::plugins::DYE::settings(next_shot_desc)} -label_pos {0.575 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
-			-command [::list ::plugins::DYE::open -which_shot next] \
+			-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {100 0 0 0} \
 			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[list [expr {$x-375}] [expr {$y-80}]\] -anchor sw]
 	}
 	
@@ -598,7 +598,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 			-tags launch_dye_last -symbol $settings(describe_icon) -symbol_pos {0.99 0.5} -symbol_anchor e -symbol_justify right \
 			-symbol_font_size 28 -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.45 0.5} -label_anchor center \
 			-label_justify center -label_font_size -2 -label_fill $settings(shot_desc_font_color) -label_width 700 \
-			-command [list ::plugins::DYE::open -which_shot last] \
+			-command [list ::plugins::DYE::open -which_shot last] -tap_pad {0 0 80 0} \
 			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[list [expr {$x+375}] [expr {$y-80}]\] -anchor se]
 	}
 		

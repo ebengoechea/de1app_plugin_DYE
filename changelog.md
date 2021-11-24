@@ -2,6 +2,18 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.19] - 2021-11-24
+
+### New
+- New "Profile Selector" page dialog (`dye_profile_select_dlg`)
+- New option to compare to "Another profile" in the Profile Viewer page.
+- New buttons on the profile settings "presets" and "editing" pages to directly launch the Profile Viewer and Profile Selector dialogs.
+- New "Change profile" option on the "Manage" menu when in "Plan next shot" page.
+
+### Changed
+- Icon to launch DYE on Insight home page.
+- Bigger tapping area in many buttons, using the new DUI `-tap_pad` option of dbuttons.
+
 ## [2.18] - 2021-11-18
 
 ### New
