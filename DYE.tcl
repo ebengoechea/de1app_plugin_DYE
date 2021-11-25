@@ -1037,6 +1037,7 @@ proc ::plugins::DYE::insert_profile_in_tk_text { tw pdict {cdict {}} {show_diff_
 	# Output the textual description of the profile
 	incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 preheat} {} value "" "" $cdict compvalue $show_diff_only]
 	incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 limiter} {} value "" "" $cdict compvalue $show_diff_only]
+	incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 temp_steps} {} value "" "" $cdict compvalue $show_diff_only]
 	
 	for { set stepn 1 } { $stepn <= [dict get $pdict 0 nsteps] } { incr stepn } {
 		if { $show_diff_only && [is_profile_step_equal $pdict $cdict $stepn] } {
@@ -1109,7 +1110,7 @@ proc ::plugins::DYE::insert_profile_item_in_tk_text { tw pdict keys {line_tags {
 	if { [llength $line] == 0 || [lindex $line 0] eq "" } {
 		if { $cdict ne {} && [dict exists $cdict {*}$keys] } {
 			incr n_diffs
-			insert_profile_item_in_tk_text $cdict $keys [list $line_tags $comp_var_tags] "" "${prefix}\[" "\]" 
+			insert_profile_item_in_tk_text $tw $cdict $keys [list $line_tags $comp_var_tags] "" "${prefix}\[" "\]" 
 		}
 		return $n_diffs
 	}
