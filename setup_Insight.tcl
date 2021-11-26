@@ -13,10 +13,10 @@ proc ::plugins::DYE::setup_ui_Insight {} {
 #		-longpress_cmd [::list ::plugins::DYE::open -which_shot dialog -coords \{2400 975\} -anchor e]]
 
 	set widgets(launch_dye) [dui add dbutton {off off_zoomed off_zoomed_temperature espresso_3 espresso_3_zoomed espresso_3_zoomed_temperature} \
-		2390 945 -bwidth 130 -bheight 118 -radius 30 -tags launch_dye -shape round -fill "#c1c5e4" \
-		-symbol $settings(describe_icon) -symbol_pos {0.45 0.45} -symbol_anchor center -symbol_justify center -symbol_fill white \
-		-label [translate DYE] -label_font_size 12 -label_pos {0.91 0.8} -label_anchor e -label_justify right -label_fill "#8991cc" \
-		-command [list ::plugins::DYE::open -which_shot default -coords {2400 975} -anchor e] \
+		2390 945 -bwidth 130 -bheight 120 -radius 30 -tags launch_dye -shape round -fill "#c1c5e4" \
+		-symbol $settings(describe_icon) -symbol_pos {0.5 0.4} -symbol_anchor center -symbol_justify center -symbol_fill white \
+		-label [translate DYE] -label_font_size 12 -label_pos {0.5 0.8} -label_anchor center -label_justify center -label_fill "#8991cc" \
+		-label_width 130 -command [list ::plugins::DYE::open -which_shot default -coords {2400 975} -anchor e] \
 		-label_font_family notosansuibold  -longpress_cmd [::list ::plugins::DYE::open -which_shot dialog -coords \{2400 975\} -anchor e] \
 		-tap_pad {4 4 40 4}]
 	

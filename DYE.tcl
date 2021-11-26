@@ -11,7 +11,7 @@
 #plugins enable SDB
 #plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
-#dui config debug_buttons 0
+#dui config debug_buttons 1
 
 package require http
 package require tls
@@ -81,17 +81,24 @@ proc ::plugins::DYE::main {} {
 	
 	# Buttons in the "default" skin (profile setting pages)
 	if { [string is true $settings(button_in_settings_presets)] } {
-		set widgets(launch_dye_profile_selector) [dui add dbutton settings_1 1140 1085 -bwidth 130 -bheight 118 -shape round -radius 30 \
-			-tags launch_dye_profile_selector -fill "#c1c5e4" -symbol sliders-v -symbol_pos {0.45 0.45} -symbol_fill white \
-			-tap_pad {20 40 40 80} -label [translate DYE] -label_font_size 12 -label_pos {0.91 0.8} -label_anchor e -label_justify right \
-			-label_fill "#8991cc" -label_font_family notosansuibold -command [list [namespace current]::open_profile_tools select]]
+		set widgets(launch_dye_profile_selector) [dui add dbutton settings_1 1140 1085 -bwidth 130 -bheight 120 -shape round -radius 30 \
+			-tags launch_dye_ps -fill "#c1c5e4" -symbol exchange -symbol_pos {0.5 0.4} -symbol_fill white \
+			-tap_pad {20 40 40 80} -label [translate {DYE PS}] -label_font_size 12 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
+			-label_fill "#8991cc" -label_font_family notosansuibold -label_width 130 -command [list [namespace current]::open_profile_tools select]]
 	}
 	if { [string is true $settings(button_in_settings_preview)] } {
-		set widgets(launch_dye_profile_viewer) [dui add dbutton {settings_2a settings_2b settings_2b2 settings_2c settings_2c2} \
-			768 542 -bwidth 130 -bheight 118 -shape round -radius 30 -fill "#c1c5e4" -tags launch_dye_profile_viewer \
-			-symbol sliders-v -symbol_pos {0.45 0.45} -symbol_fill white -label [translate DYE] -label_font_size 12 \
-			-tap_pad {30 40 30 60} -label_pos {0.91 0.8} -label_anchor e -label_justify right -label_fill "#8991cc" \
+		set widgets(launch_dye_pv_basic) [dui add dbutton {settings_2a settings_2b} 915 1460 -bwidth 130 -bheight 120 \
+			-shape round -radius 30 -fill "#c1c5e4" -tags launch_dye_pv_basic \
+			-symbol signature -symbol_pos {0.5 0.4} -symbol_fill white -label [translate {DYE PV}] -label_font_size 12 \
+			-tap_pad {40 40 20 40} -label_pos {0.5 0.8} -label_anchor center -label_justify center -label_fill "#8991cc" -label_width 130 \
 			-label_font_family notosansuibold -command [list [namespace current]::open_profile_tools viewer]]
+		
+		set widgets(launch_dye_pv_advanced) [dui add dbutton settings_2c 768 542 -bwidth 130 -bheight 120 -shape round \
+			-radius 30 -fill "#c1c5e4" -tags launch_dye_pv_advanced \
+			-symbol signature -symbol_pos {0.5 0.4} -symbol_fill white -label [translate {DYE PV}] -label_font_size 12 \
+			-tap_pad {40 40 30 60} -label_pos {0.5 0.8} -label_anchor center -label_justify center -label_fill "#8991cc" -label_width 130 \
+			-label_font_family notosansuibold -command [list [namespace current]::open_profile_tools viewer]]
+		
 	}
 
 	# Declare DYE pages
@@ -2970,8 +2977,8 @@ namespace eval ::dui::pages::dye_manage_dlg {
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags view_profile -style menu_dlg_btn -label "[translate {View profile}]..." \
-			-symbol sliders-v -command [list dui::page::close_dialog profile] -label1variable {$::dui::pages::DYE::src_data(profile_title)}
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags view_profile -style menu_dlg_btn -label "[translate {View text profile}]..." \
+			-symbol signature -command [list dui::page::close_dialog profile] -label1variable {$::dui::pages::DYE::src_data(profile_title)}
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
 		set y0 $y1
@@ -3519,6 +3526,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		compare_to "saved"
 		compare_to_title ""
 		show_diff_only 0
+		enable_open_ps 0
 	}
 	
 	variable profile
@@ -3532,13 +3540,14 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		variable widgets
 		set page [namespace tail [namespace current]]
 		set page_width [dui page width $page 0]
-		set profile_dialogs [list $page dye_profile_select_dlg]
+		#set profile_dialogs [list $page dye_profile_select_dlg]
 		
-		dui add shape round $profile_dialogs 0 0 -bwidth 210 -bheight 210 -radius {40 20 20 20} -style dye_pv_icon_btn
-		dui add symbol $profile_dialogs 105 75 -anchor center -symbol sliders-v -font_size 40 -fill white 
-		dui add dtext $profile_dialogs 105 165 -anchor center -justify center -text [translate "PROFILE"] -font_size 14 -fill white
+		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -radius {40 20 20 20} -style dye_pv_icon_btn
+		dui add symbol $page 105 65 -anchor center -symbol signature -font_size 40 -fill white 
+		dui add dtext $page 105 160 -anchor center -justify center -text [translate "PROFILE VIEWER"] \
+			-font_size 14 -fill white -width 200
 		
-		dui add dbutton $profile_dialogs [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
 			-command dui::page::close_dialog
 
 		dui add variable $page 275 30 -anchor nw -justify left -tags profile_title -width 1900 -style dye_pv_profile_title 
@@ -3579,9 +3588,11 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 	
 	}
 	
-	# source_type = "settings" or "next" / "shot" / "profile"
+	# source_type = Those acepted by ::profile::read_legacy (settings/next, shot_file, profile_file, or list)
 	# list_profile is a list with a legacy profile data structure (or a shot one). Only the profile-specific variables
 	#	will be extracted and stored.
+	# Optional args:
+	# -enable_open_ps <boolean> (if undefined, only enables the profile selector button if src_type=next/settings)
 	proc load { page_to_hide page_to_show {src_type "next"} {src {}} args } {
 		variable data
 		variable profile
@@ -3602,6 +3613,8 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 			append  data(profile_title) " *"
 		}
 		
+		set data(enable_open_ps) [string is true [dui::args::get_option -enable_open_ps [expr {$src_type eq "next"}]]]
+				
 		set data(apply_profile_label) [translate {Use profile in next shot}]
 		array set ref_profile {}
 
@@ -3621,16 +3634,23 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		if { $data(src_type) eq "next" } {
 			set data(apply_profile_label) [translate {Edit profile}]
 			dui item config $page_to_show apply_profile-sym -text [dui symbol get pencil]
-			dui item enable $page_to_show change_profile*
+			#dui item enable $page_to_show change_profile*
 		} else {
 			set data(apply_profile_label) [translate {Use profile in next shot}]
 			dui item config $page_to_show apply_profile-sym -text [dui symbol get file-export]
-			dui item disable $page_to_show change_profile*
+			#dui item disable $page_to_show change_profile*
 		}
+		dui item enable_or_disable $data(enable_open_ps) $page_to_show change_profile*
 		
 		if { ![file exists "[homedir]/profiles/$profile(profile_filename).tcl"] } {
 			dui item disable $page_to_show {compare_to_2* show_diff_only*}
 		}
+		
+		# The preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
+		set can [dui canvas]
+		.can itemconfig $::preview_graph_pressure -state hidden
+		.can itemconfig $::preview_graph_flow -state hidden
+		.can itemconfig $::preview_graph_advanced -state hidden
 	}
 
 	proc compare_to_change {} {
@@ -3651,7 +3671,8 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 			dui page close_dialog
 			dui page open_dialog dye_profile_select_dlg -page_title [translate "Select a profile to compare to"] \
 				-change_settings_on_exit 0 -filter_visible all -filter_type $profile(settings_profile_type) \
-				-filter_bev_type $profile(beverage_type) -return_callback [namespace current]::process_select_comp_profile
+				-filter_bev_type $profile(beverage_type) -return_callback [namespace current]::process_select_comp_profile \
+				-enable_open_pv 0
 		} else {
 			array set ref_profile {}
 		}
@@ -3691,7 +3712,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		variable data
 		variable profile
 		
-		if { $data(src_type) ne "next" } {
+		if { ![string is true $data(enable_open_ps)] } {
 			return
 		}
 		
@@ -3788,6 +3809,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		filter_matching ""
 		sort_by "last_use"
 		info_expanded 0
+		enable_open_pv 1
 	}
 	
 	variable profiles
@@ -3804,7 +3826,13 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		set page_height [dui page height $page 0]
 		set font_size +1
 
-		# Left-top profile icon and close areas created in common on the dye_profile_viewer_dlg setup proc
+		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -radius {40 20 20 20} -style dye_pv_icon_btn
+		dui add symbol $page 105 65 -anchor center -symbol exchange -font_size 40 -fill white 
+		dui add dtext $page 105 160 -anchor center -justify center -text [translate "PROFILE SELECTOR"] \
+			-font_size 14 -fill white -width 200
+		
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
+			-command dui::page::close_dialog
 
 		# LEFT SIDE, main panel (profile selection)
 		set x 300
@@ -3825,28 +3853,35 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		bind $widgets(profiles) <Double-Button-1> [namespace current]::page_done
 
 		# Hidden beverage type selector
-		dui add dselector $page 240 500 -bwidth 600 -bheight 600 -tags selected_bev_type -initial_state hidden -orient vertical \
+		dui add dselector $page 240 400 -bwidth 600 -bheight 600 -tags selected_bev_type -initial_state hidden -orient vertical \
 			-values {espresso pourover tea_portafilter manual cleaning calibrate} -command selected_bev_type_change \
 			-labels [list [translate "Espresso"] [translate "Pour over"] [translate "Tea portafilter"] \
 				[translate "GHC manual control"] [translate "Cleaning"] [translate "Calibration"]]
 		
 		# LEFT SIDE, utility buttons, starting by bottom
-		set x 70; set y 1210; set bheight 130; set vsep 155;
+		set x 70; set y 600; set bheight 130; set vsep 155;
 
 		dui add dbutton $page $x $y -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
-			-tags import_profile -fill "#c1c5e4" -symbol file-import -symbol_pos {0.5 0.4} -symbol_fill white \
-			-label [translate {Import}] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
-			-label_fill "#8991cc" -initial_state disabled
-
-		dui add dbutton $page $x [incr y [expr {-$vsep-35}]] -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
-			-tags change_bev_type -fill "#c1c5e4" -symbol mug -symbol_pos {0.5 0.4} -symbol_fill white \
-			-label [translate {Bev.type}] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
-			-label_fill "#8991cc"
-		
-		dui add dbutton $page $x [incr y -$vsep] -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
 			-tags change_visibility -fill "#c1c5e4" -symbol eye -symbol_pos {0.5 0.4} -symbol_fill white \
 			-label [translate Show] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
 			-label_fill "#8991cc"
+		
+		dui add dbutton $page $x [incr y $vsep] -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
+			-tags change_bev_type -fill "#c1c5e4" -symbol mug -symbol_pos {0.5 0.4} -symbol_fill white \
+			-label [translate {Bev.type}] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
+			-label_fill "#8991cc"
+
+		# Aligned to bottom
+		set y 1210
+		dui add dbutton $page $x $y -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
+			-tags open_profile_importer -fill "#c1c5e4" -symbol file-import -symbol_pos {0.5 0.4} -symbol_fill white \
+			-label [translate {Import}] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
+			-label_fill "#8991cc" -initial_state disabled
+
+		dui add dbutton $page $x [incr y -$vsep] -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
+			-tags open_profile_viewer -fill "#c1c5e4" -symbol signature -symbol_pos {0.5 0.4} -symbol_fill white \
+			-label [translate {DYE PV}] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
+			-label_fill "#8991cc"		
 
 		# RIGHT SIDE, filters
 		set x 1500
@@ -3869,7 +3904,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			-label_font_size -1 -command fill_profiles
 
 		dui add dtext $page $x [expr {int([incr y $vsep]+$bheight/2)}] -anchor w -justify right -tags filter_matching_lbl \
-			-text [translate "Match current"] -width 300
+			-text [translate "Match shot"] -width 300
 		dui add dselector $page [expr {$x+300}] $y -bwidth 500 -bheight $bheight -tags filter_matching -multiple yes \
 			-values {beans grinder} -labels [list [translate "Beans"] [translate "Grinder"]] \
 			-label_font_size -1 -command fill_profiles
@@ -3917,6 +3952,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 	# -bean_brand <bean_brand>: Value to use in the "Match current" dselector filter.
 	# -bean_type <bean_type>: Value to use in the "Match current" dselector filter.
 	# -grinder_model <grinder_model>: Value to use in the "Match current" dselector filter.
+	# -enable_open_pv <boolean>
 	proc load { page_to_hide page_to_show args } {
 		variable profiles
 		variable data
@@ -3929,6 +3965,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		set data(selected) [::dui::args::get_option -selected ""]
 		set data(selected_bev_type) ""
 		set data(change_settings_on_exit) [string is true [::dui::args::get_option -change_settings_on_exit 0]]
+		set data(enable_open_pv) [string is true [::dui::args::get_option -enable_open_pv 1]]
 		set data(bean_brand) [::dui::args::get_option -bean_brand ""]
 		set data(bean_type) [::dui::args::get_option -bean_type ""]
 		set data(grinder_model) [::dui::args::get_option -grinder_model ""]
@@ -3986,12 +4023,6 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		
 		sort_profiles
 		
-		# The preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
-		set can [dui canvas]
-		.can itemconfig $::preview_graph_pressure -state hidden
-		.can itemconfig $::preview_graph_flow -state hidden
-		.can itemconfig $::preview_graph_advanced -state hidden
-		
 		return 1
 	}
 	
@@ -4011,6 +4042,15 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		
 		# This shouldn't be necessary, but -initial_state hidden is not working for dselectors
 		dui item hide $page_to_show selected_bev_type*
+		if { !$data(enable_open_pv) } {
+			dui item disable $page_to_show open_profile_viewer*
+		}
+		
+		# The preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
+		set can [dui canvas]
+		.can itemconfig $::preview_graph_pressure -state hidden
+		.can itemconfig $::preview_graph_flow -state hidden
+		.can itemconfig $::preview_graph_advanced -state hidden		
 	}
 
 	proc hide { page_to_hide page_to_show } {
@@ -4169,7 +4209,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		set idx [selected_profile_data_index $use_data_selected]
 		
 		if { $idx eq {} || $idx < 0 } {
-			dui item disable $page {change_visibility* change_bev_type* page_done*}
+			dui item disable $page {change_visibility* change_bev_type* open_profile_viewer* page_done*}
 		} else {
 			dui item enable $page {change_visibility* change_bev_type* page_done*}
 			
@@ -4280,8 +4320,18 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		}
 	}
 	
-	proc import_profile {} {
+	proc open_profile_importer {} {
 		# Yet to be implemented (button is disabled at the moment)
+	}
+	
+	proc open_profile_viewer {} {
+		variable profiles
+		
+		set idx [selected_profile_data_index 1]
+		if { $idx ne {} } {
+			dui page close_dialog
+			dui::page::open_dialog dye_profile_viewer_dlg profile_file [lindex $profiles(filename) $idx] -enable_open_ps 1
+		}
 	}
 	
 	proc expand_or_contract_info {} {
