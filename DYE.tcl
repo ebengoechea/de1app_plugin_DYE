@@ -112,7 +112,8 @@ proc ::plugins::DYE::main {} {
 	dui page add dye_which_shot_dlg -namespace true -type dialog -bbox {0 0 1100 820}
 	dui page add dye_profile_viewer_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_profile_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
-	
+	dui page add dye_shot_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
+
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
 	}
@@ -3477,18 +3478,26 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 	}
 
 	proc select_shot {} {
-		array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
-		if { [array size shots] > 0 } {
-			dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
-				-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
-				-theme [dui theme get]
-		}
-	}
+#		array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
+#		if { [array size shots] > 0 } {
+#			dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
+#				-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
+#				-theme [dui theme get]
+#		}
+		dui page close_dialog
+		dui page open_dialog dye_shot_select_dlg -return_callback [namespace current]::select_shot_callback_NEW \ 
+	} 
 	
 	proc select_shot_callback { shot_desc shot_id args } {
 		dui page close_dialog
 		if { [llength $shot_id] > 0 } {			
 			::plugins::DYE::open [lindex $shot_id 0]
+		}
+	}
+
+	proc select_shot_callback_NEW { shot_clock shot_path args } {
+		if { [llength $shot_id] > 0 } {			
+			::plugins::DYE::open [lindex $shot_clock 0]
 		}
 	}
 	
@@ -4429,6 +4438,389 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			}
 			
 			dui page close_dialog [lindex $profiles(title) $idx] [lindex $profiles(filename) $idx]
+		}
+	}
+}
+
+### SHOT SELECT DIALOG ##############################################################################################
+
+namespace eval ::dui::pages::dye_shot_select_dlg {
+	variable widgets
+	array set widgets {}
+		
+	# This page looks up its data directly in the DYE page, instead of storing its own.
+	variable data
+	array set data {
+	}
+
+	variable shots
+	array set shots {}
+	
+	proc setup {} {
+		variable data
+		variable widgets
+		set page [namespace tail [namespace current]]
+		set page_width [dui page width $page 0]
+		set page_height [dui page height $page 0]
+		set font_size +1
+
+		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -radius {40 20 20 20} -style dye_pv_icon_btn
+		dui add symbol $page 105 65 -anchor center -symbol mug -font_size 40 -fill white 
+		dui add dtext $page 105 160 -anchor center -justify center -text [translate "SHOT SELECTOR"] \
+			-font_size 14 -fill white -width 200
+		
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
+			-command dui::page::close_dialog
+
+		# LEFT SIDE, main panel (profile selection)
+		set x 300
+		dui add dtext $page $x 25 -anchor nw -justify left -tags page_title -width 1900 -font_size 28 \
+			-text [translate "Select a shot from history"]
+
+		dui add symbol $page [expr {$x-10}] 200 -tags filter_string_icon -anchor se -symbol search -font_size 20
+		dui add entry $page $x 210 -tags filter_string -canvas_width 950 -canvas_anchor sw -font_size $font_size
+		bind $widgets(filter_string) <KeyRelease> [namespace current]::fill_shots 
+		
+		# Empty category message
+		dui add variable $page $x 300 -tags empty_items_msg -style remark -font_size +2 -anchor e \
+			-justify "center" -initial_state hidden
+	
+		dui add text $page $x 210 -tags shots -canvas_width 950 -canvas_height 1000 -canvas_anchor nw \
+			-yscrollbar 1
+#		bind $widgets(profiles) <<ListboxSelect>> [namespace current]::profile_select
+#		bind $widgets(profiles) <Double-Button-1> [namespace current]::page_done
+
+		# LEFT SIDE, utility buttons, starting by bottom
+#		set x 70; set y 600; set bheight 130; set vsep 155;
+#
+#		dui add dbutton $page $x $y -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
+#			-tags change_visibility -fill "#c1c5e4" -symbol eye -symbol_pos {0.5 0.4} -symbol_fill white \
+#			-label [translate Show] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
+#			-label_fill "#8991cc"
+#		
+#		# Aligned to bottom
+#		set y 1210
+#		dui add dbutton $page $x $y -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
+#			-tags open_profile_importer -fill "#c1c5e4" -symbol file-import -symbol_pos {0.5 0.4} -symbol_fill white \
+#			-label [translate {Import}] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
+#			-label_fill "#8991cc" -initial_state disabled
+
+		# RIGHT SIDE, filters
+		set x 1500
+		dui add symbol $page $x 35 -tags filter_icon -symbol filter -font_size 28 -anchor nw -justify left
+		dui add dtext $page [expr {$x+100}] 25 -tags filter_lbl -text [translate Filters] -font_size 28 -anchor nw
+		
+		set y 140; set bheight 90; set vsep 125	
+		
+#		dui add dselector $page $x $y -bwidth 800 -bheight $bheight -tags filter_visible -values {visible hidden} \
+#			-multiple yes -labels [list [translate "Visible"] [translate "Hidden"]] \
+#			-label_font_size -1 -command fill_profiles
+
+
+		# RIGHT SIDE, sort by
+		dui add symbol $page $x [incr y [expr {$vsep}]] -tags sort_by_icon -symbol sort-alpha-down -font_size 28 -anchor nw -justify left
+		dui add dtext $page [expr {$x+100}] [expr {$y-10}] -tags sort_by_lbl -text [translate {Sort by}] -font_size 28 -anchor nw	
+		
+		dui add dselector $page $x [incr y [expr {$vsep-30}]] -bwidth 800 -bheight $bheight -tags sort_by \
+			-values {time enjoyment ey} -label_font_size -1 -command sort_shots \
+			-labels [list [translate "Time"] [translate "Enjoyment"] [translate "EY"]]
+		
+		# RIGHT SIDE, info panel
+#		dui add shape outline $page 1500 [incr y [expr {$vsep+30}]] 2300 1275 -tags info_box -width 2 -outline grey
+		
+		# BOTTOM BUTTONS
+		dui add dbutton $page 1230 [expr {$page_height-140}] -anchor ne -tags page_cancel -style insight_ok -command page_cancel -label [translate Cancel]
+		dui add dbutton $page 1330 [expr {$page_height-140}] -anchor nw -tags page_done -style insight_ok -command page_done -label [translate Select]
+		
+#		# Define Tk Text tag styles
+#		$tw tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+#		$tw tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+#		$tw tag configure step_line -lmargin2 [dui::platform::rescale_x 20]
+#		$tw tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
+#		$tw tag configure compvalue -foreground green
+	}
+	
+	# Page loading names options:
+	# -selected <shot_clock>: Starting selected shot clock
+	# -page_title <title>
+	# -filter_matching {?beans? ?grinder?}
+	# -bean_brand <bean_brand>: Value to use in the "Match current" dselector filter.
+	# -bean_type <bean_type>: Value to use in the "Match current" dselector filter.
+	# -grinder_model <grinder_model>: Value to use in the "Match current" dselector filter.
+	# -profile <profile_title>
+	proc load { page_to_hide page_to_show args } {
+		variable shots
+		variable data
+		variable widgets
+		
+		set data(selected) [::dui::args::get_option -selected ""]
+		set data(bean_brand) [::dui::args::get_option -bean_brand ""]
+		set data(bean_type) [::dui::args::get_option -bean_type ""]
+		set data(grinder_model) [::dui::args::get_option -grinder_model ""]
+#		if { [dui::args::has_option -filter_visible] } {
+#			set data(filter_visible) [::dui::args::get_option -filter_visible]
+#			if { $data(filter_visible) eq "all" || $data(filter_visible) eq ""} {
+#				set data(filter_visible) {visible hidden}
+#			} 
+#		}
+		
+		#array set shots []
+		
+		fill_shots
+		
+		return 1
+	}
+	
+	proc show { page_to_hide page_to_show } {
+		variable data
+		variable widgets
+		
+		$widgets(shots) configure -state disabled
+		
+#		if { $data(bean_brand) eq "" && $data(bean_type) eq "" && $data(grinder_model) eq "" } {
+#			dui item disable $page_to_show {filter_matching_1* filter_matching_2* filter_matching_lbl}
+#		} elseif { $data(bean_brand) eq "" && $data(bean_type) eq "" } {
+#			dui item disable $page_to_show filter_matching_1*
+#		} elseif { $data(grinder_model) eq "" } {
+#			dui item disable $page_to_show filter_matching_2*
+#		}
+#		
+#		$widgets(profile_info) configure -state disabled
+#		
+#		# This shouldn't be necessary, but -initial_state hidden is not working for dselectors
+#		dui item hide $page_to_show selected_bev_type*
+#		if { !$data(enable_open_pv) } {
+#			dui item disable $page_to_show open_profile_viewer*
+#		}
+#		
+#		# The preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
+#		set can [dui canvas]
+#		.can itemconfig $::preview_graph_pressure -state hidden
+#		.can itemconfig $::preview_graph_flow -state hidden
+#		.can itemconfig $::preview_graph_advanced -state hidden		
+	}
+
+	proc hide { page_to_hide page_to_show } {
+		variable data
+	}
+	
+	proc sort_shots {} {
+		variable data
+		variable shots
+		
+#		set indexes {}
+#		if { $data(sort_by) eq "usage" } {
+#			set indexes [lsort -indices -integer -decreasing $profiles(n_shots)]
+#		} elseif { $data(sort_by) eq "last_use" } {
+#			set indexes [lsort -indices -integer -decreasing $profiles(last_used_clock)]
+#		} elseif { $data(sort_by) eq "mtime" } {
+#			set indexes [lsort -indices -integer -decreasing $profiles(mtime)]
+#		} else {
+#			set indexes [lsort -indices -nocase -increasing $profiles(title)]
+#		}
+#
+#		# Sort each of the lists in the profiles array using the same order 
+#		set sorted_profiles {}
+#		foreach k [array names profiles] {
+#			lappend sorted_profiles $k [lmap i $indexes {lindex $profiles($k) $i}]
+#		}
+#		
+#		array set profiles $sorted_profiles
+#		fill_profiles
+	}
+	
+	proc fill_shots {} {
+		variable widgets
+		variable data
+		variable shots
+
+		array set shots [::plugins::SDB::shots {clock filename shot_desc} 1 {} 500]
+				
+#		set data(shown_indexes) {}
+		set tw $widgets(shots)
+		$tw configure -state normal
+		$tw delete 0.1 end
+		
+		for { set i 0 } { $i < [llength $shots(shot_desc)] } { incr i } {
+			$tw insert insert [lindex $shots(clock) $i] "" "\n   [lindex $shots(shot_desc) $i]\n"
+		}
+		 
+#		
+#		if { [string length $data(filter_string)] > 0 } {
+#			set filter "*[regsub -all {[[:space:]]} $data(filter_string) *]*"
+#			set shown_indexes [lsearch -all -nocase $profiles(title) $filter]
+#			if { $shown_indexes eq {} } {
+#				return
+#			}
+#		} else {
+#			set shown_indexes [lsequence 0 [expr {[llength $profiles(filename)]-1}]]
+#		}
+#
+#		set db_filter ""
+#		set db_profiles {}
+#		if { "beans" in $data(filter_matching) } {
+#			if { $data(bean_brand) ne "" } {
+#				append db_filter "bean_brand='$data(bean_brand)' AND "
+#			} 
+#			if { $data(bean_type) ne "" } { 
+#				append db_filter "bean_type='$data(bean_type)' AND "
+#			}
+#		}
+#		if { "grinder" in $data(filter_matching) && $data(grinder_model) ne "" } {
+#			append db_filter "grinder_model='$data(grinder_model)' AND "
+#		}
+#		if { $db_filter ne "" } {
+#			set db_filter [string range $db_filter 0 end-5]
+#			set db_profiles [lunique [::plugins::SDB::shots profile_title 1 $db_filter]]
+#			if { $db_profiles eq {} } {
+#				return
+#			}
+#		}
+#		
+#		for { set i 0 } { $i < [llength $shown_indexes] } { incr i } {
+#			set idx [lindex $shown_indexes $i]
+#			set add_item 1
+#			
+#			if { $data(filter_visible) eq "visible" && [lindex $profiles(hide) $idx] == 1 } {
+#				continue
+#			} elseif { $data(filter_visible) eq "hidden" && [lindex $profiles(hide) $idx] == 0 } {
+#				continue
+#			}
+#				
+#			if { $data(filter_type) ne {} && $data(filter_type) ne "all" && [lindex $profiles(type) $idx] ni $data(filter_type) } {
+#				continue
+#			}
+#
+#			if { $data(filter_bev_type) ne {} && $data(filter_bev_type) ne "all" } {
+#				if { !("others" in $data(filter_bev_type) && [lindex $profiles(bev_type) $idx] ni {espresso pourvover tea_portafilter}) &&
+#						!([lindex $profiles(bev_type) $idx] in $data(filter_bev_type)) } {
+#					continue
+#				}
+#			}
+#
+#			if { $db_profiles ne {} && [lindex $profiles(title) $idx] ni $db_profiles } {
+#				continue
+#			}
+#			
+#			$w insert end [lindex $profiles(title) $idx]
+#			lappend data(shown_indexes) $idx
+#		}
+#		
+#		if { $data(selected) ne {} } {
+#			# Don't reset $data(selected) if not found, to preserve selection when filters are modified
+#			set idx [lsearch -exact $profiles(filename) $data(selected)]
+#			if { $idx > -1 } {
+#				set idx [lsearch -exact $data(shown_indexes) $idx]
+#				if { $idx > -1 } {
+#					$w selection set $idx
+#					$w see $idx
+#				}
+#			}
+#			profile_select 1
+#		}
+
+		$tw configure -state disabled
+	}
+	
+	# Returns the index of the selected shot on the namespace 'shots' array, taking into account the active
+	# filter. Returns an empty string if either there's not a selected profile or there's no match.	
+	proc selected_shot_data_index { {use_data_selected 0} } {
+		variable widgets
+		variable data
+		variable shots
+		
+		set idx ""
+		if { [string is true $use_data_selected] } {
+			variable shots
+			if { $data(selected) ne "" } {
+				set idx [lsearch -exact $shots(clock) $data(selected)]
+			}
+		} else {
+			set idx [$widgets(shots) curselection]
+			if { $idx ne "" } {
+				set idx [lindex $data(shown_indexes) $idx]
+			}
+		}
+
+		if { [string is integer $idx] && $idx < 0 } {
+			set idx ""
+		}
+		return $idx
+	}
+	
+	proc shot_select { {use_data_selected 0} } {
+#		variable widgets
+#		variable data
+#		variable profiles
+#		set page [namespace tail [namespace current]]
+#
+#		set idx [selected_profile_data_index $use_data_selected]
+#		
+#		if { $idx eq {} || $idx < 0 } {
+#			dui item disable $page {change_visibility* change_bev_type* open_profile_viewer* page_done*}
+#		} else {
+#			dui item enable $page {change_visibility* change_bev_type* page_done*}
+#			
+#			if { [string is true [lindex $profiles(hide) $idx]] } {
+#				dui item config $page change_visibility-sym -text [dui symbol get eye]
+#				dui item config $page change_visibility-lbl -text [translate Show]
+#			} else {
+#				dui item config $page change_visibility-sym -text [dui symbol get eye-slash]
+#				dui item config $page change_visibility-lbl -text [translate Hide]
+#			}
+#			
+#			set txt ""
+#			set filename [lindex $profiles(filename) $idx]
+#			if { ![string is true $use_data_selected] } {
+#				set data(selected) $filename
+#			}
+#			set data(selected_bev_type) [lindex $profiles(bev_type) $idx]
+#			
+#			append txt "[translate File]: ${filename}.tcl\n"
+#			append txt "[translate Type]: [translate [::profile::profile_type_text [lindex $profiles(type) $idx] [lindex $profiles(bev_type) $idx]]]\n"
+#			append txt "[translate {Shot count}]: [lindex $profiles(n_shots) $idx]\n"
+#			if { [lindex $profiles(n_shots) $idx] > 0 } {
+#				append txt "[translate {Last shot}]: [::plugins::DYE::relative_date [lindex $profiles(last_used_clock) $idx]]\n"
+#			}				
+#			append txt "[translate Created]: [::plugins::DYE::relative_date [lindex $profiles(ctime) $idx]]\n"
+#			append txt "[translate Modified]: [::plugins::DYE::relative_date [lindex $profiles(mtime) $idx]]\n"
+#			
+#			set tw $widgets(profile_info)
+#			$tw configure -state normal
+#			$tw delete 1.0 end		
+#			$tw insert insert $txt
+#			
+#			if { $data(info_expanded) } {
+#				set profile [profile::read_legacy profile_file $filename]
+#				if { [llength profile] > 0 } {
+#					set pdict [::profile::legacy_to_textual $profile]
+#					::plugins::DYE::insert_profile_in_tk_text $widgets(profile_info) $pdict {} 0
+#				} else {
+#					msg -INFO [namespace current] profile_select: "empty profile file '$filename'" 
+#				}
+#			}
+#			
+#			$tw configure -state disabled
+#		}
+		
+	}
+	
+	
+	proc page_cancel {} {
+		dui page close_dialog {} {}
+	}
+	
+	# Returns <shot_clock> <shot_full_path>
+	proc page_done {} {
+		variable widgets
+		variable data
+		variable shots
+		
+		set idx [selected_shots_data_index 1]
+		if { $idx eq {} } {
+			dui page close_dialog {} {}
+		} else {
+			dui page close_dialog [lindex $shots(clock) $idx] [lindex $shots(path) $idx]
 		}
 	}
 }
