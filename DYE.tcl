@@ -106,7 +106,7 @@ proc ::plugins::DYE::main {} {
 		dui page add $page -namespace true -type fpdialog
 	}
 	# Default slice/button height in menu dialogs: 120
-	dui page add dye_edit_dlg -namespace true -type dialog -bbox {0 0 1150 840}
+	dui page add dye_edit_dlg -namespace true -type dialog -bbox {0 0 1150 960}
 	dui page add dye_manage_dlg -namespace true -type dialog -bbox {0 0 800 720}
 	dui page add dye_visualizer_dlg -namespace true -type dialog -bbox {0 0 900 960}
 	dui page add dye_which_shot_dlg -namespace true -type dialog -bbox {0 0 1100 820}
@@ -2495,6 +2495,32 @@ proc  ::dui::pages::DYE::process_export_shot_confirm { {choice {}} } {
 	dui say [translate "Shot exported"]	
 }
 
+proc  ::dui::pages::DYE::copy_to_next { } {
+	variable data
+	if { $data(describe_which_shot) eq "next" || $data(path) eq "" } {
+		return
+	}
+	
+	foreach f [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes] {
+		if { [field_in_apply_to $f $data(apply_action_to)] } {
+			set ::plugins::DYE::settings(next_$f) $data($f)
+			
+#			if { [metadata get $f data_type] eq "number" && $data($f) eq "" } {
+#				set ::plugins::DYE::settings(next_$f) 0
+#			} else {
+#				set ::plugins::DYE::settings(next_$f) $data($f)
+#			}
+		}
+	}
+	
+	if { "profile" in $data(apply_action_to) } {
+		::plugins::DYE::import_profile_from_shot $data(clock)
+	}
+	
+	plugins::save_settings DYE
+	dui say [translate "Data copied to next shot plan"]
+}
+
 # A clone of DSx last_shot_date, but uses settings(espresso_clock) if DSx_settings(live_graph_time) is not
 # available (e.g. if DSx_settings.tdb were manually removed). Also will allow future skin-independence.
 proc ::dui::pages::DYE::last_shot_date {} {
@@ -2606,7 +2632,7 @@ proc ::dui::pages::DYE::edit_dialog {} {
 	dui sound make sound_button_in
 	set is_next [expr {$data(describe_which_shot) eq "next"}]
 	
-	dui page open_dialog dye_edit_dlg $is_next [expr {!$is_next}] \
+	dui page open_dialog dye_edit_dlg 1 [expr {!$is_next}] [expr {!$is_next}] \
 		-coords {100 1390} -anchor sw -disable_items 1 -return_callback [namespace current]::process_edit_dialog 
 }
 
@@ -2620,6 +2646,8 @@ proc ::dui::pages::DYE::process_edit_dialog { {action {}} {apply_to {}} } {
 		read_from previous $apply_to
 	} elseif { $action eq "read_selected" } {
 		read_from selected $apply_to
+	} elseif { $action eq "copy_to_next" } {
+		copy_to_next
 	} elseif { $action eq "undo" } {
 		undo_changes $apply_to
 	}
@@ -2792,18 +2820,19 @@ namespace eval ::dui::pages::dye_edit_dlg {
 	array set data {
 		enable_profile 1
 		enable_extraction 1
+		enable_copy_to_next 1
 		settings_changed 0
 		select_apply_to all
 	}
 
-	# Actions: Clear shot data, Read from last shot, Read from selected shot, Undo changes
+	# Actions: Clear shot data, Read from last shot, Read from selected shot, Copy to next shot plan, Undo changes
 	proc setup {} {
 		variable data
 		set page [namespace tail [namespace current]]
 		
 		set page_width [dui page width $page 0]
 		set page_height [dui page height $page 0]
-		set splits [dui page split_space 0 $page_height 0.3 0.1 0.1 0.1 0.1]
+		set splits [dui page split_space 0 $page_height 0.3 0.1 0.1 0.1 0.1 0.1]
 		
 		set i 0		
 		set y0 [lindex $splits $i]
@@ -2855,6 +2884,12 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags read_selected -style menu_dlg_btn \
 			-label "[translate {Read from selected shot}]..." -symbol file-import -command {%NS::page_close read_selected}
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags copy_to_next -style menu_dlg_btn \
+			-label "[translate {Copy to next shot plan}]" -symbol file-export -command {%NS::page_close copy_to_next}
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
@@ -2862,11 +2897,12 @@ namespace eval ::dui::pages::dye_edit_dlg {
 			-label [translate "Undo changes"] -symbol undo -command {%NS::page_close undo}
 	}
 
-	proc load { page_to_hide page_to_show {enable_profile 0} {enable_extraction 0} args } {
+	proc load { page_to_hide page_to_show {enable_profile 0} {enable_extraction 0} {enable_copy_to_next 1} args } {
 		variable data
 		
 		set data(enable_profile) [string is true $enable_profile]
 		set data(enable_extraction) [string is true $enable_extraction]
+		set data(enable_copy_to_next) [string is true $enable_copy_to_next]
 		return 1
 	}
 	
@@ -2875,6 +2911,7 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		
 		dui item enable_or_disable $data(enable_profile) dye_edit_dlg apply_to_profile*
 		dui item enable_or_disable $data(enable_extraction) dye_edit_dlg apply_to_extraction*
+		dui item enable_or_disable $data(enable_copy_to_next) dye_edit_dlg copy_to_next*
 	}
 	
 	proc select_apply_to {} {
