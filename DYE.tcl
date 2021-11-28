@@ -4562,7 +4562,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 
 		dui add dselector $page $x [incr y $vsep] -bwidth 800 -bheight $bheight -tags navigate_by -values {shot date beans profile} \
 			-multiple no -labels [list [translate "Shot"] [translate "Date"] [translate "Beans"] [translate "Profile"]] \
-			-label_font_size -1 -command fill_shots
+			-label_font_size -1 -command fill_shots -initial_state disabled
 
 		# RIGHT SIDE, sort by
 		dui add symbol $page $x [incr y [expr {$vsep}]] -tags sort_by_icon -symbol sort-alpha-down -font_size 28 -anchor nw -justify left
@@ -4678,6 +4678,9 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		
 		$widgets(shots) configure -state disabled
 		$widgets(shot_info) configure -state disabled
+		
+		# Temporarilly disable the "Navigate by"
+		dui item disable $page_to_show navigate_by*
 		
 		if { $data(bean_brand) eq "" && $data(bean_type) eq "" && $data(grinder_model) eq "" && $data(profile_title) eq ""} {
 			dui item disable $page_to_show {filter_matching_1* filter_matching_2* filter_matching_3* filter_matching_lbl}
