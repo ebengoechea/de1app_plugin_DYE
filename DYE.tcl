@@ -8,8 +8,8 @@
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
 #set ::skindebug 1
-#plugins enable SDB
-#plugins enable DYE
+plugins enable SDB
+plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
@@ -991,7 +991,7 @@ proc ::plugins::DYE::relative_date { aclock {ampm {}} } {
 #	return "$date $c$b$pm"
 #}
 
-proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} } {
+proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} {inc_time 1} } {
 	variable settings
 	
 	if { $relative eq {} } {
@@ -999,18 +999,41 @@ proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} } {
 	}
 	if { $ampm eq {} } {
 		set ampm [value_or_default ::settings(enable_ampm) 0]
-	}
+	} 
 	
 	if { [string is true $relative] } {
-		return [relative_date $aclock]
-	} else {		
+		return [relative_date $aclock $ampm]
+	} elseif { [string is true $inc_time] } {
 		if { [string is true $ampm] } {
 			set hourformat $settings(time_output_format_ampm)
 		} else {
 			set hourformat $settings(time_output_format)
 		}
 		return [clock format $aclock -format "$settings(date_output_format) $hourformat"]
+	} else {
+		return [clock format $aclock -format $settings(date_output_format)]
 	}
+}
+
+proc ::plugins::DYE::setup_tk_text_profile_tags { widget {compact 0} } {
+	if { [string is true $compact] } {
+		$widget tag configure profile_title -font [dui font get notosansuibold 16] -spacing1 [dui::platform::rescale_y 15]
+		$widget tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+		$widget tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+		$widget tag configure step_line -lmargin2 [dui::platform::rescale_x 20]
+		$widget tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
+		$widget tag configure compvalue -foreground green
+		#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
+	} else {
+		$widget tag configure profile_title -font [dui font get nontansuibold 18] -spacing1 [dui::platform::rescale_y 20]
+		$widget tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+		$widget tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+		$widget tag configure step_line {*}[dui aspect list -type text_tag -style dye_pv_step_line -as_options yes]
+		$widget tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
+		$widget tag configure compvalue -foreground green
+		#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
+	}
+	
 }
 
 # Inserts the text description of a profile textual dictionary in a Tk Text widget. 
@@ -1023,7 +1046,7 @@ proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} } {
 #	3. Any user-definable value is different
 # Changes in text-only descriptive fields such as profile_title, beverage_type, profile_notes or step names are 
 #	not taken into account for difference considerations.
-proc ::plugins::DYE::insert_profile_in_tk_text { tw pdict {cdict {}} {show_diff_only 0} } {
+proc ::plugins::DYE::insert_profile_in_tk_text { tw pdict {cdict {}} {show_diff_only 0} {insert_title 0} {insert_type 0} } {
 	set n_diffs 0
 	if { $cdict eq {} } {
 		set show_diff_only 0
@@ -1040,6 +1063,13 @@ proc ::plugins::DYE::insert_profile_in_tk_text { tw pdict {cdict {}} {show_diff_
 	set start_state [$tw cget -state]
 	if { $start_state ne "normal" } {
 		$tw configure -state normal
+	}
+	
+	if { [string is true $insert_title] } {
+		insert_profile_item_in_tk_text $tw $pdict {0 title} profile_title "" "" "" $cdict compvalue $show_diff_only
+	}
+	if { [string is true $insert_type] } {
+		insert_profile_item_in_tk_text $tw $pdict {0 type} profile_type "" "" "" $cdict compvalue $show_diff_only
 	}
 	
 	# Output the textual description of the profile
@@ -1770,19 +1800,35 @@ proc ::dui::pages::DYE::search_shot_callback { selected_shots matched_shots } {
 }
 
 proc ::dui::pages::DYE::select_shot {} {
-	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
-	if { [array size shots] > 0 } {
-		dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
-			-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
-			-theme [dui theme get]
-	}
+	variable data
+	variable src_data
+	
+	dui page open_dialog dye_shot_select_dlg -selected $data(clock) -bean_brand $data(bean_brand) -bean_type $data(bean_type) \
+		-grinder_model $data(grinder_model) -profile_title $src_data(profile_title) \
+		-return_callback [namespace current]::select_shot_callback 
+	
+	
+#	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
+#	if { [array size shots] > 0 } {
+#		dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
+#			-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
+#			-theme [dui theme get]
+#	}
 }
 
-proc ::dui::pages::DYE::select_shot_callback { shot_desc shot_id args } {
+#proc ::dui::pages::DYE::select_shot_callback { shot_desc shot_id args } {
+#	variable data
+#
+#	if { [llength $shot_id] > 0 } {
+#		dui page load DYE [lindex $shot_id 0] -reload yes
+#	}
+#}
+
+proc ::dui::pages::DYE::select_shot_callback { {clock {}} {filename {}} {desc {}} args } {
 	variable data
 
-	if { [llength $shot_id] > 0 } {
-		dui page load DYE [lindex $shot_id 0] -reload yes
+	if { [llength $clock] > 0 } {
+		dui page load DYE [lindex $clock 0] -reload yes
 	}
 }
 
@@ -3485,19 +3531,21 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 #				-theme [dui theme get]
 #		}
 		dui page close_dialog
-		dui page open_dialog dye_shot_select_dlg -return_callback [namespace current]::select_shot_callback_NEW \ 
+		dui page open_dialog dye_shot_select_dlg -bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) \
+			-grinder_model $::settings(grinder_model) -profile_title $::settings(profile_title) \
+			-return_callback [namespace current]::select_shot_callback 
 	} 
 	
-	proc select_shot_callback { shot_desc shot_id args } {
-		dui page close_dialog
-		if { [llength $shot_id] > 0 } {			
-			::plugins::DYE::open [lindex $shot_id 0]
-		}
-	}
+#	proc select_shot_callback { {shot_desc {}} {shot_id {}} args } {
+#		dui page close_dialog
+#		if { [llength $shot_id] > 0 } {			
+#			::plugins::DYE::open [lindex $shot_id 0]
+#		}
+#	}
 
-	proc select_shot_callback_NEW { shot_clock shot_path args } {
-		if { [llength $shot_id] > 0 } {			
-			::plugins::DYE::open [lindex $shot_clock 0]
+	proc select_shot_callback { {clock {}} {filename {}} {desc {}} args } {
+		if { [llength $clock] > 0 } {			
+			::plugins::DYE::open [lindex $clock 0]
 		}
 	}
 	
@@ -3564,8 +3612,8 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		dui add variable $page 265 210 -anchor sw -justify left -tags profile_type -width 1200 -font_size +1 \
 			-fill [dui aspect get text_tag foreground -style dye_pv_step]
 			
-		set tw [dui add text $page 275 225 -tags profile_desc -canvas_width 1200 -canvas_height 1075 -yscrollbar yes \
-			-highlightthickness 0]
+		dui add text $page 275 225 -tags profile_desc -canvas_width 1200 -canvas_height 1075 -yscrollbar yes \
+			-highlightthickness 0
 		
 		# Right side
 		dui add dtext $page 1700 210 -anchor sw -tags compare_lbl -width 650 -text [translate {Compare to:}] 
@@ -3588,13 +3636,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 			-symbol exchange -label [translate "Change profile"] -label_width 375
 		
 		# Define Tk Text tag styles
-		$tw tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-		$tw tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-		$tw tag configure step_line {*}[dui aspect list -type text_tag -style dye_pv_step_line -as_options yes]
-		$tw tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
-		$tw tag configure compvalue -foreground green
-		#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
-	
+		::plugins::DYE::setup_tk_text_profile_tags $widgets(profile_desc) 0
 	}
 	
 	# source_type = Those acepted by ::profile::read_legacy (settings/next, shot_file, profile_file, or list)
@@ -3941,12 +3983,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		dui add dbutton $page 1330 [expr {$page_height-140}] -anchor nw -tags page_done -style insight_ok -command page_done -label [translate Select]
 		
 		# Define Tk Text tag styles
-		$tw tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-		$tw tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-		$tw tag configure step_line -lmargin2 [dui::platform::rescale_x 20]
-		$tw tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
-		$tw tag configure compvalue -foreground green
-		#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
+		::plugins::DYE::setup_tk_text_profile_tags $tw 1
 	}
 	
 	# Page loading names options:
@@ -4055,7 +4092,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			dui item disable $page_to_show open_profile_viewer*
 		}
 		
-		# The preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
+		# The settings preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
 		set can [dui canvas]
 		.can itemconfig $::preview_graph_pressure -state hidden
 		.can itemconfig $::preview_graph_flow -state hidden
@@ -4451,10 +4488,38 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 	# This page looks up its data directly in the DYE page, instead of storing its own.
 	variable data
 	array set data {
+		selected ""
+		selected_cat ""
+		selected_cat_idx ""
+		bean_brand ""
+		bean_type ""
+		grinder_model ""
+		profile_title ""
+		filter_string ""
+		filter_matching {}
+		navigate_by "shot"
+		sort_by "date"
+		n_shots 0
+		n_matches_text ""
+		info_expanded 0
 	}
 
 	variable shots
 	array set shots {}
+	
+	variable selected_shot
+	array set selected_shot {}
+	
+	variable stored_dims
+	set stored_dims {}
+
+	namespace eval vectors {
+		proc init {} {
+			blt::vector create elapsed pressure_goal flow_goal temperature_goal
+			blt::vector create pressure flow flow_weight weight state_change resistance_weight resistance 
+			blt::vector create temperature_basket temperature_mix  temperature_goal
+		}
+	}
 	
 	proc setup {} {
 		variable data
@@ -4485,8 +4550,8 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		dui add variable $page $x 300 -tags empty_items_msg -style remark -font_size +2 -anchor e \
 			-justify "center" -initial_state hidden
 	
-		dui add text $page $x 210 -tags shots -canvas_width 950 -canvas_height 1000 -canvas_anchor nw \
-			-yscrollbar 1
+		set tw [dui add text $page $x 210 -tags shots -canvas_width 950 -canvas_height 1000 -canvas_anchor nw \
+			-yscrollbar 1 -font_size 15]
 #		bind $widgets(profiles) <<ListboxSelect>> [namespace current]::profile_select
 #		bind $widgets(profiles) <Double-Button-1> [namespace current]::page_done
 
@@ -4499,12 +4564,18 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 #			-label_fill "#8991cc"
 #		
 #		# Aligned to bottom
-#		set y 1210
+		set y 1210
+		
+		dui add variable $page 140 $y -anchor s -justify center -tags n_matches_text -width 250 -font_size -2 \
+			-textvariable {$%NS::data(n_matches_text)}
+				
 #		dui add dbutton $page $x $y -bwidth 130 -bheight $bheight -anchor sw -shape round -radius 30 \
 #			-tags open_profile_importer -fill "#c1c5e4" -symbol file-import -symbol_pos {0.5 0.4} -symbol_fill white \
 #			-label [translate {Import}] -label_font_size 11 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
 #			-label_fill "#8991cc" -initial_state disabled
 
+		
+		
 		# RIGHT SIDE, filters
 		set x 1500
 		dui add symbol $page $x 35 -tags filter_icon -symbol filter -font_size 28 -anchor nw -justify left
@@ -4512,34 +4583,100 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		
 		set y 140; set bheight 90; set vsep 125	
 		
-#		dui add dselector $page $x $y -bwidth 800 -bheight $bheight -tags filter_visible -values {visible hidden} \
-#			-multiple yes -labels [list [translate "Visible"] [translate "Hidden"]] \
-#			-label_font_size -1 -command fill_profiles
+		dui add dselector $page $x $y -bwidth 800 -bheight $bheight -tags filter_matching -values {beans profile grinder} \
+			-multiple yes -labels [list [translate "Beans"] [translate "Profile"] [translate "Grinder"]] \
+			-label_font_size -1 -command fill_shots
+ 
+		# RIGHT SIDE, navigate by
+		dui add symbol $page $x [incr y $vsep] -tags nav_icon -symbol folder-tree -font_size 28 -anchor nw -justify left
+		dui add dtext $page [expr {$x+100}] $y -tags nav_lbl -text [translate {Navigate by }] -font_size 28 -anchor nw
 
+		dui add dselector $page $x [incr y $vsep] -bwidth 800 -bheight $bheight -tags navigate_by -values {shot date beans profile} \
+			-multiple no -labels [list [translate "Shot"] [translate "Date"] [translate "Beans"] [translate "Profile"]] \
+			-label_font_size -1 -command fill_shots
 
 		# RIGHT SIDE, sort by
 		dui add symbol $page $x [incr y [expr {$vsep}]] -tags sort_by_icon -symbol sort-alpha-down -font_size 28 -anchor nw -justify left
 		dui add dtext $page [expr {$x+100}] [expr {$y-10}] -tags sort_by_lbl -text [translate {Sort by}] -font_size 28 -anchor nw	
 		
 		dui add dselector $page $x [incr y [expr {$vsep-30}]] -bwidth 800 -bheight $bheight -tags sort_by \
-			-values {time enjoyment ey} -label_font_size -1 -command sort_shots \
-			-labels [list [translate "Time"] [translate "Enjoyment"] [translate "EY"]]
+			-values {date enjoyment ey ratio} -label_font_size -1 -command fill_shots \
+			-labels [list [translate "Date"] [translate "Enjoy"] [translate "EY"] [translate "Ratio"]]
 		
-		# RIGHT SIDE, info panel
-#		dui add shape outline $page 1500 [incr y [expr {$vsep+30}]] 2300 1275 -tags info_box -width 2 -outline grey
+		# RIGHT SIDE, info panel / preview graph
+		dui add shape outline $page 1500 [incr y [expr {$vsep+30}]] 2300 1275 -tags info_box -width 2 -outline grey
+		dui add symbol $page 1530 [expr {$y+15}] -anchor nw -symbol info -tags info_icon -font_size 30 -fill grey
+		
+		set itw [dui add text $page 1605 154 -tags shot_info -canvas_width 675 -canvas_height 600 \
+			-yscrollbar no -highlightthickness 0 -initial_state hidden -font_size -2 -foreground "#7f879a" -exportselection 0]
+		
+		dui add graph $page 1605 [expr {$y+10}] -width 675 -height [expr {1196-$y}] -tags preview_graph \
+			-style dyev3_text_graph
+		vectors::init
+		setup_graph 1
+		#bind $widgets(preview_graph) [dui platform button_press] [list [namespace current]::preview_graph_click]
+	
+		dui add symbol $page 1515 1200 -anchor sw -justify left -symbol plus-circle -tags expand_or_contract_icon -font_size 30 
+		dui add dbutton $page 1400 [expr {$y+75}] 1604 1225 -tags expand_info -command expand_or_contract_info 
 		
 		# BOTTOM BUTTONS
 		dui add dbutton $page 1230 [expr {$page_height-140}] -anchor ne -tags page_cancel -style insight_ok -command page_cancel -label [translate Cancel]
 		dui add dbutton $page 1330 [expr {$page_height-140}] -anchor nw -tags page_done -style insight_ok -command page_done -label [translate Select]
 		
 #		# Define Tk Text tag styles
-#		$tw tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-#		$tw tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-#		$tw tag configure step_line -lmargin2 [dui::platform::rescale_x 20]
-#		$tw tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
-#		$tw tag configure compvalue -foreground green
+		$tw tag configure datetime -foreground brown
+		$tw tag configure shotsep -spacing1 [dui::platform::rescale_y 20]
+		$tw tag configure details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
+			-font [dui font get notosansuiregular 13]
+		$tw tag configure shot_end -spacing3 [dui::platform::rescale_y 20]
+		$tw tag configure symbol -font [dui font get $::dui::symbol::font_filename 20]
+		
+		$tw tag configure nav_title -foreground brown -spacing1 [dui::platform::rescale_y 20]
+		$tw tag configure nav_details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
+			-font [dui font get notosansuiregular 13]
+		
+		$tw tag bind shot [dui platform button_press] [list + [namespace current]::click_shot_text %W %x %y %X %Y]
+		$tw tag bind shot <Double-Button-1> [namespace current]::page_done
+
+		$tw tag bind nav_cat [dui platform button_press] [list + [namespace current]::click_nav_cat_text %W %x %y %X %Y]
+		#$tw tag bind <Double-Button-1> [namespace current]::page_done
+		
+		::plugins::DYE::setup_tk_text_profile_tags $itw 1
+		$itw tag configure field -foreground brown
+		#{*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
+		
 	}
 	
+	proc setup_graph { {create_axis 0} } {
+		variable widgets
+		set widget $widgets(preview_graph)
+		set ns [namespace current]
+		
+		if { [string is true $create_axis] } {
+			$widget axis create temp
+			$widget axis configure temp {*}[dui aspect list -type graph_axis -style hv_graph_axis -as_options yes]
+			$widget axis configure x {*}[dui aspect list -type graph_xaxis -style hv_graph_axis -as_options yes]
+			$widget axis configure y {*}[dui aspect list -type graph_yaxis -style hv_graph_axis -as_options yes]
+			$widget grid configure {*}[dui aspect list -type graph_grid -style hv_graph_grid -as_options yes]
+		}
+	
+		foreach lt {temperature_goal temperature_basket temperature_mix} {
+			$widget element create line_$lt -xdata ${ns}::vectors::elapsed \
+				-ydata ${ns}::vectors::$lt -mapy temp {*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
+		}
+		
+		foreach lt {pressure_goal flow_goal pressure flow flow_weight weight} {
+			$widget element create line_$lt -xdata ${ns}::vectors::elapsed \
+				-ydata ${ns}::vectors::$lt {*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
+		}
+		
+		foreach lt {state_change resistance} {
+			$widget element create line_$lt -xdata ${ns}::vectors::elapsed -ydata ${ns}::vectors::$lt \
+				{*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
+		}
+		
+	}
+		
 	# Page loading names options:
 	# -selected <shot_clock>: Starting selected shot clock
 	# -page_title <title>
@@ -4553,20 +4690,15 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		variable data
 		variable widgets
 		
-		set data(selected) [::dui::args::get_option -selected ""]
 		set data(bean_brand) [::dui::args::get_option -bean_brand ""]
 		set data(bean_type) [::dui::args::get_option -bean_type ""]
 		set data(grinder_model) [::dui::args::get_option -grinder_model ""]
-#		if { [dui::args::has_option -filter_visible] } {
-#			set data(filter_visible) [::dui::args::get_option -filter_visible]
-#			if { $data(filter_visible) eq "all" || $data(filter_visible) eq ""} {
-#				set data(filter_visible) {visible hidden}
-#			} 
-#		}
+		set data(profile_title) [::dui::args::get_option -profile_title ""]
 		
-		#array set shots []
+		dui item config $page_to_show page_title -text [translate [::dui::args::get_option -page_title "Select a shot from history"]]
 		
 		fill_shots
+		shot_select [::dui::args::get_option -selected ""]
 		
 		return 1
 	}
@@ -4576,14 +4708,17 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		variable widgets
 		
 		$widgets(shots) configure -state disabled
+		$widgets(shot_info) configure -state disabled
 		
-#		if { $data(bean_brand) eq "" && $data(bean_type) eq "" && $data(grinder_model) eq "" } {
-#			dui item disable $page_to_show {filter_matching_1* filter_matching_2* filter_matching_lbl}
-#		} elseif { $data(bean_brand) eq "" && $data(bean_type) eq "" } {
-#			dui item disable $page_to_show filter_matching_1*
-#		} elseif { $data(grinder_model) eq "" } {
-#			dui item disable $page_to_show filter_matching_2*
-#		}
+		if { $data(bean_brand) eq "" && $data(bean_type) eq "" && $data(grinder_model) eq "" && $data(profile_title) eq ""} {
+			dui item disable $page_to_show {filter_matching_1* filter_matching_2* filter_matching_3* filter_matching_lbl}
+		} elseif { $data(bean_brand) eq "" && $data(bean_type) eq "" } {
+			dui item disable $page_to_show filter_matching_1*
+		} elseif { $data(profile_title) eq "" } {
+			dui item disable $page_to_show filter_matching_2*
+		} elseif { $data(grinder_model) eq "" } {
+			dui item disable $page_to_show filter_matching_3*
+		}
 #		
 #		$widgets(profile_info) configure -state disabled
 #		
@@ -4593,167 +4728,312 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 #			dui item disable $page_to_show open_profile_viewer*
 #		}
 #		
-#		# The preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
-#		set can [dui canvas]
-#		.can itemconfig $::preview_graph_pressure -state hidden
-#		.can itemconfig $::preview_graph_flow -state hidden
-#		.can itemconfig $::preview_graph_advanced -state hidden		
+		# The preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
+		set can [dui canvas]
+		.can itemconfig $::preview_graph_pressure -state hidden
+		.can itemconfig $::preview_graph_flow -state hidden
+		.can itemconfig $::preview_graph_advanced -state hidden		
 	}
 
 	proc hide { page_to_hide page_to_show } {
 		variable data
-	}
-	
-	proc sort_shots {} {
-		variable data
-		variable shots
-		
-#		set indexes {}
-#		if { $data(sort_by) eq "usage" } {
-#			set indexes [lsort -indices -integer -decreasing $profiles(n_shots)]
-#		} elseif { $data(sort_by) eq "last_use" } {
-#			set indexes [lsort -indices -integer -decreasing $profiles(last_used_clock)]
-#		} elseif { $data(sort_by) eq "mtime" } {
-#			set indexes [lsort -indices -integer -decreasing $profiles(mtime)]
-#		} else {
-#			set indexes [lsort -indices -nocase -increasing $profiles(title)]
-#		}
-#
-#		# Sort each of the lists in the profiles array using the same order 
-#		set sorted_profiles {}
-#		foreach k [array names profiles] {
-#			lappend sorted_profiles $k [lmap i $indexes {lindex $profiles($k) $i}]
-#		}
-#		
-#		array set profiles $sorted_profiles
-#		fill_profiles
+		if { $data(info_expanded) } {
+			expand_or_contract_info
+		}
 	}
 	
 	proc fill_shots {} {
 		variable widgets
 		variable data
 		variable shots
-
-		array set shots [::plugins::SDB::shots {clock filename shot_desc} 1 {} 500]
+		array set shots {}
 				
+		# BUILD THE QUERY
+		set filter ""
+		if { $data(filter_matching) ne {} } {
+			if { "beans" in $data(filter_matching) && ($data(bean_brand) ne "" || $data(bean_type) ne "") } {
+				if { $data(bean_brand) ne "" } { 
+					append filter "bean_brand='$data(bean_brand)' AND "
+				}
+				if { $data(bean_type) ne "" } {
+					append filter "bean_type='$data(bean_type)' AND "
+				}
+			}
+			if { "profile" in $data(filter_matching) && $data(profile_title) ne "" } {
+				append filter "profile_title='$data(profile_title)' AND "
+			}
+			if { "grinder" in $data(filter_matching) && $data(grinder_model) ne "" } {
+				append filter "grinder_model='$data(grinder_model)' AND "
+			}
+		}
+
+		
+		# Order by
+		if { $data(sort_by) eq "enjoyment" } {
+			set sort_by "CASE WHEN espresso_enjoyment='' THEN 0 ELSE COALESCE(espresso_enjoyment,0) END DESC,clock DESC"
+		} elseif { $data(sort_by) eq "ey" } {
+			set sort_by "CASE WHEN drink_ey='' THEN 0 ELSE COALESCE(drink_ey,0) END DESC,clock DESC"
+		} elseif { $data(sort_by) eq "ratio" } {
+			set sort_by "CASE WHEN drink_weight='' OR drink_weight=0 OR grinder_dose_weight=0 OR grinder_dose_weight='' THEN 0 ELSE drink_weight/grinder_dose_weight END DESC,clock DESC"
+		} else {
+			set sort_by "clock DESC"
+		}
+		
+		if { $data(navigate_by) eq "beans" } {
+			fill_beans $filter
+			return
+		}
+		
+		if { $data(filter_string) ne "" } {
+			set filter "shot_desc LIKE '%[regsub -all {[[:space:]]} $data(filter_string) %]%' AND "
+		}
+		if { $filter ne "" } {
+			set filter [string range $filter 0 end-5]
+		}
+		
+		# Search shots
+		set data(n_shots) [::plugins::SDB::shots count 1 $filter 1]
+		if { $data(n_shots) == 0 } {
+			set data(n_matches_text) [translate "No shots found"]
+			set n 0
+		} else {
+			array set shots [::plugins::SDB::shots {clock filename shot_desc profile_title grinder_dose_weight drink_weight 
+				extraction_time bean_desc espresso_enjoyment grinder_model grinder_setting} 1 $filter 500 $sort_by]
+			set data(n_matches_text) "$data(n_shots) [translate {shots found}]"
+			if { $data(n_matches_text) > 500 } {
+				append data(n_matches_text) ", [translate {showing first 500}]"
+				set n 499
+			} else {
+				set n $data(n_shots)
+			}
+		}
+		#set data(n_shots) [llength $shots(clock)]
+		
+		# WRITE THE LIST INTO THE TK TEXT WIDGET 
 #		set data(shown_indexes) {}
+		set star [dui symbol get star]
+		set half_star [dui symbol get star-half]
+		
 		set tw $widgets(shots)
 		$tw configure -state normal
-		$tw delete 0.1 end
-		
-		for { set i 0 } { $i < [llength $shots(shot_desc)] } { incr i } {
-			$tw insert insert [lindex $shots(clock) $i] "" "\n   [lindex $shots(shot_desc) $i]\n"
+		$tw delete 1.0 end
+				
+		for { set i 0 } { $i < $n } { incr i } {
+			set shot_clock [lindex $shots(clock) $i]
+			if { $shot_clock eq "" } {
+				msg -WARNING [namespace current] fill_shots: "empty clock"
+				continue
+			}
+			
+			set tags [list shot shot_$shot_clock]
+			set dtags [list shot shot_$shot_clock details]
+			if { $i == 0 } {
+				$tw insert insert "[::plugins::DYE::format_date $shot_clock]" [concat $tags datetime]
+			} else {
+				$tw insert insert "[::plugins::DYE::format_date $shot_clock]" [concat $tags datetime shotsep]
+			}
+			
+			set enjoy [lindex $shots(espresso_enjoyment) $i]
+			if { $enjoy > 0 } {
+				set stars "\t"
+				for { set j 0 } { $j < int((($enjoy-1)/10 + 1)/2) } { incr j } {
+					append stars $star
+				}
+				if { int((($enjoy-1)/10 + 1))/2.0 > $j } {
+					append stars $half_star
+				}
+				$tw insert insert "\t $stars" [concat $tags symbol]
+			}			
+			$tw insert insert "\n" $tags
+			
+			$tw insert insert "[lindex $shots(profile_title) $i]" [concat $dtags profile_title] ", " $tags
+			set dose [lindex $shots(grinder_dose_weight) $i]
+			set yield [lindex $shots(drink_weight) $i]
+			if { $dose > 0 || $yield > 0 } {
+				if { $dose == 0 || $dose eq {} } {
+					set dose "?"
+				}
+				$tw insert insert "[round_to_one_digits $dose]:[round_to_one_digits $yield]g" [concat $dtags ratio]
+				if { $dose ne "?" && $yield > 0 } {
+					$tw insert insert "(1:[round_to_one_digits [expr {double($yield/$dose)}]])" [concat $dtags ratio]
+				}
+			}
+			$tw insert insert " in [lindex $shots(extraction_time) $i] sec" [concat $dtags ratio] "\n" $dtags
+			
+			if { [lindex $shots(bean_desc) $i] ne {} } {
+				$tw insert insert "[lindex $shots(bean_desc) $i]" [concat $dtags details beans]
+			}
+			
+			if { [lindex $shots(grinder_model) $i] ne {} || [lindex $shots(grinder_setting) $i] ne {} } {
+				if { [lindex $shots(grinder_model) $i] ne {} } {
+					$tw insert insert ", [lindex $shots(grinder_model) $i]" [concat $dtags grinder]
+				}
+				if { [lindex $shots(grinder_setting) $i] ne {} } {
+					$tw insert insert " @ [lindex $shots(grinder_setting) $i]" [concat $dtags gsetting]
+				}
+			}
+			$tw insert insert "\n" $dtags
+			
 		}
-		 
-#		
-#		if { [string length $data(filter_string)] > 0 } {
-#			set filter "*[regsub -all {[[:space:]]} $data(filter_string) *]*"
-#			set shown_indexes [lsearch -all -nocase $profiles(title) $filter]
-#			if { $shown_indexes eq {} } {
-#				return
-#			}
-#		} else {
-#			set shown_indexes [lsequence 0 [expr {[llength $profiles(filename)]-1}]]
-#		}
-#
-#		set db_filter ""
-#		set db_profiles {}
-#		if { "beans" in $data(filter_matching) } {
-#			if { $data(bean_brand) ne "" } {
-#				append db_filter "bean_brand='$data(bean_brand)' AND "
-#			} 
-#			if { $data(bean_type) ne "" } { 
-#				append db_filter "bean_type='$data(bean_type)' AND "
-#			}
-#		}
-#		if { "grinder" in $data(filter_matching) && $data(grinder_model) ne "" } {
-#			append db_filter "grinder_model='$data(grinder_model)' AND "
-#		}
-#		if { $db_filter ne "" } {
-#			set db_filter [string range $db_filter 0 end-5]
-#			set db_profiles [lunique [::plugins::SDB::shots profile_title 1 $db_filter]]
-#			if { $db_profiles eq {} } {
-#				return
-#			}
-#		}
-#		
-#		for { set i 0 } { $i < [llength $shown_indexes] } { incr i } {
-#			set idx [lindex $shown_indexes $i]
-#			set add_item 1
-#			
-#			if { $data(filter_visible) eq "visible" && [lindex $profiles(hide) $idx] == 1 } {
-#				continue
-#			} elseif { $data(filter_visible) eq "hidden" && [lindex $profiles(hide) $idx] == 0 } {
-#				continue
-#			}
-#				
-#			if { $data(filter_type) ne {} && $data(filter_type) ne "all" && [lindex $profiles(type) $idx] ni $data(filter_type) } {
-#				continue
-#			}
-#
-#			if { $data(filter_bev_type) ne {} && $data(filter_bev_type) ne "all" } {
-#				if { !("others" in $data(filter_bev_type) && [lindex $profiles(bev_type) $idx] ni {espresso pourvover tea_portafilter}) &&
-#						!([lindex $profiles(bev_type) $idx] in $data(filter_bev_type)) } {
-#					continue
-#				}
-#			}
-#
-#			if { $db_profiles ne {} && [lindex $profiles(title) $idx] ni $db_profiles } {
-#				continue
-#			}
-#			
-#			$w insert end [lindex $profiles(title) $idx]
-#			lappend data(shown_indexes) $idx
-#		}
-#		
-#		if { $data(selected) ne {} } {
-#			# Don't reset $data(selected) if not found, to preserve selection when filters are modified
-#			set idx [lsearch -exact $profiles(filename) $data(selected)]
-#			if { $idx > -1 } {
-#				set idx [lsearch -exact $data(shown_indexes) $idx]
-#				if { $idx > -1 } {
-#					$w selection set $idx
-#					$w see $idx
-#				}
-#			}
-#			profile_select 1
-#		}
 
+		$tw configure -state disabled
+	}
+
+	proc fill_beans { filter } {
+		variable widgets
+		variable data
+		variable shots
+		array set shots {}
+		
+		set db [::plugins::SDB::get_db]
+		set sql "SELECT CASE WHEN TRIM(bean_desc)='' OR bean_desc IS NULL THEN '<Undefined>' ELSE bean_desc END AS bean_desc,\
+bean_brand, bean_type, COUNT(clock) AS n_shots, MIN(clock) AS first_clock, MAX(clock) AS last_clock \
+FROM V_shot WHERE removed=0 "
+		
+		if { $data(filter_string) ne "" } {
+			append filter "bean_desc LIKE '%[regsub -all {[[:space:]]} $data(filter_string) %]%' AND "
+		}
+		if { $filter ne "" } {
+			append sql " AND [string range $filter 0 end-5] "
+		}
+		
+		append sql "GROUP BY CASE WHEN TRIM(bean_desc)='' OR bean_desc IS NULL THEN '<Undefined>' ELSE bean_desc END,bean_brand,bean_type "
+		append sql "ORDER BY CASE WHEN TRIM(bean_desc)='' OR bean_desc IS NULL THEN '<Undefined>' ELSE bean_desc END"
+	
+		set tw $widgets(shots)
+		$tw configure -state normal
+		$tw delete 1.0 end
+
+#msg -INFO "sql=$sql"		
+		set i 1
+		db eval "$sql" values {
+			$tw insert insert $values(bean_desc) [list nav_cat cat_$i nav_title] "\n" [list nav_cat cat_$i]
+			if { $values(n_shots) == 0 } {
+				$tw insert insert [translate "No shots"] [list nav_cat cat_$i nav_details] "\n"
+			} else {
+				$tw insert insert "$values(n_shots) shots, between [::plugins::DYE::format_date $values(first_clock) 0 {} 0] and [::plugins::DYE::format_date $values(last_clock) 0 {} 0]\n" \
+					[list nav_cat cat_$i nav_details]
+			}
+			incr i
+		}
+		
 		$tw configure -state disabled
 	}
 	
 	# Returns the index of the selected shot on the namespace 'shots' array, taking into account the active
 	# filter. Returns an empty string if either there's not a selected profile or there's no match.	
-	proc selected_shot_data_index { {use_data_selected 0} } {
-		variable widgets
+	proc selected_shot_data_index {} {
 		variable data
 		variable shots
 		
 		set idx ""
-		if { [string is true $use_data_selected] } {
-			variable shots
-			if { $data(selected) ne "" } {
-				set idx [lsearch -exact $shots(clock) $data(selected)]
-			}
-		} else {
-			set idx [$widgets(shots) curselection]
-			if { $idx ne "" } {
-				set idx [lindex $data(shown_indexes) $idx]
-			}
+		if { $data(selected) ne "" } {
+			set idx [lsearch -exact $shots(clock) $data(selected)]
 		}
-
 		if { [string is integer $idx] && $idx < 0 } {
 			set idx ""
 		}
 		return $idx
 	}
 	
-	proc shot_select { {use_data_selected 0} } {
-#		variable widgets
-#		variable data
-#		variable profiles
-#		set page [namespace tail [namespace current]]
-#
+	proc shot_select { clock } {
+		variable data
+		variable widgets
+		variable shots
+		variable selected_shot
+
+		set widget $widgets(shots)
+		set tw $widgets(shot_info)
+				
+		if { $data(selected) ne "" } {
+			if { $data(selected) eq $clock } {
+				return
+			} else {
+				$widget tag configure shot_$data(selected) -background {}
+			}
+		}
+		
+		set data(selected) $clock
+		array set selected_shot {}
+		
+		if { $clock eq "" } {
+			$tw configure -state normal
+			$tw delete 1.0 end
+			$tw configure -state disabled
+			
+			foreach sn {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix
+					temperature_goal state_change resistance} {
+				${ns}::$sn set {}
+			}
+				
+			return
+		}
+		
+		$widget tag configure shot_$clock -background pink
+		
+		#{*}[dui aspect list -type text_tag -style dyev3_field_highlighted -as_options yes]
+		$widget see shot_${clock}.last
+		$widget see shot_${clock}.first
+		
+		array set selected_shot [::plugins::SDB::load_shot $clock 1 1 1]
+
+		# Update preview graph
+		set ns [namespace current]::vectors
+		foreach sn {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix
+				temperature_goal state_change resistance} {
+			if { $sn eq "resistance" } {
+				set varname $sn
+			} else {
+				set varname "espresso_$sn"
+			}
+			if { [info exists selected_shot($varname)] } {
+				${ns}::$sn set $selected_shot($varname)
+			} else {
+				msg -ERROR [namespace current] shot_select: "can't add chart series '$sn' of shot with clock '$clock'"
+			}
+		}
+	
+		# Show shot info
+		$tw configure -state normal
+		$tw delete 1.0 end
+
+		$tw insert insert "[translate Filename]:" field " $selected_shot(filename).tcl\n"
+		if { $selected_shot(bean_notes) ne "" } {
+			$tw insert insert "[translate {Bean notes}]:" field " $selected_shot(bean_notes)\n"
+		}
+		if { $selected_shot(espresso_notes) ne "" } {
+			$tw insert insert "[translate {Espresso notes}]:" field "$selected_shot(espresso_notes)\n"
+		}
+		if { $selected_shot(drink_tds) ne "" || $selected_shot(drink_ey) ne "" } {
+			if { $selected_shot(drink_tds) ne "" } {
+				$tw insert insert "[translate TDS]:" field " $selected_shot(drink_tds) %"
+			}
+			if { $selected_shot(drink_tds) ne "" && $selected_shot(drink_ey) ne "" } {
+				$tw insert insert ", "
+			}
+			if { $selected_shot(drink_ey) ne "" } {
+				$tw insert insert "[translate EY]:" field "$selected_shot(drink_ey) %"
+			}
+			$tw insert insert "\n"
+		}
+		if { $selected_shot(my_name) ne "" || $selected_shot(drinker_name) ne "" } {
+			if { $selected_shot(my_name) ne "" } {
+				$tw insert insert "[translate Barista]:" field " $selected_shot(my_name)"
+			}
+			if { $selected_shot(my_name) ne "" && $selected_shot(drinker_name) ne "" } {
+				$tw insert insert ", "
+			}
+			if { $selected_shot(drinker_name) ne "" } {
+				$tw insert insert "[translate Drinker]:" field " $selected_shot(drinker_name)"
+			}
+			$tw insert insert "\n"
+		}
+		
+		set pdict [::profile::legacy_to_textual [array get selected_shot]]
+		::plugins::DYE::insert_profile_in_tk_text $tw $pdict {} 0 1 1
+		 
+		$tw configure -state disabled
+		
 #		set idx [selected_profile_data_index $use_data_selected]
 #		
 #		if { $idx eq {} || $idx < 0 } {
@@ -4805,9 +5085,182 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		
 	}
 	
+	proc click_shot_text { widget x y X Y } {
+		variable data
+	
+		# On PC the coordinates taken by [Text tag names] are screen absolute, whereas on android we need to first transform
+		# them, then make then relative to the Text widget left-top coordinate	
+		set rx [dui::platform::translate_coordinates_finger_down_x $x]
+		set ry [dui::platform::translate_coordinates_finger_down_y $y]
+		if { $::android == 1 } {
+			set wcoords [[dui canvas] bbox $widget]
+			set rx [expr {$rx-[lindex $wcoords 0]}]
+			set ry [expr {$ry-[lindex $wcoords 1]}]
+		}
+		
+		set clicked_tags [$widget tag names @$rx,$ry]
+		
+		set data(debug_info) $clicked_tags
+		
+		if { [llength $clicked_tags] > 1 } {
+			set shot_idx [lsearch $clicked_tags "shot_*"]
+			if { $shot_idx > -1 } {
+				set shot_tag [lindex $clicked_tags $shot_idx]
+				shot_select [string range $shot_tag 5 end]
+			}
+		}
+		
+#		set type [lindex $clicked_tags 0] 
+#		if { $type ni {section field colon value} } {
+#			return
+#		}
+#		set field [lindex $clicked_tags 1]
+#		
+#		if { $type eq "section" } {
+#			navigate_to $field
+#		}
+	
+	#	set tag_rg [$tw tag ranges $field_name]
+	#	set tag_start [lindex $tag_rg 0] 
+	#	set tag_end [lindex $tag_rg 1]
+	#	set value [$tw get $tag_start $tag_end] 
+	#	
+	#	set data(test_msg) "Clicked ${field_name}!\r(from $tag_start to $tag_end)\rValue is '$value'"
+	#	#$tw tag configure comp -elide [expr {![$tw tag cget comp -elide]}]
+	#	
+	#	$tw delete $tag_start $tag_end
+	#	$tw insert $tag_start "New value" [list value $field_name]
+		
+		#after 1000 {set ::dui::pages::DYE_v3::data(test_msg) ""} 
+	}
+
+	proc click_nav_cat_text { widget x y X Y } {
+		variable data
+	
+		# On PC the coordinates taken by [Text tag names] are screen absolute, whereas on android we need to first transform
+		# them, then make then relative to the Text widget left-top coordinate	
+		set rx [dui::platform::translate_coordinates_finger_down_x $x]
+		set ry [dui::platform::translate_coordinates_finger_down_y $y]
+		if { $::android == 1 } {
+			set wcoords [[dui canvas] bbox $widget]
+			set rx [expr {$rx-[lindex $wcoords 0]}]
+			set ry [expr {$ry-[lindex $wcoords 1]}]
+		}
+		
+		set clicked_tags [$widget tag names @$rx,$ry]
+		
+		if { [llength $clicked_tags] > 1 } {
+			if { $data(selected_cat_idx) ne "" } {
+				$widget tag configure cat_$data(selected_cat_idx) -background {}
+			}
+			
+			set cat_idx [lsearch $clicked_tags "cat_*"]
+			if { $cat_idx > -1 } {
+				set cat_tag [lindex $clicked_tags $cat_idx]
+				#nav_cat_select [string range $cat_tag 4 end]
+				
+				$widget tag configure $cat_tag -background pink
+				set data(selected_cat_idx) [string range $cat_tag 4 end]
+			}
+		}
+		
+#		set type [lindex $clicked_tags 0] 
+#		if { $type ni {section field colon value} } {
+#			return
+#		}
+#		set field [lindex $clicked_tags 1]
+#		
+#		if { $type eq "section" } {
+#			navigate_to $field
+#		}
+	
+	#	set tag_rg [$tw tag ranges $field_name]
+	#	set tag_start [lindex $tag_rg 0] 
+	#	set tag_end [lindex $tag_rg 1]
+	#	set value [$tw get $tag_start $tag_end] 
+	#	
+	#	set data(test_msg) "Clicked ${field_name}!\r(from $tag_start to $tag_end)\rValue is '$value'"
+	#	#$tw tag configure comp -elide [expr {![$tw tag cget comp -elide]}]
+	#	
+	#	$tw delete $tag_start $tag_end
+	#	$tw insert $tag_start "New value" [list value $field_name]
+		
+		#after 1000 {set ::dui::pages::DYE_v3::data(test_msg) ""} 
+	}
+	
+	proc expand_or_contract_info {} {
+		variable widgets
+		variable data
+		variable stored_dims
+		variable selected_shot
+		
+		set can [dui canvas]
+		set page [namespace tail [namespace current]]
+		set show_or_hide_tags {filter_icon filter_lbl filter_matching* nav_icon nav_lbl navigate_by* sort_by_icon sort_by_lbl sort_by*}
+		
+#		lassign [$can bbox $widgets(shot_info)] x0 y0 x1 y1
+		lassign [$can coords $widgets(info_icon)] info_x0 info_y0
+		set box_nw [dui item get $page info_box-out-nw]
+		lassign [$can coords $box_nw] box_nw_x0 box_nw_y0 box_nw_x1 box_nw_y1
+		set box_n [dui item get $page info_box-out-n]
+		lassign [$can coords $box_n] box_n_x0 box_n_y0 box_n_x1 box_n_y1
+		set box_ne [dui item get $page info_box-out-ne]
+		lassign [$can coords $box_ne] box_ne_x0 box_ne_y0 box_ne_x1 box_ne_y1
+		set box_w [dui item get $page info_box-out-w]
+		lassign [$can coords $box_w] box_w_x0 box_w_y0 box_w_x1 box_w_y1
+		set box_e [dui item get $page info_box-out-e]
+		lassign [$can coords $box_e] box_e_x0 box_e_y0 box_e_x1 box_e_y1
+		
+		if { $data(info_expanded) } {
+			# Contract
+			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get plus-circle]
+			dui item show $page $show_or_hide_tags
+			dui item hide $page shot_info
+			
+#			$can coords $widgets(shot_info) $x0 [lindex $stored_dims 0]
+#			$can itemconfigure $widgets(shot_info) -height [expr {[lindex $stored_dims 1]-[lindex $stored_dims 0]}]
+			$can coords $widgets(info_icon) $info_x0 [lindex $stored_dims 2]
+			$can coords $box_nw $box_nw_x0 [lindex $stored_dims 3] $box_nw_x1 [expr {[lindex $stored_dims 3]+$box_nw_y1-$box_nw_y0}]
+			$can coords $box_n $box_n_x0 [lindex $stored_dims 4] $box_n_x1 [expr {[lindex $stored_dims 4]+$box_n_y1-$box_n_y0}]
+			$can coords $box_ne $box_ne_x0 [lindex $stored_dims 5] $box_ne_x1 [expr {[lindex $stored_dims 5]+$box_ne_y1-$box_ne_y0}]
+			$can coords $box_w $box_w_x0 [lindex $stored_dims 6] $box_w_x1 $box_w_y1
+			$can coords $box_e $box_e_x0 [lindex $stored_dims 7] $box_e_x1 $box_e_y1
+			
+			set data(info_expanded) 0
+		} else {
+			# Expand
+			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get minus-circle]
+			dui item hide $page $show_or_hide_tags 
+			dui item show $page shot_info
+			
+			set y [dui::page::calc_y $page 150 1] 
+#			$can coords $widgets(shot_info) $x0 $y
+#			$can itemconfigure $widgets(shot_info) -height [expr {$y1-$y}]
+			$can coords $widgets(info_icon) $info_x0 155
+			set y [dui::page::calc_y $page 140 1]
+			$can coords $box_nw $box_nw_x0 $y $box_nw_x1 [expr {$y+$box_nw_y1-$box_nw_y0}]
+			$can coords $box_n $box_n_x0 $y $box_n_x1 [expr {$y+$box_n_y1-$box_n_y0}]
+			$can coords $box_ne $box_ne_x0 $y $box_ne_x1 [expr {$y+$box_ne_y1-$box_ne_y0}]
+			$can coords $box_w $box_w_x0 [expr {$y-1+($box_nw_y1-$box_nw_y0)/2}] $box_w_x1 $box_w_y1
+			$can coords $box_e $box_e_x0 [expr {$y-1+($box_ne_y1-$box_ne_y0)/2}] $box_e_x1 $box_e_y1
+			
+			if { $stored_dims eq {} } {
+				set stored_dims [list 0 0 $info_y0 $box_nw_y0 $box_n_y0 $box_ne_y0 $box_w_y0 $box_e_y0]
+			}
+
+			if { $data(selected) ne "" && [array size selected_shot] > 0 } {
+#				if {  } {
+#					set pdict [::profile::legacy_to_textual $profile]
+#					::plugins::DYE::insert_shot_in_tk_text $widgets(shot_info) $pdict {} 0
+#				}
+			}
+						
+			set data(info_expanded) 1
+		}
+	}
 	
 	proc page_cancel {} {
-		dui page close_dialog {} {}
+		dui page close_dialog {} {} {}
 	}
 	
 	# Returns <shot_clock> <shot_full_path>
@@ -4816,11 +5269,9 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		variable data
 		variable shots
 		
-		set idx [selected_shots_data_index 1]
-		if { $idx eq {} } {
-			dui page close_dialog {} {}
-		} else {
-			dui page close_dialog [lindex $shots(clock) $idx] [lindex $shots(path) $idx]
+		set idx [selected_shot_data_index]
+		if { $idx ne {} } {
+			dui page close_dialog [lindex $shots(clock) $idx] [lindex $shots(filename) $idx] [lindex $shots(shot_desc) $idx]
 		}
 	}
 }
