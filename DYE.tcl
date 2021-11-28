@@ -1803,26 +1803,11 @@ proc ::dui::pages::DYE::select_shot {} {
 	variable data
 	variable src_data
 	
+	save_description
 	dui page open_dialog dye_shot_select_dlg -selected $data(clock) -bean_brand $data(bean_brand) -bean_type $data(bean_type) \
 		-grinder_model $data(grinder_model) -profile_title $src_data(profile_title) \
 		-return_callback [namespace current]::select_shot_callback 
-	
-	
-#	array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
-#	if { [array size shots] > 0 } {
-#		dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
-#			-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
-#			-theme [dui theme get]
-#	}
 }
-
-#proc ::dui::pages::DYE::select_shot_callback { shot_desc shot_id args } {
-#	variable data
-#
-#	if { [llength $shot_id] > 0 } {
-#		dui page load DYE [lindex $shot_id 0] -reload yes
-#	}
-#}
 
 proc ::dui::pages::DYE::select_shot_callback { {clock {}} {filename {}} {desc {}} args } {
 	variable data
@@ -1989,6 +1974,7 @@ proc ::dui::pages::DYE::clear_shot_data { {apply_to {}} } {
 # what = [previous] / selected
 proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 	variable data
+	variable src_data
 	say "read" $::settings(sound_button_in)
 
 	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes clock]
@@ -2004,13 +1990,11 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 		lappend sql_conditions "LENGTH(TRIM(COALESCE($f,'')))>0"
 	}
 	
-	if { $what eq "selected" } {
-		array set shots [::plugins::SDB::shots "clock shot_desc" 1 "$filter AND ([join $sql_conditions { OR }])" 500]
-		if { [array size shots] > 0 } {
-			dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) \
-				-page_title [translate "Select the shot to read the data from"] -theme [dui theme get] \
-				-return_callback [namespace current]::select_read_from_shot_callback -listbox_width 2300
-		}
+	if { $what eq "selected" } {		
+		dui page open_dialog dye_shot_select_dlg -bean_brand $data(bean_brand) -bean_type $data(bean_type) \
+			-grinder_model $data(grinder_model) -profile_title $src_data(profile_title) \
+			-page_title [translate "Select the shot to read from"] \
+			-return_callback [namespace current]::select_read_from_shot_callback
 	} else {
 		array set last_shot [::plugins::SDB::shots $read_fields 1 "$filter AND ([join $sql_conditions { OR }])" 1]
 		if { [array size last_shot] > 0 } {
@@ -2032,9 +2016,7 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 #	}
 }
 
-# Callback procedure returning control from the item_selection page to the describe_espresso page, to select a 
-# source shot to be used for next shot propagation values. 
-proc ::dui::pages::DYE::select_read_from_shot_callback { shot_desc shot_clock item_type args } {
+proc ::dui::pages::DYE::select_read_from_shot_callback { {shot_clock {}} {shot_filename {}} {shot_desc {}} args } {
 	variable data
 	dui page show [namespace tail [namespace current]]
 	
@@ -3524,25 +3506,12 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 	}
 
 	proc select_shot {} {
-#		array set shots [::plugins::SDB::shots "clock shot_desc" 1 {} 500]
-#		if { [array size shots] > 0 } {
-#			dui page open_dialog dui_item_selector {} $shots(shot_desc) -values_ids $shots(clock) -listbox_width 2300 \
-#				-page_title [translate "Select the shot to describe"] -return_callback [namespace current]::select_shot_callback \
-#				-theme [dui theme get]
-#		}
 		dui page close_dialog
 		dui page open_dialog dye_shot_select_dlg -bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) \
 			-grinder_model $::settings(grinder_model) -profile_title $::settings(profile_title) \
 			-return_callback [namespace current]::select_shot_callback 
 	} 
 	
-#	proc select_shot_callback { {shot_desc {}} {shot_id {}} args } {
-#		dui page close_dialog
-#		if { [llength $shot_id] > 0 } {			
-#			::plugins::DYE::open [lindex $shot_id 0]
-#		}
-#	}
-
 	proc select_shot_callback { {clock {}} {filename {}} {desc {}} args } {
 		if { [llength $clock] > 0 } {			
 			::plugins::DYE::open [lindex $clock 0]
@@ -4944,6 +4913,7 @@ FROM V_shot WHERE removed=0 "
 
 		set widget $widgets(shots)
 		set tw $widgets(shot_info)
+		set vectors_ns [namespace current]::vectors
 				
 		if { $data(selected) ne "" } {
 			if { $data(selected) eq $clock } {
@@ -4963,7 +4933,7 @@ FROM V_shot WHERE removed=0 "
 			
 			foreach sn {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix
 					temperature_goal state_change resistance} {
-				${ns}::$sn set {}
+				${vectors_ns}::$sn set {}
 			}
 				
 			return
@@ -4977,8 +4947,7 @@ FROM V_shot WHERE removed=0 "
 		
 		array set selected_shot [::plugins::SDB::load_shot $clock 1 1 1]
 
-		# Update preview graph
-		set ns [namespace current]::vectors
+		# Update preview graph		
 		foreach sn {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix
 				temperature_goal state_change resistance} {
 			if { $sn eq "resistance" } {
@@ -4987,7 +4956,7 @@ FROM V_shot WHERE removed=0 "
 				set varname "espresso_$sn"
 			}
 			if { [info exists selected_shot($varname)] } {
-				${ns}::$sn set $selected_shot($varname)
+				${vectors_ns}::$sn set $selected_shot($varname)
 			} else {
 				msg -ERROR [namespace current] shot_select: "can't add chart series '$sn' of shot with clock '$clock'"
 			}
