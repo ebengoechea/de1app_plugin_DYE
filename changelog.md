@@ -2,6 +2,12 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.20] - 2021-11-30
+
+### New
+- New "Shot Selector" page dialog (`dye_shot_select_dlg`), replaces the plain listbox-based selector used previously in all instances where a shot can be selected in DYE.
+- New option "Copy to next shot plan" in the "Edit data menu" allows to send data from the currently viewed shot in DYE to be used in the next shot plan.
+
 ## [2.19] - 2021-11-24
 
 ### New
