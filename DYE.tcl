@@ -8,8 +8,8 @@
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
 #set ::skindebug 1
-plugins enable SDB
-plugins enable DYE
+#plugins enable SDB
+#plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
@@ -1025,7 +1025,7 @@ proc ::plugins::DYE::setup_tk_text_profile_tags { widget {compact 0} } {
 		$widget tag configure compvalue -foreground green
 		#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
 	} else {
-		$widget tag configure profile_title -font [dui font get nontansuibold 18] -spacing1 [dui::platform::rescale_y 20]
+		$widget tag configure profile_title -font [dui font get notosansuibold 18] -spacing1 [dui::platform::rescale_y 20]
 		$widget tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
 		$widget tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
 		$widget tag configure step_line {*}[dui aspect list -type text_tag -style dye_pv_step_line -as_options yes]
@@ -4466,7 +4466,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		profile_title ""
 		filter_string ""
 		filter_matching {}
-		navigate_by "shot"
+		navigate_by ""
 		sort_by "date"
 		n_shots 0
 		n_matches_text ""
@@ -4484,9 +4484,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 
 	namespace eval vectors {
 		proc init {} {
-			blt::vector create elapsed pressure_goal flow_goal temperature_goal
-			blt::vector create pressure flow flow_weight weight state_change resistance_weight resistance 
-			blt::vector create temperature_basket temperature_mix  temperature_goal
+			blt::vector create elapsed pressure flow flow_weight state_change temperature_basket
 		}
 	}
 	
@@ -4579,9 +4577,10 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		set itw [dui add text $page 1605 154 -tags shot_info -canvas_width 675 -canvas_height 600 \
 			-yscrollbar no -highlightthickness 0 -initial_state hidden -font_size -2 -foreground "#7f879a" -exportselection 0]
 		
+		#::history_viewer::pages::setup_default_styles
+		vectors::init
 		dui add graph $page 1605 [expr {$y+10}] -width 675 -height [expr {1196-$y}] -tags preview_graph \
 			-style dyev3_text_graph
-		vectors::init
 		setup_graph 1
 		#bind $widgets(preview_graph) [dui platform button_press] [list [namespace current]::preview_graph_click]
 	
@@ -4622,26 +4621,37 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		set ns [namespace current]
 		
 		if { [string is true $create_axis] } {
+			$widget legend configure -hide yes
 			$widget axis create temp
 			$widget axis configure temp {*}[dui aspect list -type graph_axis -style hv_graph_axis -as_options yes]
 			$widget axis configure x {*}[dui aspect list -type graph_xaxis -style hv_graph_axis -as_options yes]
+			$widget axis configure x -tickfont Helv_5
 			$widget axis configure y {*}[dui aspect list -type graph_yaxis -style hv_graph_axis -as_options yes]
-			$widget grid configure {*}[dui aspect list -type graph_grid -style hv_graph_grid -as_options yes]
+			$widget axis configure y -tickfont Helv_5
+			$widget grid configure {*}[dui aspect list -type graph_grid -style hv_graph_grid -as_options yes]			
 		}
 	
-		foreach lt {temperature_goal temperature_basket temperature_mix} {
+		# {temperature_goal temperature_basket temperature_mix}
+		foreach lt {temperature_basket} {
 			$widget element create line_$lt -xdata ${ns}::vectors::elapsed \
-				-ydata ${ns}::vectors::$lt -mapy temp {*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
+				-ydata ${ns}::vectors::$lt -mapy temp -linewidth [dui::platform::rescale_x 6] -smooth linear \
+				-color [dui aspect get graph_line color -style hv_${lt}] -dashes {} -symbol none -label ""
+			#{*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
 		}
 		
-		foreach lt {pressure_goal flow_goal pressure flow flow_weight weight} {
+		# {pressure_goal flow_goal pressure flow flow_weight weight}
+		foreach lt {pressure flow flow_weight} {
 			$widget element create line_$lt -xdata ${ns}::vectors::elapsed \
-				-ydata ${ns}::vectors::$lt {*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
+				-ydata ${ns}::vectors::$lt -linewidth [dui::platform::rescale_x 6] -smooth linear \
+				-color [dui aspect get graph_line color -style hv_${lt}] -dashes {} -symbol none -label ""
+			#{*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
 		}
 		
-		foreach lt {state_change resistance} {
+		# {state_change resistance}
+		foreach lt {state_change} {
 			$widget element create line_$lt -xdata ${ns}::vectors::elapsed -ydata ${ns}::vectors::$lt \
-				{*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
+				-linewidth [dui::platform::rescale_x 2] -color [dui aspect get graph_line color -style hv_${lt}] -symbol none
+			#{*}[dui aspect list -type graph_line -style hv_${lt} -as_options yes]
 		}
 		
 	}
@@ -4691,14 +4701,6 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		} elseif { $data(grinder_model) eq "" } {
 			dui item disable $page_to_show filter_matching_3*
 		}
-#		
-#		$widgets(profile_info) configure -state disabled
-#		
-#		# This shouldn't be necessary, but -initial_state hidden is not working for dselectors
-#		dui item hide $page_to_show selected_bev_type*
-#		if { !$data(enable_open_pv) } {
-#			dui item disable $page_to_show open_profile_viewer*
-#		}
 #		
 		# The preview graph sometimes is not hidden by the default page swapping mechanism (!?!), so we force it
 		set can [dui canvas]
@@ -4782,7 +4784,6 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		#set data(n_shots) [llength $shots(clock)]
 		
 		# WRITE THE LIST INTO THE TK TEXT WIDGET 
-#		set data(shown_indexes) {}
 		set star [dui symbol get star]
 		set half_star [dui symbol get star-half]
 		
@@ -4876,7 +4877,6 @@ FROM V_shot WHERE removed=0 "
 		$tw configure -state normal
 		$tw delete 1.0 end
 
-#msg -INFO "sql=$sql"		
 		set i 1
 		db eval "$sql" values {
 			$tw insert insert $values(bean_desc) [list nav_cat cat_$i nav_title] "\n" [list nav_cat cat_$i]
@@ -4934,8 +4934,8 @@ FROM V_shot WHERE removed=0 "
 			$tw delete 1.0 end
 			$tw configure -state disabled
 			
-			foreach sn {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix
-					temperature_goal state_change resistance} {
+			# {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix temperature_goal state_change resistance}
+			foreach sn {elapsed pressure flow flow_weight temperature_basket state_change} {
 				${vectors_ns}::$sn set {}
 			}
 				
@@ -4949,19 +4949,18 @@ FROM V_shot WHERE removed=0 "
 		$widget see shot_${clock}.first
 		
 		array set selected_shot [::plugins::SDB::load_shot $clock 1 1 1]
-
+		
 		# Update preview graph		
-		foreach sn {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix
-				temperature_goal state_change resistance} {
+		foreach sn {elapsed temperature_basket pressure flow flow_weight state_change} {
 			if { $sn eq "resistance" } {
 				set varname $sn
 			} else {
 				set varname "espresso_$sn"
 			}
-			if { [info exists selected_shot($varname)] } {
-				${vectors_ns}::$sn set $selected_shot($varname)
+			if { [info exists selected_shot(graph_$varname)] } {
+				${vectors_ns}::$sn set $selected_shot(graph_$varname)
 			} else {
-				msg -ERROR [namespace current] shot_select: "can't add chart series '$sn' of shot with clock '$clock'"
+				msg -WARNING [namespace current] shot_select: "can't add chart series '$sn' of shot with clock '$clock'"
 			}
 		}
 	
@@ -4974,7 +4973,7 @@ FROM V_shot WHERE removed=0 "
 			$tw insert insert "[translate {Bean notes}]:" field " $selected_shot(bean_notes)\n"
 		}
 		if { $selected_shot(espresso_notes) ne "" } {
-			$tw insert insert "[translate {Espresso notes}]:" field "$selected_shot(espresso_notes)\n"
+			$tw insert insert "[translate {Espresso notes}]:" field " $selected_shot(espresso_notes)\n"
 		}
 		if { $selected_shot(drink_tds) ne "" || $selected_shot(drink_ey) ne "" } {
 			if { $selected_shot(drink_tds) ne "" } {
@@ -5005,56 +5004,6 @@ FROM V_shot WHERE removed=0 "
 		::plugins::DYE::insert_profile_in_tk_text $tw $pdict {} 0 1 1
 		 
 		$tw configure -state disabled
-		
-#		set idx [selected_profile_data_index $use_data_selected]
-#		
-#		if { $idx eq {} || $idx < 0 } {
-#			dui item disable $page {change_visibility* change_bev_type* open_profile_viewer* page_done*}
-#		} else {
-#			dui item enable $page {change_visibility* change_bev_type* page_done*}
-#			
-#			if { [string is true [lindex $profiles(hide) $idx]] } {
-#				dui item config $page change_visibility-sym -text [dui symbol get eye]
-#				dui item config $page change_visibility-lbl -text [translate Show]
-#			} else {
-#				dui item config $page change_visibility-sym -text [dui symbol get eye-slash]
-#				dui item config $page change_visibility-lbl -text [translate Hide]
-#			}
-#			
-#			set txt ""
-#			set filename [lindex $profiles(filename) $idx]
-#			if { ![string is true $use_data_selected] } {
-#				set data(selected) $filename
-#			}
-#			set data(selected_bev_type) [lindex $profiles(bev_type) $idx]
-#			
-#			append txt "[translate File]: ${filename}.tcl\n"
-#			append txt "[translate Type]: [translate [::profile::profile_type_text [lindex $profiles(type) $idx] [lindex $profiles(bev_type) $idx]]]\n"
-#			append txt "[translate {Shot count}]: [lindex $profiles(n_shots) $idx]\n"
-#			if { [lindex $profiles(n_shots) $idx] > 0 } {
-#				append txt "[translate {Last shot}]: [::plugins::DYE::relative_date [lindex $profiles(last_used_clock) $idx]]\n"
-#			}				
-#			append txt "[translate Created]: [::plugins::DYE::relative_date [lindex $profiles(ctime) $idx]]\n"
-#			append txt "[translate Modified]: [::plugins::DYE::relative_date [lindex $profiles(mtime) $idx]]\n"
-#			
-#			set tw $widgets(profile_info)
-#			$tw configure -state normal
-#			$tw delete 1.0 end		
-#			$tw insert insert $txt
-#			
-#			if { $data(info_expanded) } {
-#				set profile [profile::read_legacy profile_file $filename]
-#				if { [llength profile] > 0 } {
-#					set pdict [::profile::legacy_to_textual $profile]
-#					::plugins::DYE::insert_profile_in_tk_text $widgets(profile_info) $pdict {} 0
-#				} else {
-#					msg -INFO [namespace current] profile_select: "empty profile file '$filename'" 
-#				}
-#			}
-#			
-#			$tw configure -state disabled
-#		}
-		
 	}
 	
 	proc click_shot_text { widget x y X Y } {
@@ -5082,28 +5031,6 @@ FROM V_shot WHERE removed=0 "
 			}
 		}
 		
-#		set type [lindex $clicked_tags 0] 
-#		if { $type ni {section field colon value} } {
-#			return
-#		}
-#		set field [lindex $clicked_tags 1]
-#		
-#		if { $type eq "section" } {
-#			navigate_to $field
-#		}
-	
-	#	set tag_rg [$tw tag ranges $field_name]
-	#	set tag_start [lindex $tag_rg 0] 
-	#	set tag_end [lindex $tag_rg 1]
-	#	set value [$tw get $tag_start $tag_end] 
-	#	
-	#	set data(test_msg) "Clicked ${field_name}!\r(from $tag_start to $tag_end)\rValue is '$value'"
-	#	#$tw tag configure comp -elide [expr {![$tw tag cget comp -elide]}]
-	#	
-	#	$tw delete $tag_start $tag_end
-	#	$tw insert $tag_start "New value" [list value $field_name]
-		
-		#after 1000 {set ::dui::pages::DYE_v3::data(test_msg) ""} 
 	}
 
 	proc click_nav_cat_text { widget x y X Y } {
@@ -5135,29 +5062,6 @@ FROM V_shot WHERE removed=0 "
 				set data(selected_cat_idx) [string range $cat_tag 4 end]
 			}
 		}
-		
-#		set type [lindex $clicked_tags 0] 
-#		if { $type ni {section field colon value} } {
-#			return
-#		}
-#		set field [lindex $clicked_tags 1]
-#		
-#		if { $type eq "section" } {
-#			navigate_to $field
-#		}
-	
-	#	set tag_rg [$tw tag ranges $field_name]
-	#	set tag_start [lindex $tag_rg 0] 
-	#	set tag_end [lindex $tag_rg 1]
-	#	set value [$tw get $tag_start $tag_end] 
-	#	
-	#	set data(test_msg) "Clicked ${field_name}!\r(from $tag_start to $tag_end)\rValue is '$value'"
-	#	#$tw tag configure comp -elide [expr {![$tw tag cget comp -elide]}]
-	#	
-	#	$tw delete $tag_start $tag_end
-	#	$tw insert $tag_start "New value" [list value $field_name]
-		
-		#after 1000 {set ::dui::pages::DYE_v3::data(test_msg) ""} 
 	}
 	
 	proc expand_or_contract_info {} {
@@ -5199,6 +5103,9 @@ FROM V_shot WHERE removed=0 "
 			$can coords $box_e $box_e_x0 [lindex $stored_dims 7] $box_e_x1 $box_e_y1
 			
 			set data(info_expanded) 0
+			
+			# Temporarilly disable the "Navigate by"
+			dui item disable $page navigate_by*
 		} else {
 			# Expand
 			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get minus-circle]
