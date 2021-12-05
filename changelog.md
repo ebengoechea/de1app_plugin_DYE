@@ -2,6 +2,16 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.21] - 2021-12-05
+
+### New
+- The Visualizer dialog, when on the next shot plan, now allows downloading any of the "Recently selected shots" in Visualizer. A summary of the shots is shown when the "Shared" option is selected.
+
+### Changed
+- Selecting shots in the Shot Selector dialog now works correctly irrespective of the values of settings variables `use_finger_down_for_tap` and `disable_long_press`. 
+- Filtering shots in the Shot Selector by a search string is now performed in Tcl instead of passing it to SQLite like in previous versions. This is done because SQLite cannot perform case-insensitive searches on concatenated fields on the tablet build of Androwish (whereas on PC it works). This also improves responsiveness, but has the drawback that the search is performed only on the subset of shots downloaded in current filter and within the maximum number of rows (currently 500).
+- Selection of shots in the Shot Selector when the preview panel is collapsed is now slightly faster, as the summary info is now not written to the preview Tk Text panel when not needed.
+
 ## [2.20] - 2021-11-30
 
 ### New
