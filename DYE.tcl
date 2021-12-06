@@ -1961,8 +1961,12 @@ proc ::dui::pages::DYE::field_in_apply_to { field apply_to } {
 
 proc ::dui::pages::DYE::clear_shot_data { {apply_to {}} } {
 	variable data
+	if { $apply_to eq {} } {
+		return
+	}
 	
-	dui say "clear" sound_button_in
+	dui say [translate "Shot data cleared"] sound_button_in
+
 	foreach fn [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes] {
 		if { [field_in_apply_to $fn $apply_to] } {
 			set data($fn) {}
@@ -1980,7 +1984,7 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 	variable src_data
 	say "read" $::settings(sound_button_in)
 
-	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes clock]
+	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
 	
 	# Next shot spec doesn't have a clock
 	if { $data(clock) == 0 || $data(clock) eq {} } {
@@ -1990,7 +1994,7 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 	}
 	set sql_conditions {}
 	foreach f $read_fields {
-		lappend sql_conditions "LENGTH(TRIM(COALESCE($f,'')))>0"
+		lappend sql_conditions "LENGTH(TRIM(COALESCE(CASE WHEN $f=0 THEN '' ELSE $f END,'')))>0"
 	}
 	
 	if { $what eq "selected" } {		
@@ -1999,7 +2003,7 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 			-page_title [translate "Select the shot to read from"] \
 			-return_callback [namespace current]::select_read_from_shot_callback
 	} else {
-		array set last_shot [::plugins::SDB::shots $read_fields 1 "$filter AND ([join $sql_conditions { OR }])" 1]
+		array set last_shot [::plugins::SDB::shots [concat clock $read_fields] 1 "$filter AND ([join $sql_conditions { OR }])" 1]
 		if { [array size last_shot] > 0 } {
 			foreach f [array names last_shot] {
 				if { $f ne "clock" && [field_in_apply_to $f $apply_to ] } {
