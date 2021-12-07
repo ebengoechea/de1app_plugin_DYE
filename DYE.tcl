@@ -223,6 +223,7 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(date_format) "%d/%m/%Y"
 	ifexists settings(describe_icon) [dui symbol get mug]
 	ifexists settings(propagate_previous_shot_desc) 1
+	ifexists settings(reset_next_plan) 0
 	ifexists settings(backup_modified_shot_files) 0
 	ifexists settings(use_stars_to_rate_enjoyment) 1
 	if { [info exists ::DSx_settings(next_shot_DSx_home_coords)] } {
@@ -508,16 +509,23 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 			set settings(next_grinder_setting) $::settings(grinder_setting)
 		}
 	}
-	
+
+	set reset_next [expr { !$settings(propagate_previous_shot_desc) && $settings(reset_next_plan) }]
+		
 	foreach field [concat [metadata fields -domain shot -category description -propagate 1] espresso_notes grinder_setting] {
 		set type [metadata get $field data_type]
 		if { ($type eq "number" || $field eq "grinder_setting") && $settings(next_$field) eq "" } {
 			set ::settings($field) 0
 		} else {
 			set ::settings($field) $settings(next_$field)
+			
+			if { $reset_next } {
+				set settings(next_$field) {}
+			}
 		}
 	}
 
+	
 #	if { $skin eq "DSx" } {
 #		if { [info exists ::DSx_settings(live_graph_beans)] && $::DSx_settings(live_graph_beans) > 0 } {
 #			set ::settings(grinder_dose_weight) $::DSx_settings(live_graph_beans)
@@ -6245,6 +6253,11 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags propagate_previous_shot_desc \
 		-variable ::plugins::DYE::settings(propagate_previous_shot_desc) -command propagate_previous_shot_desc_change 
 	
+	dui add dtext $page [expr {$x+150}] [incr y $vspace] -tags {reset_next_plan_lbl reset_next_plan*} \
+		-width [expr {$panel_width-400}] -text [translate "Reset next plan after pulling a shot"] -initial_state disabled
+	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags reset_next_plan \
+		-variable ::plugins::DYE::settings(reset_next_plan) -command reset_next_plan_change -initial_state disabled
+	
 	dui add dtext $page $x [incr y $vspace] -tags {describe_from_sleep_lbl describe_from_sleep*} \
 		-width [expr {$panel_width-250}] -text [translate "Icon on screensaver to describe last shot without waking up the DE1"]
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags describe_from_sleep \
@@ -6313,7 +6326,9 @@ proc ::dui::pages::DYE_settings::load { page_to_hide page_to_show args } {
 
 # Added to context actions, so invoked automatically whenever the page is loaded
 proc ::dui::pages::DYE_settings::show { page_to_hide page_to_show } {
-	#update_plugin_state	
+	#update_plugin_state
+	dui item enable_or_disable [expr {!$::plugins::DYE::settings(propagate_previous_shot_desc)}] \
+		[namespace tail [namespace current]] reset_next_plan*
 }
 
 
@@ -6324,7 +6339,8 @@ proc ::dui::pages::DYE_settings::show_shot_desc_on_home_change {} {
 }
 
 proc ::dui::pages::DYE_settings::propagate_previous_shot_desc_change {} {
-msg -INFO "RUNNING propagate_previous_shot_desc_change"
+	set page [namespace tail [namespace current]]
+	
 	if { $::plugins::DYE::settings(propagate_previous_shot_desc) == 1 } {
 		if { $::plugins::DYE::settings(next_modified) == 0 } {
 			foreach field_name $::plugins::DYE::propagated_fields {
@@ -6332,18 +6348,30 @@ msg -INFO "RUNNING propagate_previous_shot_desc_change"
 			}
 			set ::plugins::DYE::settings(next_espresso_notes) {}
 		}
+		
+		set ::plugins::DYE::settings(reset_next_plan) 0
+		dui item disable $page reset_next_plan*
 	} else {
 		if { $::plugins::DYE::settings(next_modified) == 0 } {
 			foreach field_name "$::plugins::DYE::propagated_fields next_espresso_notes" {
 				set ::plugins::DYE::settings(next_$field_name) {}
-			}			
+			}
 		}
+		dui item enable $page reset_next_plan*
 	}
 	
 	::plugins::DYE::define_next_shot_desc
 	plugins save_settings DYE
 }
 	
+proc ::dui::pages::DYE_settings::reset_next_plan_change {} {
+	if { $::plugins::DYE::settings(propagate_previous_shot_desc) == 1 } {
+		set ::plugins::DYE::settings(reset_next_plan) 0
+	}
+	
+	plugins save_settings DYE
+}
+
 proc ::dui::pages::DYE_settings::describe_from_sleep_change {} {
 	if { [info exists ::plugins::DYE::widgets(describe_from_sleep_symbol)] } {
 		if { $::plugins::DYE::settings(describe_from_sleep) == 1 } {

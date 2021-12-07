@@ -4,8 +4,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [2.22] - 2021-12-?
 
+### New
+- Added setting `reset_next_plan` to auto-clear the next shot plan data after pulling each shot. It is exposed in the DYE settings page and can only be enabled when propagation is disabled. Should handle the workflow/use case presented by Bob Stern.
+
 ### Changed
 - Read from previous now ignores zero-valued fields for determining blank shots.
+- Profiles imported from Visualizer whose title already include a folder ("&lt;folder&gt;/&lt;profile_name&gt;") now get the correct title ("Visualizer/&lt;profile_name&gt;"). Reported by Ricco Rosini.
 
 ## [2.21] - 2021-12-05
 
