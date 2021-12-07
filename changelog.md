@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.22] - 2021-12-?
+
+### Changed
+- Read from previous now ignores zero-valued fields for determining blank shots.
+
 ## [2.21] - 2021-12-05
 
 ### New

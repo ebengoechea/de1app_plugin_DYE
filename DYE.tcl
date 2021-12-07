@@ -890,8 +890,6 @@ proc ::plugins::DYE::import_profile_from_shot { shot_clock } {
 
 proc ::plugins::DYE::import_profile_from_visualizer { vis_shot } {
 	
-msg -INFO "IMPORTING PROFILE FROM VISUALIZER, vis_shot=$vis_shot"
-	
 	if { ![dict exists $vis_shot profile] } {
 		msg -WARNING [namespace current] import_profile_from_visualizer: "'profile' field not found on downloaded shot"
 		return 0
@@ -903,7 +901,7 @@ msg -INFO "IMPORTING PROFILE FROM VISUALIZER, vis_shot=$vis_shot"
 	if { [llength $pparts] == 1 } {
 		set profile(profile_title) "Visualizer/$profile(profile_title)"
 	} elseif { [lindex $pparts 1] ne "Visualizer" } {
-		set profile(profile_title) "Visualizer/[lindex $pparts 1]"
+		set profile(profile_title) "Visualizer/[lindex $pparts end]"
 	}
 	
 	set profile(profile_filename) [profile::filename_from_title $profile(profile_title)]
