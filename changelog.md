@@ -2,12 +2,12 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [2.22] - 2021-12-?
+## [2.22] - 2021-12-08
 
 ### New
 - Added setting `reset_next_plan` to auto-clear the next shot plan data after pulling each shot. It is exposed in the DYE settings page and can only be enabled when propagation is disabled. Should handle the workflow/use case presented by Bob Stern.
-- New setting `date_input_format`, exposed in the DYE settings page. Replaces the previous `date_input_formats`.
-- New setting `roast_date_format` defines how to whoe the roast date after it's entered.
+- New setting `date_input_format`, exposed in the DYE settings page, can take values "MDY", "DMY" or "YMD", with "MDY" as default. Replaces the previous `date_input_formats`. It is initialized to the closest matching format of the first item in `date_input_formats`, if it exists. Setting `date_input_formats` is removed.
+- New setting `roast_date_format` defines how to show the roast date after it's entered.
 
 ### Changed
 - Read from previous now ignores zero-valued fields for determining blank shots.

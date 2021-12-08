@@ -26,7 +26,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.21
+	variable version 2.22
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -239,9 +239,31 @@ proc ::plugins::DYE::check_settings {} {
 	ifexists settings(github_latest_url) "https://api.github.com/repos/ebengoechea/de1app_plugin_DYE/releases/latest"
 	set settings(use_dye_v3) 0
 	ifexists settings(relative_dates) 1
-	ifexists settings(date_input_formats) {"%m/%d/%Y %H:%M" "%m/%d/%y %H:%M" "%m/%d/%Y" "%m/%d/%y" "%m.%d.%Y %H:%M" "%m.%d.%y %H:%M" "%m.%d.%Y" "%m.%d.%y"}
-	ifexists settings(date_input_format) "DMY"
-	ifexists settings(roast_date_format) "%d.%m.%Y"
+	
+	if { ![info exists settings(date_input_format)] } {
+		set settings(date_input_format) "MDY"
+		if { [info exists settings(date_input_formats)] } {
+			set fmt [lindex $settings(date_input_formats) 0]
+			if { $fmt ne "%D" } {
+				set year_pos [string first "%y" [string tolower $fmt]]
+				set month_pos [string first "%m" $fmt]
+				if { $month_pos == -1 } {
+					set month_pos [string first "%b" [string tolower $fmt]]
+				}
+				set day_pos [string first "%d" $fmt]
+				
+				if { $year_pos > -1 && $month_pos > -1 && $year_pos < $month_pos } {
+					set settings(date_input_format) "YMD"
+				} elseif { $month_pos > -1 && $day_pos > -1 && $day_pos < $month_pos } {
+					set settings(date_input_format) "DMY"
+				}
+			}
+			
+			unset -nocomplain settings(date_input_formats)
+		} 
+	}
+
+	ifexists settings(roast_date_format) ""
 	ifexists settings(date_output_format) "%b %d %Y"
 	ifexists settings(time_output_format) "%H:%M"
 	ifexists settings(time_output_format_ampm) "%I:%M %p"
