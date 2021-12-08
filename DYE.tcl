@@ -8,9 +8,9 @@
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
 #set ::skindebug 1
-#plugins enable SDB
-#plugins enable DYE
-#fconfigure $::logging::_log_fh -buffering line
+plugins enable SDB
+plugins enable DYE
+fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
 package require http
@@ -240,6 +240,8 @@ proc ::plugins::DYE::check_settings {} {
 	set settings(use_dye_v3) 0
 	ifexists settings(relative_dates) 1
 	ifexists settings(date_input_formats) {"%m/%d/%Y %H:%M" "%m/%d/%y %H:%M" "%m/%d/%Y" "%m/%d/%y" "%m.%d.%Y %H:%M" "%m.%d.%y %H:%M" "%m.%d.%Y" "%m.%d.%y"}
+	ifexists settings(date_input_format) "DMY"
+	ifexists settings(roast_date_format) "%d.%m.%Y"
 	ifexists settings(date_output_format) "%b %d %Y"
 	ifexists settings(time_output_format) "%H:%M"
 	ifexists settings(time_output_format_ampm) "%I:%M %p"
@@ -1021,6 +1023,21 @@ proc ::plugins::DYE::format_date { aclock {relative {}} {ampm {}} {inc_time 1} }
 		return [clock format $aclock -format "$settings(date_output_format) $hourformat"]
 	} else {
 		return [clock format $aclock -format $settings(date_output_format)]
+	}
+}
+
+proc ::plugins::DYE::roast_date_format {} {
+	variable settings
+	set fmt $settings(date_input_format)
+	
+	if { $settings(roast_date_format) ne "" } {
+		return $settings(roast_date_format)
+	} elseif { $fmt eq "DMY" } {
+		return "%d.%m.%Y"
+	} elseif { $fmt eq "YMD" } {
+		return "%Y.%m.%d"
+	} else {
+		return "%m.%d.%Y"
 	}
 }
 
@@ -1882,50 +1899,119 @@ proc ::dui::pages::DYE::select_beans_callback { clock bean_desc item_type } {
 	}
 }
 
-proc ::dui::pages::DYE::compute_days_offroast {} {
+proc ::dui::pages::DYE::compute_days_offroast { {reformat 1} } {
 	variable data
+	
 	set roast_date [string trim $data(roast_date)]
 	if { $roast_date eq "" } {
 		set data(days_offroast_msg) ""
 		return
 	} 
 		
-	set input_formats $::plugins::DYE::settings(date_input_formats)
-	if { "" ni $input_formats } {
-		lappend input_formats ""
+	set fmt $::plugins::DYE::settings(date_input_format)
+	if { $fmt ni {MDY DMY YMD} } {
+		set fmt "MDY"
+	}
+	
+	set roast_date [regsub -all {[^0-9[:alpha:]]} $roast_date -]
+	set roast_date [regsub -all {\-+} $roast_date -]
+	set roast_date_parts [list_remove_element [split $roast_date -] ""]
+	
+	if { [llength $roast_date_parts] == 1 } {
+		set day [lindex $roast_date_parts 0]
+		set month {}
+		set year {}
+	} elseif { [llength $roast_date_parts] == 2 } {
+		if { $fmt eq "DMY" } {
+			set day [lindex $roast_date_parts 0]
+			set month [lindex $roast_date_parts 1]
+			set year {}
+		} else {
+			set day [lindex $roast_date_parts 1]
+			set month [lindex $roast_date_parts 0]
+			set year {}	
+		}
+	} else {
+		if { $fmt eq "DMY" } {
+			set day [lindex $roast_date_parts 0]
+			set month [lindex $roast_date_parts 1]
+			set year [lindex $roast_date_parts 2]
+		} elseif { $fmt eq "YMD" } {
+			set day [lindex $roast_date_parts 2]
+			set month [lindex $roast_date_parts 1]
+			set year [lindex $roast_date_parts 0]
+		} else {
+			set day [lindex $roast_date_parts 1]
+			set month [lindex $roast_date_parts 0]
+			set year [lindex $roast_date_parts 2]
+		}
+	}
+	
+	if { $month ne "" && ![string is integer $month] } {
+		set month [lsearch -nocase {jan feb mar apr may jun jul aug sep oct nov dec} [string range $month 0 2]]
+		if { $month == -1 } {
+			set month {}
+		} else {
+			incr month
+		}
+	}
+	
+	if { $data(describe_which_shot) eq "next" || $data(clock) eq {} || $data(clock) == 0 } {
+		set ref_date [clock seconds]
+	} else {
+		set ref_date $data(clock)
+	}
+	
+	if { $month eq "" } {
+		if { $day <= [clock format $ref_date -format %d] } {
+			set month [clock format $ref_date -format %N]
+			set year [clock format $ref_date -format %Y]
+		} elseif { [clock format $ref_date -format %N] == 1 } {
+			set month 12
+			set year [expr {[clock format $ref_date -format %Y]-1}]
+		} else {
+			set month [expr {[clock format $ref_date -format %N]-1}]
+			set year [clock format $ref_date -format %Y]
+		}
+	} elseif { $year eq "" } {
+		set daymonth_thisyear ""
+		catch {
+			set daymonth_thisyear [clock scan "${day}.${month}.[clock format $ref_date -format %Y]" -format "%d.%m.%Y"]
+		}
+		if { $daymonth_thisyear ne "" && $daymonth_thisyear > $ref_date } {
+			set year [expr {[clock format $ref_date -format %Y]-1}]
+		} else {
+			set year [clock format $ref_date -format %Y]
+		}
+	}
+
+	if { $year > 1900 } {
+		set year_fmt "%Y"
+	} else {
+		set year_fmt "%y"
 	}
 	
 	set roast_clock ""
-	set i 0
-	set fmt [lindex $input_formats 0]
-	while { $i < [llength $input_formats] && $roast_clock eq "" } {
-		try { 
-			if { $fmt eq "" } {
-				set roast_clock [clock scan $roast_date]
-			} else {
-				set roast_clock [clock scan $roast_date -format $fmt]
-			}
-		} on error err {}
-		
-		incr i
-		set fmt [lindex $input_formats $i]
+	set data(days_offroast_msg) ""
+	try {
+		set roast_clock [clock scan "${day}.${month}.${year}" -format "%d.%m.${year_fmt}"]
+	} on error err {
+		msg -NOTICE [namespace current] compute_days_offroast: "can't parse roast date '$data(roast_date)' as '${day}.${month}.${year}': $err"
 	}
 	
-	if { $roast_clock eq "" } {
-		set data(days_offroast_msg) ""
-		msg -NOTICE [namespace current] compute_days_offroast: "can't parse roast date '$data(roast_date)'"
-	} else {
-		if { $data(describe_which_shot) eq "next" } {
-			set ref [clock seconds]
-		} elseif { $data(clock) ne {} && $data(clock) > 0 } {
-			set ref $data(clock)
-		} else {
-			set data(days_offroast_msg) ""
-			return
+	if { $roast_clock ne "" } {
+		if { [string is true $reformat] } {
+			set reformatted_date [clock format $roast_clock -format [::plugins::DYE::roast_date_format]]
+			if { [llength $roast_date_parts] > 3 } {
+				append reformatted_date " [join [lrange $roast_date_parts 3 end] { }]"
+			}
+			set data(roast_date) $reformatted_date
 		}
 		
-		set days [expr {int(($ref-$roast_clock)/(24.0*60.0*60.0))}]
-		set data(days_offroast_msg) [::plugins::DYE::singular_or_plural $days {day off-roast} {days off-roast}]
+		set days [expr {int(($ref_date-$roast_clock)/(24.0*60.0*60.0))}]
+		if { $days >= 0 } {
+			set data(days_offroast_msg) [::plugins::DYE::singular_or_plural $days {day off-roast} {days off-roast}]
+		}
 	}
 }
 
@@ -2173,7 +2259,7 @@ proc ::dui::pages::DYE::load_description {} {
 			set src_data(advanced_shot) $temp_profile(advanced_shot)
 		}
 
-	compute_days_offroast
+	compute_days_offroast 0
 	return 1
 }
 
@@ -6223,6 +6309,7 @@ namespace eval ::dui::pages::DYE_settings {
 		latest_plugin_desc {}
 		update_plugin_msg {}
 		plugin_has_been_updated 0
+		roast_date_example {}
 	}
 }
 
@@ -6248,7 +6335,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	
 	dui add dtext $page $x $y -text [translate "General options"] -style section_header
 		
-	dui add dtext $page $x [incr y $vspace] -tags {propagate_previous_shot_desc_lbl propagate_previous_shot_desc*} \
+	dui add dtext $page $x [incr y 100] -tags {propagate_previous_shot_desc_lbl propagate_previous_shot_desc*} \
 		-width [expr {$panel_width-250}] -text [translate "Propagate Beans, Equipment, Ratio & People from last to next shot"]
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags propagate_previous_shot_desc \
 		-variable ::plugins::DYE::settings(propagate_previous_shot_desc) -command propagate_previous_shot_desc_change 
@@ -6263,10 +6350,10 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags describe_from_sleep \
 		-variable ::plugins::DYE::settings(describe_from_sleep) -command describe_from_sleep_change 
 	
-	dui add dtext $page $x [incr y $vspace] -tags {backup_modified_shot_files_lbl backup_modified_shot_files*} \
-		-width [expr {$panel_width-250}] -text [translate "Backup past shot files when they are modified (.bak extension)"]
-	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags backup_modified_shot_files \
-		-variable ::plugins::DYE::settings(backup_modified_shot_files) -command backup_modified_shot_files_change 
+#	dui add dtext $page $x [incr y $vspace] -tags {backup_modified_shot_files_lbl backup_modified_shot_files*} \
+#		-width [expr {$panel_width-250}] -text [translate "Backup past shot files when they are modified (.bak extension)"]
+#	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags backup_modified_shot_files \
+#		-variable ::plugins::DYE::settings(backup_modified_shot_files) -command backup_modified_shot_files_change 
 
 	dui add dtext $page $x [incr y $vspace] -tags {use_stars_to_rate_enjoyment_lbl use_stars_to_rate_enjoyment*} \
 		-width [expr {$panel_width-700}] -text [translate "Rate enjoyment using"]
@@ -6279,7 +6366,21 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 600 -anchor ne -tags relative_dates \
 		-variable ::plugins::DYE::settings(relative_dates) -values {1 0} \
 		-labels [list [translate Relative] [translate Absolute]] -command [list ::plugins::save_settings DYE]
-		
+
+	dui add dtext $page $x [incr y $vspace] -tags {date_input_format_lbl date_input_format*} \
+		-width [expr {$panel_width-700}] -text [translate "Input dates format"]
+	dui add dselector $page [expr {$x+$panel_width-100}] $y -bwidth 600 -anchor ne -tags date_input_format \
+		-variable ::plugins::DYE::settings(date_input_format) -values {MDY DMY YMD} \
+		-labels [list [translate MDY] [translate DMY] [translate YMD]] -command [list [namespace current]::roast_date_format_change]
+
+	dui add entry $page [expr {$x+$panel_width-100}] [incr y $vspace] -width 12 -canvas_anchor ne -tags roast_date_format \
+		-textvariable ::plugins::DYE::settings(roast_date_format) -vcmd {return [expr {[string len %P]<=15}]} -justify right \
+		-label [translate "Roast date format"] -label_pos [list $x $y]
+	bind $widgets(roast_date_format) <Leave> [list + [namespace current]::roast_date_format_change]
+	
+	dui add variable $page [expr {$x+$panel_width-450}] $y -width 300 -anchor ne -justify right -tags roast_date_example \
+		-fill [dui aspect get dselector selectedfill -theme default]
+	
 	# RIGHT SIDE, TOP
 	set x 1350; set y 250
 	dui add dtext $page $x $y -text [translate "DSx skin options"] -style section_header
@@ -6329,6 +6430,9 @@ proc ::dui::pages::DYE_settings::show { page_to_hide page_to_show } {
 	#update_plugin_state
 	dui item enable_or_disable [expr {!$::plugins::DYE::settings(propagate_previous_shot_desc)}] \
 		[namespace tail [namespace current]] reset_next_plan*
+	
+	dui item relocate_text_wrt $page_to_show roast_date_example roast_date_format w -25 0 e
+	roast_date_format_change
 }
 
 
@@ -6389,6 +6493,18 @@ proc ::dui::pages::DYE_settings::describe_from_sleep_change {} {
 	
 proc ::dui::pages::DYE_settings::backup_modified_shot_files_change {} {	
 	plugins save_settings DYE
+}
+
+proc ::dui::pages::DYE_settings::roast_date_format_change {} {
+	variable data
+	
+	try {
+		set data(roast_date_example) [clock format [clock seconds] -format [::plugins::DYE::roast_date_format]]
+	} on error err {
+		set data(roast_date_example) [translate INVALID]
+	}
+	
+	::plugins::save_settings DYE
 }
 
 proc ::dui::pages::DYE_settings::shot_desc_font_color_change {} {
