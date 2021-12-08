@@ -2024,6 +2024,7 @@ proc ::dui::pages::DYE::compute_days_offroast { {reformat 1} } {
 	if { $roast_clock ne "" } {
 		if { [string is true $reformat] } {
 			set reformatted_date [clock format $roast_clock -format [::plugins::DYE::roast_date_format]]
+			set reformatted_date [regsub -all {[[:space:]]+} [string trim $reformatted_date] " "]
 			if { [llength $roast_date_parts] > 3 } {
 				append reformatted_date " [join [lrange $roast_date_parts 3 end] { }]"
 			}
@@ -6538,7 +6539,9 @@ proc ::dui::pages::DYE_settings::roast_date_format_change {} {
 	variable data
 	
 	try {
-		set data(roast_date_example) [clock format [clock seconds] -format [::plugins::DYE::roast_date_format]]
+		set dt [clock format [clock seconds] -format [::plugins::DYE::roast_date_format]]
+		set dt [regsub -all {[[:space:]]+} [string trim $dt] " "]
+		set data(roast_date_example) $dt
 	} on error err {
 		set data(roast_date_example) [translate INVALID]
 	}
