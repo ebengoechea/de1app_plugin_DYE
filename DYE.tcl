@@ -2064,10 +2064,15 @@ proc ::dui::pages::DYE::clear_shot_data { {apply_to {}} } {
 			set data($fn) {}
 		}
 	}
+
 	# Why commented?
-#	if { $data(describe_which_shot) eq "next" } {
-#		set ::plugins::DYE::settings(next_modified) 1
-#	}
+	#	if { $data(describe_which_shot) eq "next" } {
+	#		set ::plugins::DYE::settings(next_modified) 1
+	#	}
+		
+	grinder_model_change
+	calc_ey_from_tds	
+	compute_days_offroast 0
 }
 
 # what = [previous] / selected
@@ -2107,12 +2112,16 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 				::plugins::DYE::import_profile_from_shot $last_shot(clock)
 				load_next_profile
 			}
+			
+			grinder_model_change
+			calc_ey_from_tds	
+			compute_days_offroast 0	
 		}
 	}
 	
 #	if { $data(describe_which_shot) eq "next" } {
 #		set DYE::settings(next_modified) 1
-#	}
+#	}	
 }
 
 proc ::dui::pages::DYE::select_read_from_shot_callback { {shot_clock {}} {shot_filename {}} {shot_desc {}} args } {
@@ -2132,6 +2141,10 @@ proc ::dui::pages::DYE::select_read_from_shot_callback { {shot_clock {}} {shot_f
 			::plugins::DYE::import_profile_from_shot $shot_clock
 			load_next_profile
 		}
+		
+		grinder_model_change
+		calc_ey_from_tds
+		compute_days_offroast 0
 	}
 }
 
@@ -2908,6 +2921,10 @@ proc ::dui::pages::DYE::process_visualizer_dlg { {repo_link {}} {downloaded_shot
 			::plugins::DYE::import_profile_from_visualizer $downloaded_shot
 			load_next_profile
 		}
+		
+		grinder_model_change
+		calc_ey_from_tds
+		compute_days_offroast 0
 	}
 	
 	update_visualizer_button

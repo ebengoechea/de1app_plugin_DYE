@@ -13,6 +13,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Read from previous now ignores zero-valued fields for determining blank shots.
 - Profiles imported from Visualizer whose title already include a folder ("&lt;folder&gt;/&lt;profile_name&gt;") now get the correct title ("Visualizer/&lt;profile_name&gt;"). Reported by Ricco Rosini.
 - New more user-friendly roast date parser, using the new date settings. Allows entering partial dates (only day or day+month), using any field separator (spaces, hyphens, dashes...), month numbers or 3-letter abbreviations, full or abbreviated years ("21" or "2021"), and adding extra text after the date (e.g. "21/12/2021 Roast 2") while still correctly parsing the date for computing days off-roast.
+- Update DYE page calculated/derived fields (days off-roast, enable/disable grinder setting, TDS) when data is cleared or imported.
 
 ## [2.21] - 2021-12-05
 
