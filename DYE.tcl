@@ -23,10 +23,11 @@ try {
 	msg -WARNING "::plugins::DYE can't generate QR codes: $err"
 }
 
+
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.22
+	variable version 2.23
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -1582,8 +1583,8 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Espresso notes
 	incr y 100
-	dui add multiline_entry $page $x_right_field $y -tags espresso_notes -height 5 -canvas_width 900 -label_width 245 \
-		-label [translate [::plugins::SDB::field_lookup espresso_notes name]] -label_pos [list $x_right_label $y]
+	set tw [dui add multiline_entry $page $x_right_field $y -tags espresso_notes -height 5 -canvas_width 900 -label_width 245 \
+		-label [translate [::plugins::SDB::field_lookup espresso_notes name]] -label_pos [list $x_right_label $y]]
 
 	# PEOPLE
 	set y 1030
@@ -5272,7 +5273,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 					$tw insert insert " (1:[round_to_one_digits [expr {double($yield/$dose)}]])" [concat $dtags ratio]
 				}
 			}
-			$tw insert insert " in [expr {round([lindex $shots(extraction_time) $i])}] sec" [concat $dtags ratio] "\n" $dtags
+			$tw insert insert " in [expr {round([lindex $shots(extraction_time) $idx])}] sec" [concat $dtags ratio] "\n" $dtags
 			
 			if { [lindex $shots(bean_desc) $idx] ne {} } {
 				$tw insert insert "[lindex $shots(bean_desc) $idx]" [concat $dtags details beans]

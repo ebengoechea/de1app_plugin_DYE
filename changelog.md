@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.23] - 2021-12-09
+
+### Changed
+- Fix bug showing the wrong shot duration on the Shot Selector when using a string filter. Reported by JoeD.
+
 ## [2.22] - 2021-12-08
 
 ### New
