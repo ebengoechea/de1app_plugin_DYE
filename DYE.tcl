@@ -8,9 +8,9 @@
 ### (with lots of copy/paste/tweak from Damian, John and Johanna's code!)
 ########################################################################################################################
 #set ::skindebug 1
-plugins enable SDB
-plugins enable DYE
-fconfigure $::logging::_log_fh -buffering line
+#plugins enable SDB
+#plugins enable DYE
+#fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
 package require http
