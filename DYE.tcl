@@ -3010,7 +3010,7 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
 			-command dui::page::close_dialog
 
-		dui add dtext $page 0.05 [expr {$y0+50}] -tags apply_action_to -text [translate "Apply edition to:"] \
+		dui add dtext $page 0.05 [expr {$y0+50}] -tags apply_action_to -text [translate "Apply edit to:"] \
 			-style menu_dlg -font_family notosansuibold
 		
 		dui add dbutton $page 0.60 [expr {$y0+70}] -bwidth 0.35 -bheight 80 -anchor center -tags select_apply_to \
