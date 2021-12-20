@@ -5441,7 +5441,7 @@ FROM V_shot WHERE removed=0 "
 		
 		
 		# Show shot info
-		$tw insert insert "[translate Filename]:" field " $selected_shot(filename).tcl\n"
+		$tw insert insert "[translate Filename]:" field " $selected_shot(filename).shot\n"
 		if { $selected_shot(bean_notes) ne "" } {
 			$tw insert insert "[translate {Bean notes}]:" field " $selected_shot(bean_notes)\n"
 		}
