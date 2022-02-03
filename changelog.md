@@ -2,6 +2,12 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.24] - 2022-02-03
+
+### Changed
+- Show correct extension of shot filenames (`.shot` instead of `.tcl`) in shot previewer.
+- Fix wrong clearing of `grinder_setting` when copying from next to last metadata and DYE settings had `propagate_previous_shot_desc=0` and `reset_next_plan=0`. Reported by Bob Stern.
+
 ## [2.23] - 2021-12-09
 
 ### Changed
