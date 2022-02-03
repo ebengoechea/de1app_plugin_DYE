@@ -537,7 +537,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 
 	set reset_next [expr { !$settings(propagate_previous_shot_desc) && $settings(reset_next_plan) }]
 		
-	foreach field [concat [metadata fields -domain shot -category description -propagate 1] espresso_notes grinder_setting] {
+	foreach field [concat [metadata fields -domain shot -category description -propagate 1] espresso_notes] {
 		set type [metadata get $field data_type]
 		if { ($type eq "number" || $field eq "grinder_setting") && $settings(next_$field) eq "" } {
 			set ::settings($field) 0
@@ -550,7 +550,6 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 		}
 	}
 
-	
 #	if { $skin eq "DSx" } {
 #		if { [info exists ::DSx_settings(live_graph_beans)] && $::DSx_settings(live_graph_beans) > 0 } {
 #			set ::settings(grinder_dose_weight) $::DSx_settings(live_graph_beans)
