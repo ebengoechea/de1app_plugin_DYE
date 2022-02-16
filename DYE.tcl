@@ -27,7 +27,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.24
+	variable version 2.25
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -607,6 +607,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 	msg -INFO [namespace current] save_espresso_to_history_hook
 	::plugins::DYE::define_last_shot_desc
+	plugins save_settings DYE
 }
 
 
@@ -650,7 +651,7 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 # Needs the { args } as this is being used in a trace add execution.
 # BEWARE this should ONLY be invoked just after finishing a shot, otherwise the settings variables may contain
 # 	the plan for the next shot instead of the last one.
-proc ::plugins::DYE::define_last_shot_desc { args } {
+proc ::plugins::DYE::define_last_shot_desc { args } {	
 	variable settings
 	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {
 		if { $::settings(history_saved) == 1 } {		

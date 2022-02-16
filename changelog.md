@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.25] - 2022-02-16
+
+### Changed
+- Ensure the description of the last shot on DSx home page persists through app restarts. Bug [reported by GrahamC](https://3.basecamp.com/3671212/buckets/7351439/messages/4141407262#__recording_4637235467).
+
 ## [2.24] - 2022-02-03
 
 ### Changed
