@@ -6443,8 +6443,8 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-bwidth 425 -bheight 100 -anchor se -tags use_default_color \
 		-shape outline -outline $::plugins::DYE::default_shot_desc_font_color -arc_offset 35 \
 		-label [translate {Use default color}] -label_fill $::plugins::DYE::default_shot_desc_font_color \
-		-label_font_size -1 -command set_default_shot_desc_font_color 
-
+		-label_font_size -1 -command set_default_shot_desc_font_color -width 3
+	
 	# RIGHT SIDE, BOTTOM
 	set y 925
 	dui add dtext $page $x $y -text [translate "Insight / MimojaCafe skin options"] -style section_header
