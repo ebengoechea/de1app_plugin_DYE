@@ -4545,7 +4545,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			}
 
 			if { $data(filter_bev_type) ne {} && $data(filter_bev_type) ne "all" } {
-				if { !("others" in $data(filter_bev_type) && [lindex $profiles(bev_type) $idx] ni {espresso pourvover tea_portafilter}) &&
+				if { !("others" in $data(filter_bev_type) && [lindex $profiles(bev_type) $idx] ni {espresso pourover tea_portafilter}) &&
 						!([lindex $profiles(bev_type) $idx] in $data(filter_bev_type)) } {
 					continue
 				}
@@ -6443,8 +6443,8 @@ proc ::dui::pages::DYE_settings::setup {} {
 		-bwidth 425 -bheight 100 -anchor se -tags use_default_color \
 		-shape outline -outline $::plugins::DYE::default_shot_desc_font_color -arc_offset 35 \
 		-label [translate {Use default color}] -label_fill $::plugins::DYE::default_shot_desc_font_color \
-		-label_font_size -1 -command set_default_shot_desc_font_color 
-
+		-label_font_size -1 -command set_default_shot_desc_font_color -width 3
+	
 	# RIGHT SIDE, BOTTOM
 	set y 925
 	dui add dtext $page $x $y -text [translate "Insight / MimojaCafe skin options"] -style section_header
