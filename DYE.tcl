@@ -4545,7 +4545,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			}
 
 			if { $data(filter_bev_type) ne {} && $data(filter_bev_type) ne "all" } {
-				if { !("others" in $data(filter_bev_type) && [lindex $profiles(bev_type) $idx] ni {espresso pourvover tea_portafilter}) &&
+				if { !("others" in $data(filter_bev_type) && [lindex $profiles(bev_type) $idx] ni {espresso pourover tea_portafilter}) &&
 						!([lindex $profiles(bev_type) $idx] in $data(filter_bev_type)) } {
 					continue
 				}
