@@ -1970,7 +1970,7 @@ proc ::dui::pages::DYE::compute_days_offroast { {reformat 1} } {
 		}
 	}
 	
-	if { $month ne "" && ![string is integer $month] } {
+	if { $month ne "" && ![string is integer [scan $month %d]] } {
 		set month [lsearch -nocase {jan feb mar apr may jun jul aug sep oct nov dec} [string range $month 0 2]]
 		if { $month == -1 } {
 			set month {}
