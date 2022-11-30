@@ -1396,6 +1396,7 @@ namespace eval ::dui::pages::DYE {
 		warning_msg {}
 		apply_action_to {beans equipment ratio people}
 		days_offroast_msg {}
+		available_grinder_settings {}
 	}
 	#		other_equipment {}
 
@@ -1507,7 +1508,11 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Grinder setting
 	incr y 100
-	dui add dcombobox $page $x_left_field $y -tags grinder_setting -width $width_left_field \
+	dui add dbutton $page $x_left_field $y -tags grinder_setting_up -symbol chevron-up -symbol_pos {0.25 0.25} -style dye_main_nav_button \
+		-command grinder_setting_up_clicked
+	dui add dbutton $page [expr {$x_left_field+105}] $y -tags grinder_setting_down -symbol chevron-down -symbol_pos {0.25 0.25} -style dye_main_nav_button \
+		-command grinder_setting_down_clicked
+	dui add dcombobox $page [expr {$x_left_field+200}] $y -tags grinder_setting -width [expr {$width_left_field*0.65}] \
 		-label [translate [::plugins::SDB::field_lookup grinder_setting name]] -label_pos [list $x_left_label $y] \
 		-command grinder_setting_select
 	
@@ -2062,6 +2067,42 @@ proc ::dui::pages::DYE::grinder_setting_select { variable values args} {
 		-page_title [translate "Select the grinder setting"] -selected $data(grinder_setting) -listbox_width 700 
 }
 
+proc ::dui::pages::DYE::grinder_setting_up_clicked {} {
+	variable data
+	dui sound make button_in
+	if { $data(grinder_model) eq "" } return
+	if { [llength $data(available_grinder_settings)] == 0 } return
+
+	set current_setting_idx [lsearch $data(available_grinder_settings) $data(grinder_setting)]
+	if { $current_setting_idx == -1 } {
+		set data(grinder_setting) [lindex $data(available_grinder_settings) 0]
+		return
+	}
+	# up: going UP on the item selector (index decreases)
+	incr current_setting_idx -1
+	if { $current_setting_idx > -1 } {
+		set data(grinder_setting) [lindex $data(available_grinder_settings) $current_setting_idx]
+	}
+}
+
+proc ::dui::pages::DYE::grinder_setting_down_clicked {} {
+	variable data
+	dui sound make button_in
+	if { $data(grinder_model) eq "" } return
+	if { [llength $data(available_grinder_settings)] == 0 } return
+
+	set current_setting_idx [lsearch $data(available_grinder_settings) $data(grinder_setting)]
+	if { $current_setting_idx == -1 } {
+		set data(grinder_setting) [lindex $data(available_grinder_settings) end]
+		return
+	}
+	# down: going DOWN on the item selector (index increases)
+	incr current_setting_idx
+	if { $current_setting_idx < [llength $data(available_grinder_settings)] } {
+		set data(grinder_setting) [lindex $data(available_grinder_settings) $current_setting_idx]
+	}
+}
+
 proc ::dui::pages::DYE::grinder_model_change {} {
 	variable data
 	
@@ -2282,6 +2323,11 @@ proc ::dui::pages::DYE::load_description {} {
 				}
 			}
 		}
+	}
+
+	# preload all available grinder settings from DB
+	if { $data(grinder_model) ne "" } {
+		set data(available_grinder_settings) [::plugins::SDB::available_categories grinder_setting 1 " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"]
 	}
 
 	# Ensure the profile's advanced_shot variable is always defined
