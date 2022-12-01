@@ -2072,6 +2072,7 @@ proc ::dui::pages::DYE::populate_available_grinder_settings {} {
 	# load available grinder settings from DB
 	if { $data(grinder_model) eq "" } {
 		set data(available_grinder_settings) {}
+		return
 	}
 
 	set data(available_grinder_settings) [::plugins::SDB::available_categories grinder_setting 1 " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"]
