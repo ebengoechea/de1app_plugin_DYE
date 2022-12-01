@@ -1508,9 +1508,9 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Grinder setting
 	incr y 100
-	dui add dbutton $page [expr {$x_left_field+25}] $y -tags grinder_setting_up -symbol chevron-up -symbol_pos {0.25 0.25} -style dye_main_nav_button \
+	dui add dbutton $page [expr {$x_left_field+25}] $y -tags grinder_setting_up -symbol chevron-up -symbol_pos {0.25 0.25} \
 		-command grinder_setting_up_clicked
-	dui add dbutton $page [expr {$x_left_field+135}] $y -tags grinder_setting_down -symbol chevron-down -symbol_pos {0.25 0.25} -style dye_main_nav_button \
+	dui add dbutton $page [expr {$x_left_field+135}] $y -tags grinder_setting_down -symbol chevron-down -symbol_pos {0.25 0.25} \
 		-command grinder_setting_down_clicked
 	dui add dcombobox $page [expr {$x_left_field+240}] $y -tags grinder_setting -width [expr {$width_left_field*0.6}] \
 		-label [translate [::plugins::SDB::field_lookup grinder_setting name]] -label_pos [list $x_left_label $y] \
@@ -2063,15 +2063,22 @@ proc ::dui::pages::DYE::grinder_setting_select { variable values args} {
 	if { $data(grinder_model) eq "" } return
 
 	dui page open_dialog dui_item_selector ::dui::pages::DYE::data(grinder_setting) -theme [dui theme get] \
-		[::plugins::SDB::available_categories grinder_setting 1 " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"] \
+		$data(available_grinder_settings) \
 		-page_title [translate "Select the grinder setting"] -selected $data(grinder_setting) -listbox_width 700 
 }
 
 proc ::dui::pages::DYE::populate_available_grinder_settings {} {
 	variable data
 	# load available grinder settings from DB
-	if { $data(grinder_model) ne "" } {
-		set data(available_grinder_settings) [::plugins::SDB::available_categories grinder_setting 1 " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"]
+	if { $data(grinder_model) eq "" } {
+		set data(available_grinder_settings) {}
+	}
+
+	set data(available_grinder_settings) [::plugins::SDB::available_categories grinder_setting 1 " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"]
+	if {[catch {
+		set data(available_grinder_settings) [lsort -decreasing -real $data(available_grinder_settings)]
+	} result]} {
+		# do nothing. ordering not changed. (non-numeric grinder setting)
 	}
 }
 
