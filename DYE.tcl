@@ -1508,11 +1508,11 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Grinder setting
 	incr y 100
-	dui add dbutton $page $x_left_field $y -tags grinder_setting_up -symbol chevron-up -symbol_pos {0.25 0.25} -style dye_main_nav_button \
+	dui add dbutton $page [expr {$x_left_field+25}] $y -tags grinder_setting_up -symbol chevron-up -symbol_pos {0.25 0.25} -style dye_main_nav_button \
 		-command grinder_setting_up_clicked
-	dui add dbutton $page [expr {$x_left_field+105}] $y -tags grinder_setting_down -symbol chevron-down -symbol_pos {0.25 0.25} -style dye_main_nav_button \
+	dui add dbutton $page [expr {$x_left_field+135}] $y -tags grinder_setting_down -symbol chevron-down -symbol_pos {0.25 0.25} -style dye_main_nav_button \
 		-command grinder_setting_down_clicked
-	dui add dcombobox $page [expr {$x_left_field+200}] $y -tags grinder_setting -width [expr {$width_left_field*0.65}] \
+	dui add dcombobox $page [expr {$x_left_field+240}] $y -tags grinder_setting -width [expr {$width_left_field*0.6}] \
 		-label [translate [::plugins::SDB::field_lookup grinder_setting name]] -label_pos [list $x_left_label $y] \
 		-command grinder_setting_select
 	
@@ -2067,6 +2067,14 @@ proc ::dui::pages::DYE::grinder_setting_select { variable values args} {
 		-page_title [translate "Select the grinder setting"] -selected $data(grinder_setting) -listbox_width 700 
 }
 
+proc ::dui::pages::DYE::populate_available_grinder_settings {} {
+	variable data
+	# load available grinder settings from DB
+	if { $data(grinder_model) ne "" } {
+		set data(available_grinder_settings) [::plugins::SDB::available_categories grinder_setting 1 " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"]
+	}
+}
+
 proc ::dui::pages::DYE::grinder_setting_up_clicked {} {
 	variable data
 	dui sound make button_in
@@ -2107,6 +2115,7 @@ proc ::dui::pages::DYE::grinder_model_change {} {
 	variable data
 	
 	dui item enable_or_disable [expr {$data(grinder_model) ne ""}] [namespace tail [namespace current]] grinder_setting-dda
+	populate_available_grinder_settings
 }
 
 proc ::dui::pages::DYE::field_in_apply_to { field apply_to } {
@@ -2325,10 +2334,7 @@ proc ::dui::pages::DYE::load_description {} {
 		}
 	}
 
-	# preload all available grinder settings from DB
-	if { $data(grinder_model) ne "" } {
-		set data(available_grinder_settings) [::plugins::SDB::available_categories grinder_setting 1 " grinder_model=[::plugins::SDB::string2sql $data(grinder_model)]"]
-	}
+	populate_available_grinder_settings
 
 	# Ensure the profile's advanced_shot variable is always defined
 	switch $src_data(settings_profile_type) \
