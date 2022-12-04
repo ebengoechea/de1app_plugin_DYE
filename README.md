@@ -6,7 +6,7 @@ It improves the default shot logging functionality, allowing users to edit, modi
 
 By Enrique Bengoechea (with lots of copy/paste/tweak from Damian, John, Johanna and Barney's code!)
 
-Manual available on [Decent Diaspora site](https://3.basecamp.com/3671212/buckets/7351439/documents/3344125879) (Decent owners only): 
+Manual available on [Decent Diaspora site](https://3.basecamp.com/3671212/buckets/7351439/documents/4994824409) (Decent owners only): 
 
 ## Features
 
