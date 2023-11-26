@@ -27,7 +27,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.25
+	variable version 2.26
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -177,7 +177,7 @@ DE1app v$::plugins::DYE::min_de1app_version [translate {or higher}]\r\r[translat
 	}	
 	
 	regsub -all { } $::settings(skin) "_" skin
-	if { $skin ni {Insight Insight_Dark DSx MimojaCafe} } {
+	if { $skin ni {Insight Insight_Dark DSx MimojaCafe DSx2} } {
 		plugins disable DYE
 		error [translate "The 'Describe Your Espresso' (DYE) plugin does not yet work with your skin. Please reach out to your skins author"]
 		return
@@ -1413,6 +1413,7 @@ proc ::dui::pages::DYE::setup {} {
 	variable widgets
 	set page [namespace tail [namespace current]]
 	regsub -all { } $::settings(skin) "_" skin
+	if { $skin eq "DSx2" } { set skin "DSx" }
 	
 	#::plugins::DYE::page_skeleton $page "" "" yes no center insight_ok
 	dui add variable $page 1280 60 -tags page_title -style page_title -command {%NS::toggle_title}
