@@ -2,6 +2,17 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.26] - 2023-11-26
+
+### New
+- Added minimal support for DYE to work with DSx2.
+
+### Changed
+- Fix bug on the roast date field that would interpret august and september months ("08" and "09") as octal.
+Thanks to Dennis Schuber.
+
+- Fix outdated URL to the manual in Diaspora. Thanks to Yuki Kodama.
+
 ## [2.25] - 2022-02-16
 
 ### Changed
