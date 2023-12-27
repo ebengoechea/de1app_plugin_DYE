@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.27] - 2023-12-27
+
+### Changed
+- Don't fail anymore if using DYE with an unsupported skin. Now only a warning is written to the log file.
+Requested by Damian to help developing DSx2 forks. Beware this doesn't guarantee than DYE will work correctly with
+any skin.
+- Added DSx2 theme that follows DSx2 colors. Thanks to Eran Yaniv who contributed the code.
+
 ## [2.26] - 2023-11-26
 
 ### New
