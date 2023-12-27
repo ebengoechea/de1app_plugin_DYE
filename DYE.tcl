@@ -178,9 +178,9 @@ DE1app v$::plugins::DYE::min_de1app_version [translate {or higher}]\r\r[translat
 	
 	regsub -all { } $::settings(skin) "_" skin
 	if { $skin ni {Insight Insight_Dark DSx MimojaCafe DSx2} } {
-		plugins disable DYE
-		error [translate "The 'Describe Your Espresso' (DYE) plugin does not yet work with your skin. Please reach out to your skins author"]
-		return
+		#plugins disable DYE
+		msg -WARN [translate "The 'Describe Your Espresso' (DYE) plugin does not yet work with your skin. Please reach out to your skins author"]
+		#return
 	}
 	
 	if { [info exists ::plugins::DYE::min_${skin}_version ] } {
