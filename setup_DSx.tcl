@@ -42,7 +42,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dtext.anchor.page_title center
 		dtext.justify.page_title center
 					
-		symbol.font_family "Font Awesome 5 Pro-Regular-400"
+		symbol.font_family "Font Awesome 6 Pro-Regular-400"
 		symbol.font_size 55
 		symbol.fill $::DSx_settings(font_colour)
 		symbol.disabledfill $disabled_colour
@@ -138,7 +138,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		dbutton_dda_symbol.fill $::DSx_settings(font_colour)
 		dbutton_dda_symbol.disabledfill $disabled_colour
 				
-		dcheckbox.font_family "Font Awesome 5 Pro"
+		dcheckbox.font_family "Font Awesome 6 Pro"
 		dcheckbox.font_size 18
 		dcheckbox.fill $::DSx_settings(font_colour)
 		dcheckbox.anchor nw
@@ -289,7 +289,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		
 		dbutton.shape.menu_dlg_close rect 
 		dbutton.fill.menu_dlg_close {} 
-		dbutton.symbol.menu_dlg_close times
+		dbutton.symbol.menu_dlg_close xmark
 		dbutton_symbol.pos.menu_dlg_close {0.5 0.5}
 		dbutton_symbol.anchor.menu_dlg_close center
 		dbutton_symbol.justify.menu_dlg_close center
@@ -441,7 +441,7 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	
 	dui aspect set -type dclicker -style dye_double [subst {shape {} fill $::DSx_settings(bg_colour) 
 		disabledfill $::DSx_settings(bg_colour) width 0 orient horizontal use_biginc 1 
-		symbol chevron-double-left symbol1 chevron-left symbol2 chevron-right symbol3 chevron-double-right}]
+		symbol chevrons-left symbol1 chevron-left symbol2 chevron-right symbol3 chevrons-right}]
 	dui aspect set -type dclicker_symbol -style dye_double [subst {pos {0.075 0.5} font_size 24 anchor center 
 		fill "#7f879a" disabledfill $disabled_colour}]
 	dui aspect set -type dclicker_symbol1 -style dye_double [subst {pos {0.275 0.5} font_size 24 anchor center 

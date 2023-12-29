@@ -10,8 +10,8 @@
 #set ::skindebug 1
 #plugins enable SDB
 #plugins enable DYE
-#fconfigure $::logging::_log_fh -buffering line
-#dui config debug_buttons 1
+fconfigure $::logging::_log_fh -buffering line
+dui config debug_buttons 1
 
 package require http
 package require tls
@@ -27,12 +27,12 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.27
+	variable version 2.28
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
 
-	variable min_de1app_version {1.37}
+	variable min_de1app_version {1.42}
 	variable min_DSx_version {4.79}
 	variable debug_text {}	
 	
@@ -72,7 +72,7 @@ proc ::plugins::DYE::main {} {
 	if { $skin eq "Insight_Dark" } {
 		source "[plugin_directory]/DYE/setup_Insight.tcl"
 	}
-		
+	
 	if { [namespace which -command "::plugins::DYE::setup_ui_$skin"] ne "" } {
 		::plugins::DYE::setup_ui_$skin
 	} 
@@ -170,6 +170,7 @@ proc ::plugins::DYE::msg { {flag ""} args } {
 # Verify the minimum required versions of DE1 app & skin are used, and that required plugins are availabe and installed,
 #	otherwise prevents startup.
 proc ::plugins::DYE::check_versions {} {
+msg -INFO "DE1APP VERSION [package version de1app]"	
 	if { [package vcompare [package version de1app] $::plugins::DYE::min_de1app_version] < 0 } {
 		message_page "[translate {Plugin 'Describe Your Espreso'}] v$::plugins::DYE::plugin_version [translate requires] \
 DE1app v$::plugins::DYE::min_de1app_version [translate {or higher}]\r\r[translate {Current DE1app version is}] [package version de1app]" \
@@ -326,6 +327,15 @@ proc ::plugins::DYE::check_settings {} {
 roast_level bean_notes grinder_model grinder_setting drink_tds drink_ey espresso_enjoyment \
 espresso_notes my_name drinker_name scentone skin beverage_type final_desired_shot_weight repository_links}	
 	}
+	
+#	if {[info exists settings(favorites)] == 0} {
+#		set settings(favorites) [list]
+#		set empty_fav [list "n_recent" "" [list]]
+#		for {set i 0} {$i < 10} {incr i 1} {
+#			lappend settings(favorites) $empty_fav
+#		}
+#	}
+
 }
 
 proc ::plugins::DYE::upgrade { previous_version } {
@@ -382,8 +392,8 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 	
 	dui aspect set -theme $theme -type dtext -style section_header [list font_family $bold_font font_size 20]
 	
-	dui aspect set -theme $theme -type dclicker -style dye_double {orient horizontal use_biginc 1 symbol chevron-double-left 
-		symbol1 chevron-left symbol2 chevron-right symbol3 chevron-double-right }
+	dui aspect set -theme $theme -type dclicker -style dye_double {orient horizontal use_biginc 1 symbol chevrons-left 
+		symbol1 chevron-left symbol2 chevron-right symbol3 chevrons-right }
 	dui aspect set -theme $theme -type dclicker_symbol -style dye_double {pos {0.075 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -theme $theme -type dclicker_symbol1 -style dye_double {pos {0.275 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -theme $theme -type dclicker_symbol2 -style dye_double {pos {0.725 0.5} font_size 24 anchor center fill "#7f879a"}
@@ -614,10 +624,19 @@ proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 # Returns a 2 or 3-lines formatted string with the summary of a shot description.
 proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {roast_date {}} {grinder_model {}} \
 		{grinder_setting {}} {drink_tds 0} {drink_ey 0} {espresso_enjoyment 0} {lines 2} \
-		{default_if_empty "Tap to describe this shot" }} {
+		{default_if_empty "Tap to describe this shot"} {profile_title {}} } {
 	set shot_desc ""
+	set skin $::settings(skin)
 
 	set beans_items [list_remove_element [list $bean_brand $bean_type $roast_date] ""]
+	if {[string range $skin 0 3] eq "DSx2" && $profile_title ne ""} {
+		if {[llength $beans_items] > 0} {
+			set beans_items [list $profile_title "\-" {*}$beans_items]
+		} else {
+			set beans_items [list $profile_title]
+		}		
+	}
+	
 	set grinder_items [list_remove_element [list $grinder_model $grinder_setting] ""]
 	set extraction_items {}
 	if {$drink_tds > 0} { lappend extraction_items "[translate TDS] $drink_tds\%" }
@@ -643,7 +662,7 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 
 	if {$shot_desc eq ""} { 
 		set shot_desc "\[[translate $default_if_empty]\]" 
-	}  		
+	}
 	return $shot_desc
 }
 
@@ -725,7 +744,7 @@ proc ::plugins::DYE::define_next_shot_desc { args } {
 	if { $settings(show_shot_desc_on_home) == 1 && [info exists settings(next_bean_brand)] } {
 		set desc [shot_description_summary $settings(next_bean_brand) \
 			$settings(next_bean_type) $settings(next_roast_date) $settings(next_grinder_model) \
-			$settings(next_grinder_setting) {} {} {} 2 "\[Tap to describe the next shot\]" ]
+			$settings(next_grinder_setting) {} {} {} 2 "\[Tap to describe the next shot\]" $::settings(profile_title)]
 		if { $settings(next_modified) == 1 } { append desc " *" }
 		set settings(next_shot_desc) $desc
 	} else {
@@ -1358,6 +1377,148 @@ proc ::plugins::DYE::open_profile_tools { args } {
 	}
 }
 
+#proc ::plugins::DYE::update_favorites { } {
+#	variable settings	
+#	
+#	array set last_10_beans [::plugins::SDB::shots_by {bean_brand bean_type roast_date} 1 {} 10]
+#	
+#	set nshot 0
+#	for {set i 0} {$i < [llength $settings(favorites)]} {incr i 1} {
+#		set fav [lindex $settings(favorites) $i]
+#		
+#		if {[lindex $fav 0] eq "n_recent"} {
+#			set fav_values [list]
+#			if { [array size last_10_beans] >= $nshot } {
+#				foreach f [array names last_10_beans] {
+#					lappend fav_values "$f" [join [lindex $last_10_beans($f) $nshot] " "]
+#				}
+#				lset fav 1 "[lindex $last_10_beans(bean_brand) $nshot]\n[lindex $last_10_beans(bean_type) $nshot] [lindex $last_10_beans(roast_date) $nshot]"
+#			}
+#			lset fav 2 $fav_values
+#			lset settings(favorites) $i $fav
+#			
+#			incr nshot 1
+#		}
+#	}
+#	
+#	plugins save_settings DYE 
+#}
+#
+#proc ::plugins::DYE::favorite_title { n_fav } {
+#	variable settings
+#	set title ""
+#	
+#	set fav [lindex $settings(favorites) $n_fav]
+#	if { [lindex $fav 0] eq "n_recent" } {
+#		if { [lindex $fav 1] eq {} } {
+#			array set fav_values [lindex $fav 2]
+#			if { [array size fav_values] > 0 } {
+#				set title "$fav_values(bean_brand)\n$fav_values(bean_type) $fav_values(roast_date)"
+#			}
+#		} else {
+#			set title [lindex $fav 1]
+#		}
+#	}
+#	
+#	return $title
+#}
+#
+#proc ::plugins::DYE::load_favorite { n_fav } {
+#	variable settings
+#	
+#	set fav [lindex $settings(favorites) $n_fav]
+#	array set fav_values [lindex $fav 2]
+#	
+#	if { [lindex $fav 0] eq "n_recent" } {
+#		if {[info exists fav_values(last_clock)]} {
+#			#::plugins::DYE::open $fav_values(last_clock)
+#			load_next_from_shot $fav_values(last_clock)
+#		} else {
+#			borg toast [translate "Malformed data, can't load DYE favorite"]
+#		}
+#	}
+#}
+#
+#proc ::plugins::DYE::load_next_from_shot { src_clock } {
+#	variable data
+#	variable src_data
+#	
+#	set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
+#	set propagate [string is true $::plugins::DYE::settings(propagate_previous_shot_desc)]
+#	set next_modified [string is true $::plugins::DYE::settings(next_modified)]
+#	set skin $::settings(skin)
+#	set settings_changed 0
+#	set dye_settings_changed 0
+#	set dsx_settings_changed 0
+#	
+#	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
+#	#array set src_shot [::plugins::SDB::shots $read_fields 1 "clock=$src_clock" 1]
+#	array set src_shot [::plugins::SDB::load_shot $src_clock 0 1 1]
+#	if { [array size src_shot] == 0 } { return 0 }
+#
+#	foreach field [array names src_shot] {
+#		if { [info exists ::plugins::DYE::settings(next_$field)] } {
+#			set ::plugins::DYE::settings(next_modified) 1
+#			set ::plugins::DYE::settings(next_$field) $src_shot($field)
+#			if { ([metadata get $field propagate] || $field eq "espresso_notes") && [info exists ::settings($field)] } {
+#				if { $src_shot($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
+#					if { $field ni {grinder_dose_weight grinder_setting} } {
+#						set ::settings($field) 0
+#					}
+#				} else {
+#					set ::settings($field) $src_shot($field)
+#				}
+#				set settings_changed 1
+#				
+#				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
+#					set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
+#					set dsx_settings_changed 1
+#				}
+#			} elseif { $field eq "drink_weight" } {
+#				if { $skin eq "MimojaCafe" } {
+#					if {[::device::scale::expecting_present] && [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
+#						if {$::settings(settings_profile_type) eq "settings_2c"} {
+#							set ::settings(final_desired_shot_weight_advanced) $src_shot(drink_weight)
+#						} else {
+#							set ::settings(final_desired_shot_weight) $src_shot(drink_weight)
+#						}
+#						set settings_changed 1
+#					}
+#				} elseif { $skin eq "DSx" } {
+#					if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
+#						set ::DSx_settings(saw) $src_shot(drink_weight) 
+#						set dsx_settings_changed 1
+#					}
+#				}
+#			}
+#		}
+#	}
+#	
+##	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+##		if { [info exists ::settings($fn)] && [info exists src_data($fn)] } {
+##			set ::settings($fn) $::settings($fn)
+##		}
+##	}
+#	set imported [::profile::import_legacy [array get src_data]]
+#	
+#	set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $src_shot(bean_brand) $src_shot(bean_type) \
+#		$src_shot(roast_date) $src_shot(grinder_model) $src_shot(grinder_setting)]
+#	set dye_settings_changed 1
+#	
+#	if { $settings_changed } {
+#		::save_settings
+#	}
+#	if { $dye_settings_changed } {
+#		plugins save_settings DYE
+#	}
+#	if { $dsx_settings_changed } {
+#		::save_DSx_settings
+#	}
+#	
+#	define_next_shot_desc
+#	return 1
+#}
+
 ### "DESCRIBE YOUR ESPRESSO" PAGE #####################################################################################
 
 namespace eval ::dui::pages::DYE {
@@ -1431,16 +1592,16 @@ proc ::dui::pages::DYE::setup {} {
 #	dui add symbol $page [expr {$x_left_label+$hspace}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
 #		-command yes
 	
-	dui add dbutton $page 350 0 550 175 -tags move_to_next -symbol fast-forward -symbol_pos {0.35 0.4} -style dye_main_nav_button
+	dui add dbutton $page 350 0 550 175 -tags move_to_next -symbol forward-fast -symbol_pos {0.35 0.4} -style dye_main_nav_button
 #	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol fast-forward -tags move_to_next -style dye_main_nav_button \
 #		-command yes
 
 	set x_right 2360
-	dui add dbutton $page 2360 0 2560 175 -tags open_history_viewer -symbol history -symbol_pos {0.35 0.4} -style dye_main_nav_button
-#	dui add symbol $page $x_right $y -symbol history -tags open_history_viewer -style dye_main_nav_button -command yes
+	dui add dbutton $page 2360 0 2560 175 -tags open_history_viewer -symbol clock-rotate-left -symbol_pos {0.35 0.4} -style dye_main_nav_button
+#	dui add symbol $page $x_right $y -symbol clock-rotate-left -tags open_history_viewer -style dye_main_nav_button -command yes
 	
-	dui add dbutton $page 2210 0 2360 175 -tags search_shot -symbol search -symbol_pos {0.5 0.4} -style dye_main_nav_button
-#	dui add symbol $page [expr {$x_right-$hspace}] $y -symbol search -tags search_shot -style dye_main_nav_button \
+	dui add dbutton $page 2210 0 2360 175 -tags search_shot -symbol binoculars -symbol_pos {0.5 0.4} -style dye_main_nav_button
+#	dui add symbol $page [expr {$x_right-$hspace}] $y -symbol binoculars -tags search_shot -style dye_main_nav_button \
 #		-command yes
 
 	dui add dbutton $page 2010 0 2210 175 -tags select_shot -symbol list -symbol_pos {0.6 0.4} -style dye_main_nav_button
@@ -3064,7 +3225,7 @@ namespace eval ::dui::pages::dye_edit_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags undo_changes -style menu_dlg_btn \
-			-label [translate "Undo changes"] -symbol undo -command {%NS::page_close undo}
+			-label [translate "Undo changes"] -symbol arrow-rotate-left -command {%NS::page_close undo}
 	}
 
 	proc load { page_to_hide page_to_show {enable_profile 0} {enable_extraction 0} {enable_copy_to_next 1} args } {
@@ -3191,13 +3352,13 @@ namespace eval ::dui::pages::dye_manage_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags select_profile -style menu_dlg_btn -label "[translate {Change profile}]..." \
-			-symbol exchange -command [list dui::page::close_dialog select_profile]
+			-symbol arrow-right-arrow-left -command [list dui::page::close_dialog select_profile]
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags dye_settings -style menu_dlg_btn -label [translate "DYE settings"] \
-			-symbol cogs -command [list dui::page::close_dialog settings] 
+			-symbol gears -command [list dui::page::close_dialog settings] 
 	}
 
 	proc load { page_to_hide page_to_show {is_next 0} {shot_path {}} args } {
@@ -3280,7 +3441,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags upload -style menu_dlg_btn \
-			-label [translate "Upload this shot"] -symbol cloud-upload -label1variable upload_status_msg
+			-label [translate "Upload this shot"] -symbol cloud-arrow-up -label1variable upload_status_msg
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline -tags line_up_down
 
 		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg -fill red -font_size +3 
@@ -3288,7 +3449,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags download -style menu_dlg_btn \
-			-label [translate "Download this shot"] -symbol cloud-download -label1variable download_status_msg
+			-label [translate "Download this shot"] -symbol cloud-arrow-down -label1variable download_status_msg
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
 		set y0 $y1
@@ -3331,7 +3492,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags settings -style menu_dlg_btn \
-			-label "[translate {Visualizer settings}]" -symbol cogs -label1variable settings_msg
+			-label "[translate {Visualizer settings}]" -symbol gears -label1variable settings_msg
 		
 		# Setup Tk Text tags
 		$tw tag configure title -foreground brown
@@ -3374,7 +3535,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		if { $shot_clock eq {} } {
 			# Next
 			dui item config $page_to_show browse-lbl -text [translate "Download"]
-			dui item config $page_to_show browse-sym -text [dui symbol get cloud-download]
+			dui item config $page_to_show browse-sym -text [dui symbol get cloud-arrow-down]
 		} else {
 			dui item config $page_to_show browse-lbl -text [translate "Browse shot"]
 			dui item config $page_to_show browse-sym -text [dui symbol get chart-line]
@@ -3796,14 +3957,14 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags search_shot -style menu_dlg_btn \
-			-symbol search -symbol_pos {0.1 0.5} -label "[translate {Search shot to describe}]..." -label_pos {0.2 0.5} \
+			-symbol magnifying-glass -symbol_pos {0.1 0.5} -label "[translate {Search shot to describe}]..." -label_pos {0.2 0.5} \
 			-label_width 0.75
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags dye_settings -style menu_dlg_btn \
-			-symbol cogs -symbol_pos {0.1 0.5} -label "[translate {Describe Your Espresso settings}]" -label_pos {0.2 0.5} \
+			-symbol gears -symbol_pos {0.1 0.5} -label "[translate {Describe Your Espresso settings}]" -label_pos {0.2 0.5} \
 			-label_width 0.75
 	}
 
@@ -3986,7 +4147,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 			-labelvariable apply_profile_label -label_width 375
 
 		dui add dbutton $page 1700 [incr y -$vsep] -bwidth 550 -bheight $bheight -anchor sw -style dsx_settings -tags change_profile \
-			-symbol exchange -label [translate "Change profile"] -label_width 375
+			-symbol arrow-right-arrow-left -label [translate "Change profile"] -label_width 375
 		
 		# Define Tk Text tag styles
 		::plugins::DYE::setup_tk_text_profile_tags $widgets(profile_desc) 0
@@ -4232,7 +4393,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		set font_size +1
 
 		dui add shape round $page 0 0 -bwidth 210 -bheight 210 -radius {40 20 20 20} -style dye_pv_icon_btn
-		dui add symbol $page 105 65 -anchor center -symbol exchange -font_size 40 -fill white 
+		dui add symbol $page 105 65 -anchor center -symbol arrow-right-arrow-left -font_size 40 -fill white 
 		dui add dtext $page 105 160 -anchor center -justify center -text [translate "PROFILE SELECTOR"] \
 			-font_size 14 -fill white -width 200
 		
@@ -4244,7 +4405,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		dui add dtext $page $x 25 -anchor nw -justify left -tags page_title -width 1900 -font_size 28 \
 			-text [translate "Select a saved profile"]
 
-		dui add symbol $page [expr {$x-10}] 200 -tags filter_string_icon -anchor se -symbol search -font_size 20
+		dui add symbol $page [expr {$x-10}] 200 -tags filter_string_icon -anchor se -symbol magnifying-glass -font_size 20
 		dui add entry $page $x 210 -tags filter_string -canvas_width 950 -canvas_anchor sw -font_size $font_size
 		bind $widgets(filter_string) <KeyRelease> [namespace current]::fill_profiles 
 		
@@ -4315,7 +4476,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			-label_font_size -1 -command fill_profiles
 
 		# RIGHT SIDE, sort by
-		dui add symbol $page $x [incr y [expr {$vsep}]] -tags sort_by_icon -symbol sort-alpha-down -font_size 28 -anchor nw -justify left
+		dui add symbol $page $x [incr y [expr {$vsep}]] -tags sort_by_icon -symbol arrow-down-a-z -font_size 28 -anchor nw -justify left
 		dui add dtext $page [expr {$x+100}] [expr {$y-10}] -tags sort_by_lbl -text [translate {Sort by}] -font_size 28 -anchor nw	
 		
 		dui add dselector $page $x [incr y [expr {$vsep-30}]] -bwidth 800 -bheight $bheight -tags sort_by \
@@ -4329,7 +4490,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		set tw [dui add text $page 1605 [expr {$y+10}] -tags profile_info -canvas_width 675 -canvas_height [expr {1190-$y}] \
 			-yscrollbar no -highlightthickness 0 -initial_state disabled -font_size -2 -foreground "#7f879a" -exportselection 0]
 		
-		dui add symbol $page 1515 1200 -anchor sw -justify left -symbol plus-circle -tags expand_or_contract_icon -font_size 30 
+		dui add symbol $page 1515 1200 -anchor sw -justify left -symbol circle-plus -tags expand_or_contract_icon -font_size 30 
 		dui add dbutton $page 1400 [expr {$y+75}] 1604 1225 -tags expand_info -command expand_or_contract_info 
 		
 		# BOTTOM BUTTONS
@@ -4895,7 +5056,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		dui add dtext $page $x 25 -anchor nw -justify left -tags page_title -width 1900 -font_size 28 \
 			-text [translate "Select a shot from history"]
 
-		dui add symbol $page [expr {$x-10}] 200 -tags filter_string_icon -anchor se -symbol search -font_size 20
+		dui add symbol $page [expr {$x-10}] 200 -tags filter_string_icon -anchor se -symbol magnifying-glass -font_size 20
 		dui add entry $page $x 210 -tags filter_string -canvas_width 950 -canvas_anchor sw -font_size $font_size
 		bind $widgets(filter_string) <KeyRelease> [namespace current]::apply_string_filter 
 		
@@ -4949,7 +5110,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 			-label_font_size -1 -command filter_shots -initial_state disabled
 
 		# RIGHT SIDE, sort by
-		dui add symbol $page $x [incr y [expr {$vsep}]] -tags sort_by_icon -symbol sort-alpha-down -font_size 28 -anchor nw -justify left
+		dui add symbol $page $x [incr y [expr {$vsep}]] -tags sort_by_icon -symbol arrow-down-a-z -font_size 28 -anchor nw -justify left
 		dui add dtext $page [expr {$x+100}] [expr {$y-10}] -tags sort_by_lbl -text [translate {Sort by}] -font_size 28 -anchor nw	
 		
 		dui add dselector $page $x [incr y [expr {$vsep-30}]] -bwidth 800 -bheight $bheight -tags sort_by \
@@ -4958,7 +5119,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		
 		# RIGHT SIDE, info panel / preview graph
 		dui add shape outline $page 1500 [incr y [expr {$vsep+30}]] 2300 1275 -tags info_box -width 2 -outline grey
-		dui add symbol $page 1530 [expr {$y+15}] -anchor nw -symbol info -tags info_icon -font_size 30 -fill grey
+		dui add symbol $page 1530 [expr {$y+15}] -anchor nw -symbol circle-info -tags info_icon -font_size 30 -fill grey
 		
 		set itw [dui add text $page 1605 154 -tags shot_info -canvas_width 675 -canvas_height 600 \
 			-yscrollbar no -highlightthickness 0 -initial_state hidden -font_size -2 -foreground "#7f879a" -exportselection 0]
@@ -4970,7 +5131,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		setup_graph 1
 		#bind $widgets(preview_graph) [dui platform button_press] [list [namespace current]::preview_graph_click]
 	
-		dui add symbol $page 1515 1200 -anchor sw -justify left -symbol plus-circle -tags expand_or_contract_icon -font_size 30 
+		dui add symbol $page 1515 1200 -anchor sw -justify left -symbol circle-plus -tags expand_or_contract_icon -font_size 30 
 		dui add dbutton $page 1400 [expr {$y+75}] 1604 1225 -tags expand_info -command expand_or_contract_info 
 		
 		# BOTTOM BUTTONS
@@ -6438,7 +6599,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 
 	dui add dbutton $page [expr {$x+$panel_width-100}] $y -anchor ne -tags shot_desc_font_color -style dsx_settings \
 		-command shot_desc_font_color_change -label [translate "Change color"] -label_width 250 \
-		-symbol paint-brush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color)
+		-symbol paintbrush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color)
 
 	dui add dbutton $page [expr {$x+700}] [expr {$y+[dui aspect get dbutton bheight -style dsx_settings]}] \
 		-bwidth 425 -bheight 100 -anchor se -tags use_default_color \
@@ -6842,7 +7003,7 @@ proc ::dui::pages::DYE_v3::setup {} {
 		-tags select_shot -style dyev3_nav_button
 	dui add dbutton $pages [incr x $hspace] $y -bwidth 100 -bheight 120 -symbol binoculars \
 		-tags search_shot -style dyev3_nav_button
-	dui add dbutton $pages [incr x $hspace] $y -bwidth 100 -bheight 120 -symbol history \
+	dui add dbutton $pages [incr x $hspace] $y -bwidth 100 -bheight 120 -symbol clock-rotate-left \
 		-tags open_history_viewer -style dyev3_nav_button
 	
 	
@@ -6852,7 +7013,7 @@ proc ::dui::pages::DYE_v3::setup {} {
 	
 	# Go to settings
 	dui add dbutton {DYE_v3 DYE_v3_manage} [expr {$dui::_base_screen_width-$page_coords(margin_width)}] $y \
-		-tags go_to_settings -symbol cogs -style dyev3_nav_button -anchor ne
+		-tags go_to_settings -symbol gears -style dyev3_nav_button -anchor ne
 }
 
 # We need the description array variables defined from the beginning so as to be able to put traces on them.
@@ -7135,10 +7296,10 @@ proc ::dui::pages::DYE_v3::setup_manage_page {  } {
 	
 	incr y 75
 	dui add dbutton $page $x_label $y -tags upload_to_visualizer -style dyev3_action_half -label [translate "Upload"] \
-		-symbol cloud-upload
+		-symbol cloud-arrow-up
 	
 	dui add dbutton $page [expr {$x_label+$btn_width+$btn_spacing}] $y -tags download_from_visualizer -style dyev3_action_half \
-		-label [translate "Download"] -symbol cloud-download
+		-label [translate "Download"] -symbol cloud-arrow-down
 		
 	incr y 175
 	dui add dbutton $page $x_label $y -tags visualizer_browse -style dyev3_action_half \

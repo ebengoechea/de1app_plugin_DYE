@@ -53,7 +53,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		dtext.anchor.page_title center
 		dtext.justify.page_title center
 					
-		symbol.font_family "Font Awesome 5 Pro-Regular-400"
+		symbol.font_family "Font Awesome 6 Pro-Regular-400"
 		symbol.font_size 55
 		symbol.fill $text_c
 		symbol.disabledfill $disabled_c
@@ -148,7 +148,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		dbutton_dda_symbol.fill $text_c
 		dbutton_dda_symbol.disabledfill $disabled_c
 				
-		dcheckbox.font_family "Font Awesome 5 Pro"
+		dcheckbox.font_family "Font Awesome 6 Pro"
 		dcheckbox.font_size 18
 		dcheckbox.fill $text_c
 		dcheckbox.anchor nw
@@ -255,7 +255,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		dtoggle.disabledforeground $button_label_c
 		dtoggle.disabledoutline $button_label_c		
 	}]
-	
+
 	# dui_number_editor page styles
 	dui aspect set -theme DSx2 {
 		dbutton.shape.dne_clicker outline 
@@ -299,7 +299,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		
 		dbutton.shape.menu_dlg_close rect 
 		dbutton.fill.menu_dlg_close {} 
-		dbutton.symbol.menu_dlg_close times
+		dbutton.symbol.menu_dlg_close xmark
 		dbutton_symbol.pos.menu_dlg_close {0.5 0.5}
 		dbutton_symbol.anchor.menu_dlg_close center
 		dbutton_symbol.justify.menu_dlg_close center
@@ -448,13 +448,13 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
 	
 	dui aspect set -style dye_main_nav_button [subst { dbutton.shape {} dbutton.fill {} dbutton.disabledfill {}
-		dbutton_symbol.font_size 28 dbutton_symbol.fill $header_button_c dbutton_symbol.disabledfill $disabled_c}]
+		dbutton_symbol.font_size 28 dbutton_symbol.fill $text_c dbutton_symbol.disabledfill $disabled_c}]
 
 	dui aspect set -type dtext -style section_header [list font_family $bold_font font_size 20 fill $foreground_c]
 	
 	dui aspect set -type dclicker -style dye_double [subst {shape {} fill $background_c 
 		disabledfill $background_c width 0 orient horizontal use_biginc 1 
-		symbol chevron-double-left symbol1 chevron-left symbol2 chevron-right symbol3 chevron-double-right}]
+		symbol chevrons-left symbol1 chevron-left symbol2 chevron-right symbol3 chevrons-right}]
 	dui aspect set -type dclicker_symbol -style dye_double [subst {pos {0.075 0.5} font_size 24 anchor center 
 		fill $button_bg_c disabledfill $disabled_c}]
 	dui aspect set -type dclicker_symbol1 -style dye_double [subst {pos {0.275 0.5} font_size 24 anchor center 
@@ -574,6 +574,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		text_tag.font.dyev3_field_nonhighlighted "[dui font get $font 15]"
 		text_tag.background.dyev3_field_nonhighlighted {}	
 	}]
+
 }
 
 

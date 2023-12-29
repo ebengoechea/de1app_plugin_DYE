@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.28] - 2023-12-29
+
+### Changed
+- Use Font Awesome 6 instead of 5 in skin themes, and change the symbol names modified in DUI.tcl by commit 50951f3.
+
 ## [2.27] - 2023-12-27
 
 ### Changed
