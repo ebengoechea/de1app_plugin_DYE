@@ -53,6 +53,8 @@ namespace eval ::plugins::DYE {
 	variable past_shot_desc_one_line {}
 	variable past_shot_desc2 {}
 	variable past_shot_desc_one_line2 {}
+	
+	variable max_n_favorites 12
 }
 
 ### PLUGIN WORKFLOW ###################################################################################################
@@ -212,6 +214,7 @@ $::settings(skin) skin v[subst \$::plugins::DYE::min_$::settings(skin)_version] 
 # Ensure all settings values are defined, otherwise set them to their default values.
 proc ::plugins::DYE::check_settings {} {
 	variable settings
+	variable max_n_favorites
 	
 	if { ![info exists settings(version)] || [package vcompare $settings(version) $::plugins::DYE::version] < 0 } {
 		upgrade [value_or_default settings(version) ""]
@@ -328,14 +331,20 @@ roast_level bean_notes grinder_model grinder_setting drink_tds drink_ey espresso
 espresso_notes my_name drinker_name scentone skin beverage_type final_desired_shot_weight repository_links}	
 	}
 	
-#	if {[info exists settings(favorites)] == 0} {
-#		set settings(favorites) [list]
-#		set empty_fav [list "n_recent" "" [list]]
-#		for {set i 0} {$i < 10} {incr i 1} {
-#			lappend settings(favorites) $empty_fav
-#		}
-#	}
+	if {[info exists settings(favorites)] == 0} {
+		set settings(favorites) [list]
+	}
+	if {[llength $settings(favorites)] < $max_n_favorites} {
+		set empty_fav [list "n_recent" "" [list]]
+		for {set i [llength $settings(favorites)]} {$i < $max_n_favorites} {incr i 1} {
+			lappend settings(favorites) $empty_fav
+		}
+	}
 
+	ifexists settings(dsx2_use_dye_favs) 1
+	ifexists settings(dsx2_n_visible_dye_favs) 4
+	ifexists settings(favs_n_recent_grouping) {beans profile workflow}
+	ifexists settings(favs_n_recent_what_to_copy) {workflow profile beans grinder ratio}
 }
 
 proc ::plugins::DYE::upgrade { previous_version } {
@@ -1377,147 +1386,148 @@ proc ::plugins::DYE::open_profile_tools { args } {
 	}
 }
 
-#proc ::plugins::DYE::update_favorites { } {
-#	variable settings	
-#	
-#	array set last_10_beans [::plugins::SDB::shots_by {bean_brand bean_type roast_date} 1 {} 10]
-#	
-#	set nshot 0
-#	for {set i 0} {$i < [llength $settings(favorites)]} {incr i 1} {
-#		set fav [lindex $settings(favorites) $i]
-#		
-#		if {[lindex $fav 0] eq "n_recent"} {
-#			set fav_values [list]
-#			if { [array size last_10_beans] >= $nshot } {
-#				foreach f [array names last_10_beans] {
-#					lappend fav_values "$f" [join [lindex $last_10_beans($f) $nshot] " "]
-#				}
-#				lset fav 1 "[lindex $last_10_beans(bean_brand) $nshot]\n[lindex $last_10_beans(bean_type) $nshot] [lindex $last_10_beans(roast_date) $nshot]"
-#			}
-#			lset fav 2 $fav_values
-#			lset settings(favorites) $i $fav
-#			
-#			incr nshot 1
+proc ::plugins::DYE::update_favorites { } {
+	variable settings	
+	variable max_n_favorites
+	
+	array set last_n_beans [::plugins::SDB::shots_by {bean_brand bean_type roast_date} 1 {} $max_n_favorites]
+	
+	set nshot 0
+	for {set i 0} {$i < $max_n_favorites} {incr i 1} {
+		set fav [lindex $settings(favorites) $i]
+		
+		if {[lindex $fav 0] eq "n_recent"} {
+			set fav_values [list]
+			if { [array size last_n_beans] >= $nshot } {
+				foreach f [array names last_n_beans] {
+					lappend fav_values "$f" [join [lindex $last_n_beans($f) $nshot] " "]
+				}
+				lset fav 1 "[lindex $last_n_beans(bean_brand) $nshot]\n[lindex $last_n_beans(bean_type) $nshot] [lindex $last_n_beans(roast_date) $nshot]"
+			}
+			lset fav 2 $fav_values
+			lset settings(favorites) $i $fav
+			
+			incr nshot 1
+		}
+	}
+	
+	plugins save_settings DYE 
+}
+
+proc ::plugins::DYE::favorite_title { n_fav } {
+	variable settings
+	set title ""
+	
+	set fav [lindex $settings(favorites) $n_fav]
+	if { [lindex $fav 0] eq "n_recent" } {
+		if { [lindex $fav 1] eq {} } {
+			array set fav_values [lindex $fav 2]
+			if { [array size fav_values] > 0 } {
+				set title "$fav_values(bean_brand)\n$fav_values(bean_type) $fav_values(roast_date)"
+			}
+		} else {
+			set title [lindex $fav 1]
+		}
+	}
+	
+	return $title
+}
+
+proc ::plugins::DYE::load_favorite { n_fav } {
+	variable settings
+	
+	set fav [lindex $settings(favorites) $n_fav]
+	array set fav_values [lindex $fav 2]
+	
+	if { [lindex $fav 0] eq "n_recent" } {
+		if {[info exists fav_values(last_clock)]} {
+			#::plugins::DYE::open $fav_values(last_clock)
+			load_next_from_shot $fav_values(last_clock)
+		} else {
+			borg toast [translate "Malformed data, can't load DYE favorite"]
+		}
+	}
+}
+
+proc ::plugins::DYE::load_next_from_shot { src_clock } {
+	variable data
+	variable src_data
+	
+	set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
+	set propagate [string is true $::plugins::DYE::settings(propagate_previous_shot_desc)]
+	set next_modified [string is true $::plugins::DYE::settings(next_modified)]
+	set skin $::settings(skin)
+	set settings_changed 0
+	set dye_settings_changed 0
+	set dsx_settings_changed 0
+	
+	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
+	#array set src_shot [::plugins::SDB::shots $read_fields 1 "clock=$src_clock" 1]
+	array set src_shot [::plugins::SDB::load_shot $src_clock 0 1 1]
+	if { [array size src_shot] == 0 } { return 0 }
+
+	foreach field [array names src_shot] {
+		if { [info exists ::plugins::DYE::settings(next_$field)] } {
+			set ::plugins::DYE::settings(next_modified) 1
+			set ::plugins::DYE::settings(next_$field) $src_shot($field)
+			if { ([metadata get $field propagate] || $field eq "espresso_notes") && [info exists ::settings($field)] } {
+				if { $src_shot($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
+					if { $field ni {grinder_dose_weight grinder_setting} } {
+						set ::settings($field) 0
+					}
+				} else {
+					set ::settings($field) $src_shot($field)
+				}
+				set settings_changed 1
+				
+				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
+					set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
+					set dsx_settings_changed 1
+				}
+			} elseif { $field eq "drink_weight" } {
+				if { $skin eq "MimojaCafe" } {
+					if {[::device::scale::expecting_present] && [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
+						if {$::settings(settings_profile_type) eq "settings_2c"} {
+							set ::settings(final_desired_shot_weight_advanced) $src_shot(drink_weight)
+						} else {
+							set ::settings(final_desired_shot_weight) $src_shot(drink_weight)
+						}
+						set settings_changed 1
+					}
+				} elseif { $skin eq "DSx" } {
+					if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
+						set ::DSx_settings(saw) $src_shot(drink_weight) 
+						set dsx_settings_changed 1
+					}
+				}
+			}
+		}
+	}
+	
+#	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+#		if { [info exists ::settings($fn)] && [info exists src_data($fn)] } {
+#			set ::settings($fn) $::settings($fn)
 #		}
 #	}
-#	
-#	plugins save_settings DYE 
-#}
-#
-#proc ::plugins::DYE::favorite_title { n_fav } {
-#	variable settings
-#	set title ""
-#	
-#	set fav [lindex $settings(favorites) $n_fav]
-#	if { [lindex $fav 0] eq "n_recent" } {
-#		if { [lindex $fav 1] eq {} } {
-#			array set fav_values [lindex $fav 2]
-#			if { [array size fav_values] > 0 } {
-#				set title "$fav_values(bean_brand)\n$fav_values(bean_type) $fav_values(roast_date)"
-#			}
-#		} else {
-#			set title [lindex $fav 1]
-#		}
-#	}
-#	
-#	return $title
-#}
-#
-#proc ::plugins::DYE::load_favorite { n_fav } {
-#	variable settings
-#	
-#	set fav [lindex $settings(favorites) $n_fav]
-#	array set fav_values [lindex $fav 2]
-#	
-#	if { [lindex $fav 0] eq "n_recent" } {
-#		if {[info exists fav_values(last_clock)]} {
-#			#::plugins::DYE::open $fav_values(last_clock)
-#			load_next_from_shot $fav_values(last_clock)
-#		} else {
-#			borg toast [translate "Malformed data, can't load DYE favorite"]
-#		}
-#	}
-#}
-#
-#proc ::plugins::DYE::load_next_from_shot { src_clock } {
-#	variable data
-#	variable src_data
-#	
-#	set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
-#	set propagate [string is true $::plugins::DYE::settings(propagate_previous_shot_desc)]
-#	set next_modified [string is true $::plugins::DYE::settings(next_modified)]
-#	set skin $::settings(skin)
-#	set settings_changed 0
-#	set dye_settings_changed 0
-#	set dsx_settings_changed 0
-#	
-#	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
-#	#array set src_shot [::plugins::SDB::shots $read_fields 1 "clock=$src_clock" 1]
-#	array set src_shot [::plugins::SDB::load_shot $src_clock 0 1 1]
-#	if { [array size src_shot] == 0 } { return 0 }
-#
-#	foreach field [array names src_shot] {
-#		if { [info exists ::plugins::DYE::settings(next_$field)] } {
-#			set ::plugins::DYE::settings(next_modified) 1
-#			set ::plugins::DYE::settings(next_$field) $src_shot($field)
-#			if { ([metadata get $field propagate] || $field eq "espresso_notes") && [info exists ::settings($field)] } {
-#				if { $src_shot($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
-#					if { $field ni {grinder_dose_weight grinder_setting} } {
-#						set ::settings($field) 0
-#					}
-#				} else {
-#					set ::settings($field) $src_shot($field)
-#				}
-#				set settings_changed 1
-#				
-#				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
-#					set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
-#					set dsx_settings_changed 1
-#				}
-#			} elseif { $field eq "drink_weight" } {
-#				if { $skin eq "MimojaCafe" } {
-#					if {[::device::scale::expecting_present] && [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
-#						if {$::settings(settings_profile_type) eq "settings_2c"} {
-#							set ::settings(final_desired_shot_weight_advanced) $src_shot(drink_weight)
-#						} else {
-#							set ::settings(final_desired_shot_weight) $src_shot(drink_weight)
-#						}
-#						set settings_changed 1
-#					}
-#				} elseif { $skin eq "DSx" } {
-#					if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
-#						set ::DSx_settings(saw) $src_shot(drink_weight) 
-#						set dsx_settings_changed 1
-#					}
-#				}
-#			}
-#		}
-#	}
-#	
-##	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
-##		if { [info exists ::settings($fn)] && [info exists src_data($fn)] } {
-##			set ::settings($fn) $::settings($fn)
-##		}
-##	}
-#	set imported [::profile::import_legacy [array get src_data]]
-#	
-#	set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $src_shot(bean_brand) $src_shot(bean_type) \
-#		$src_shot(roast_date) $src_shot(grinder_model) $src_shot(grinder_setting)]
-#	set dye_settings_changed 1
-#	
-#	if { $settings_changed } {
-#		::save_settings
-#	}
-#	if { $dye_settings_changed } {
-#		plugins save_settings DYE
-#	}
-#	if { $dsx_settings_changed } {
-#		::save_DSx_settings
-#	}
-#	
-#	define_next_shot_desc
-#	return 1
-#}
+	set imported [::profile::import_legacy [array get src_data]]
+	
+	set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $src_shot(bean_brand) $src_shot(bean_type) \
+		$src_shot(roast_date) $src_shot(grinder_model) $src_shot(grinder_setting)]
+	set dye_settings_changed 1
+	
+	if { $settings_changed } {
+		::save_settings
+	}
+	if { $dye_settings_changed } {
+		plugins save_settings DYE
+	}
+	if { $dsx_settings_changed } {
+		::save_DSx_settings
+	}
+	
+	define_next_shot_desc
+	return 1
+}
 
 ### "DESCRIBE YOUR ESPRESSO" PAGE #####################################################################################
 
