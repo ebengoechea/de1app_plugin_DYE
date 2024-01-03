@@ -10,8 +10,8 @@
 #set ::skindebug 1
 #plugins enable SDB
 #plugins enable DYE
-fconfigure $::logging::_log_fh -buffering line
-dui config debug_buttons 1
+#fconfigure $::logging::_log_fh -buffering line
+#dui config debug_buttons 1
 
 package require http
 package require tls
@@ -27,7 +27,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.28
+	variable version 2.29
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
@@ -83,7 +83,7 @@ proc ::plugins::DYE::main {} {
 	# Buttons in the "default" skin (profile setting pages)
 	if { [string is true $settings(button_in_settings_presets)] } {
 		set widgets(launch_dye_profile_selector) [dui add dbutton settings_1 1140 1085 -bwidth 130 -bheight 120 -shape round -radius 30 \
-			-tags launch_dye_ps -fill "#c1c5e4" -symbol exchange -symbol_pos {0.5 0.4} -symbol_fill white \
+			-tags launch_dye_ps -fill "#c1c5e4" -symbol arrow-right-arrow-left -symbol_pos {0.5 0.4} -symbol_fill white \
 			-tap_pad {20 40 40 80} -label [translate {DYE PS}] -label_font_size 12 -label_pos {0.5 0.8} -label_anchor center -label_justify center \
 			-label_fill "#8991cc" -label_font_family notosansuibold -label_width 130 -command [list [namespace current]::open_profile_tools select]]
 	}
@@ -1593,7 +1593,7 @@ proc ::dui::pages::DYE::setup {} {
 #		-command yes
 	
 	dui add dbutton $page 350 0 550 175 -tags move_to_next -symbol forward-fast -symbol_pos {0.35 0.4} -style dye_main_nav_button
-#	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol fast-forward -tags move_to_next -style dye_main_nav_button \
+#	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol forward-fast -tags move_to_next -style dye_main_nav_button \
 #		-command yes
 
 	set x_right 2360
@@ -3932,7 +3932,7 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		set y1 [lindex $splits [incr i]]
 
 		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags plan_next -style menu_dlg_btn \
-			-symbol fast-forward -symbol_pos {0.1 0.5} -label [translate "Plan NEXT shot"] -label_pos {0.2 0.1} -label_anchor nw \
+			-symbol forward-fast -symbol_pos {0.1 0.5} -label [translate "Plan NEXT shot"] -label_pos {0.2 0.1} -label_anchor nw \
 			-label_font_family notosansuibold -label_font_size -1 -label_width 0.75 \
 			-label1variable next_shot_summary -label1_pos {0.2 0.35} -label1_width 0.75 -label1_anchor nw -label1_justify left
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline 
@@ -4919,7 +4919,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		
 		if { $data(info_expanded) } {
 			# Contract
-			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get plus-circle]
+			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get circle-plus]
 			dui item show $page $show_or_hide_tags
 			
 			$can coords $widgets(profile_info) $x0 [lindex $stored_dims 0]
@@ -4935,7 +4935,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			set data(info_expanded) 0
 		} else {
 			# Expand
-			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get minus-circle]
+			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get circle-minus]
 			dui item hide $page $show_or_hide_tags 
 			
 			set y [dui::page::calc_y $page 150 1] 
@@ -5702,7 +5702,7 @@ FROM V_shot WHERE removed=0 "
 		
 		if { $data(info_expanded) } {
 			# Contract
-			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get plus-circle]
+			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get circle-plus]
 			dui item show $page $show_or_hide_tags
 			dui item hide $page shot_info
 			
@@ -5721,7 +5721,7 @@ FROM V_shot WHERE removed=0 "
 			dui item disable $page navigate_by*
 		} else {
 			# Expand
-			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get minus-circle]
+			dui item config $widgets(expand_or_contract_icon) -text [dui symbol get circle-minus]
 			dui item hide $page $show_or_hide_tags 
 			dui item show $page shot_info
 			
@@ -6996,7 +6996,7 @@ proc ::dui::pages::DYE_v3::setup {} {
 		-style dyev3_nav_button	
 	dui add dbutton $pages [incr x $hspace] $y -bwidth 100 -bheight 120 -symbol forward \
 		-tags move_forward -style dyev3_nav_button	
-	dui add dbutton $pages [incr x $hspace] $y -bwidth 100 -bheight 120 -symbol fast-forward \
+	dui add dbutton $pages [incr x $hspace] $y -bwidth 100 -bheight 120 -symbol forward-fast \
 		-tags move_to_next -style dyev3_nav_button
 	
 	dui add dbutton $pages [incr x [expr {$hspace+30}]] $y -bwidth 100 -bheight 120 -symbol list \

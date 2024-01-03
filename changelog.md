@@ -2,6 +2,12 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.29] - 2024-01-03
+
+### Changed
+- Remove debug boxes around UI buttons that were inadvertently left in prevous version.
+- Updated a few changed Font Awesome 6 symbol names that were inadvertently left in prevous version.
+
 ## [2.28] - 2023-12-29
 
 ### Changed
