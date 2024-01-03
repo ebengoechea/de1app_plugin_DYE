@@ -578,7 +578,6 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	
 	########################################################################################################
 	## HOME PAGES INTEGRATION
-	::plugins::DYE::update_favorites
 	::plugins::DYE::define_past_shot_desc
 	
 	dui page add dsx2_dye_favs -namespace true -type fpdialog
@@ -668,9 +667,9 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		dsx2_update_chart_on_copy 1
 		dsx2_disable_dye_favs 0
 		favs_group_by_beans 1
-		favs_group_by_grinder 1
+		favs_group_by_profile_title 1
 		favs_group_by_workflow 1
-		favs_group_by_profile 1
+		favs_group_by_grinder_model 1
 		favs_settings_changed 0
 	}
 	
@@ -702,19 +701,19 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags favs_group_by_beans_lbl -width 400 \
 			-text [translate "Beans"]
 
-		dui add dtoggle $page [expr $x+$x_2nd_group_offset] $y -anchor nw -tags favs_group_by_profile \
-			-variable favs_group_by_profile	 -command {%NS::validate_group_by profile}
-		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y -tags favs_group_by_profile_lbl -width 400 \
-			-text [translate "Profile"] -command validate_group_by 
+		dui add dtoggle $page [expr $x+$x_2nd_group_offset] $y -anchor nw -tags favs_group_by_profile_title \
+			-variable favs_group_by_profile_title -command {%NS::validate_group_by profile_title}
+		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y -tags favs_group_by_profile_title_lbl -width 400 \
+			-text [translate "Profile"]
 
 		dui add dtoggle $page $x [incr y 125] -anchor nw -tags favs_group_by_workflow -variable favs_group_by_workflow \
 			-command {%NS::validate_group_by workflow}
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags favs_group_by_workflow_lbl -width 400 \
 			-text [translate "Workflow"]
 
-		dui add dtoggle $page [expr $x+$x_2nd_group_offset] $y -anchor nw -tags favs_group_by_grinder \
-			-variable favs_group_by_grinder -command {%NS::validate_group_by grinder}
-		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y -tags favs_group_by_grinder_lbl -width 400 \
+		dui add dtoggle $page [expr $x+$x_2nd_group_offset] $y -anchor nw -tags favs_group_by_grinder_model \
+			-variable favs_group_by_grinder_model -command {%NS::validate_group_by grinder_model}
+		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y -tags favs_group_by_grinder_model_lbl -width 400 \
 			-text [translate "Grinder"]
 		
 		dui add dtext $page $x [incr y 210] -width 1000 -anchor w \
@@ -744,7 +743,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 
 		# Favorites bar on the right
 		set y -20
-		for {set i 0} {$i < $::plugins::DYE::max_n_favorites} {incr i 1} {
+		for {set i 0} {$i < [::plugins::DYE::favorites::max_number]} {incr i 1} {
 			if { $i < $data(max_dsx2_home_visible_favs) } {
 				set target_pages [list $page dsx2_dye_edit_fav {*}$::skin_home_pages]
 			} else {
@@ -753,8 +752,8 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			
 			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
 				-shape round_outline -bheight 100 -fill $::skin_forground_colour -outline $::skin_forground_colour \
-				-tags [list dye_fav_$i dye_favs] -command [list ::plugins::DYE::::load_favorite $i] \
-				-labelvariable "\[::plugins::DYE::favorite_title $i\]" -labelvariable_font_size 12 -initial_state hidden
+				-tags [list dye_fav_$i dye_favs] -command [list ::plugins::DYE::favorites::load $i] \
+				-labelvariable "\[::plugins::DYE::favorites::fav_title $i\]" -label_font_size 12 -initial_state hidden
 			
 			dui add dbutton $page [expr $::skin(button_x_fav)-150] $y -bwidth 100 -bheight 100 -shape "" \
 				-fill $::skin_background_colour -tags [list dye_fav_edit_$i dye_fav_edits] \
@@ -785,7 +784,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		set data(dsx2_disable_dye_favs) 0
 		set data(dsx2_n_visible_dye_favs) $::plugins::DYE::settings(dsx2_n_visible_dye_favs)
 		set data(dsx2_update_chart_on_copy) $::plugins::DYE::settings(dsx2_update_chart_on_copy)
-		foreach group_var {beans grinder workflow profile} {
+		foreach group_var [::plugins::DYE::favorites::all_grouping_vars] {
 			set data(favs_group_by_$group_var) [expr [lsearch -nocase $::plugins::DYE::settings(favs_n_recent_grouping) $group_var] > -1]
 		}
 		
@@ -904,8 +903,8 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		variable data
 		set page [namespace tail [namespace current]]
 		
-		if { $data(favs_group_by_beans) == 0 && $data(favs_group_by_grinder) == 0 && \
-				$data(favs_group_by_workflow) == 0 && $data(favs_group_by_profile) == 0 } {
+		if { $data(favs_group_by_beans) == 0 && $data(favs_group_by_grinder_model) == 0 && \
+				$data(favs_group_by_workflow) == 0 && $data(favs_group_by_profile_title) == 0 } {
 			set data(favs_group_by_$group_by_var) 1
 			dui item show $page favs_group_by_val_msg
 			after 2000 [list dui::item::hide $page favs_group_by_val_msg]
@@ -955,7 +954,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		}
 			
 		set group_recent_by [list]
-		foreach group_var {beans profile workflow grinder} {
+		foreach group_var [::plugins::DYE::favorites::all_grouping_vars] {
 			if { $data(favs_group_by_$group_var) == 1 } {
 				lappend group_recent_by $group_var
 			}
@@ -963,7 +962,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		if { $::plugins::DYE::settings(favs_n_recent_grouping) ne $group_recent_by } {
 			set ::plugins::DYE::settings(favs_n_recent_grouping) $group_recent_by
 			set favs_changed 1
-			::plugins::DYE::update_favorites
+			::plugins::DYE::favorites::update_recent
 		}
 			
 		if { $data(dsx2_disable_dye_favs) == 1 } {
@@ -1000,7 +999,12 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 	variable data
 	array set data {
 		page_title {Edit DYE Favorite}
-		editing_fav -1		
+		fav_number -1
+		
+		current_fav_type {n_recent}
+		current_fav_title {}
+		current_fav_values {} 
+		
 		fav_type n_recent
 		fav_title {}
 		
@@ -1032,6 +1036,14 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		fav_copy_drinker_name 0
 	}
 
+	variable copy_fields
+	set copy_fields {workflow workflow_settings profile_title full_profile beans roast_date grinder_model \
+		grinder_setting grinder_dose_weight drink_weight espresso_notes my_name drinker_name}
+	
+	variable fav_fields
+	set fav_fields {workflow profile_title bean_brand bean_type roast_date grinder_model \
+			grinder_setting grinder_dose_weight drink_weight espresso_notes my_name drinker_name}
+		
 	proc setup {} {
 		variable data
 		variable widgets	
@@ -1094,10 +1106,11 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			-variable fav_copy_profile_title 
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_profile_title_lbl fav_editing} -width 800 \
 			-text [translate "Profile title"] 
-		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_profile fav_editing} -variable fav_copy_profile \
-			
-		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_full_profile_lbl fav_editing} -width 800 \
-			-text [translate "Full profile"] 		
+		
+		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_full_profile fav_editing} \
+			-variable fav_copy_full_profile
+		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_full_profile_lbl fav_editing} \
+			-width 800 -text [translate "Full profile"] 		
 		dui add variable $page $x_data $y -tags {fav_full_profile fav_editing} -width 800 -textvariable fav_profile_title \
 			-anchor nw -justify left -font_size -2 
 		
@@ -1166,15 +1179,13 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 	proc load { page_to_hide page_to_show n_fav } {
 		variable data
 		
-		set data(editing_fav) $n_fav
+		set data(fav_number) $n_fav
 		set data(page_title) "[translate {Edit DYE Favorite}] #[expr $n_fav+1]"
 
-		# Load the favorite data
-		set fav [lindex $::plugins::DYE::settings(favorites) $n_fav]
-		set data(fav_type) [lindex $fav 0]
+		# Load the current favorite data
+		set data(fav_type) [current_fav_type]
 		change_fav_type
-		set data(fav_title) [lindex $fav 1]
-				
+		
 		return 1
 	}
 	
@@ -1183,53 +1194,68 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		
 		# Show only the fav button for the favorite being edited
 		dui item hide $page_to_show dye_favs
-		dui item show $page_to_show dye_fav_$data(editing_fav)* 
+		dui item show $page_to_show dye_fav_$data(fav_number)* 
 		
 		# Move the bracket "index triangle" to point at the fav being edited
-		# NOTE that dui::item::moveto doesn't work with polygons atm as it's restricted to 4 coordinates
+		# BEWARE that dui::item::moveto doesn't work with polygons atm as it's restricted to 4 coordinates
 		#	and polygons need more.
 		set x [expr $::skin(button_x_fav)-135]
-		set y [expr 123+(120*$data(editing_fav))]
+		set y [expr 123+(120*$data(fav_number))]
 		[dui canvas] coords [dui item get $page_to_show edit_bracket_index] \
 			[dui::page::calc_x $page_to_show [expr $x+8]] [dui::page::calc_y $page_to_show [expr $y]] \
 			[dui::page::calc_x $page_to_show [expr $x+8+35]] [dui::page::calc_y $page_to_show [expr $y+20]] \
 			[dui::page::calc_x $page_to_show [expr $x+8]] [dui::page::calc_y $page_to_show [expr $y+40]]
+		
+		# The call to change_fav_type on the loade proc doesn't disable fav_title when opening the page, 
+		# as the page is not shown yet at that moment.
+		dui item enable_or_disable [expr {$data(fav_type) eq "fixed"}] $page_to_show fav_title 
 	}
 
 	proc change_fav_type {} {
 		variable data
+		variable copy_fields
+		variable fav_fields
 		set page [namespace tail [namespace current]]
 		
-		set fav [lindex $::plugins::DYE::settings(favorites) $data(editing_fav)]
-		
+		foreach field_name $copy_fields {
+			set data(fav_copy_$field_name) 0
+		}
+		foreach field_name $fav_fields {
+			set data(fav_$field_name) {}
+		}
 		
 		if {$data(fav_type) eq "n_recent"} {
 			dui item config $page fav_data_lbl -text [translate "Example data (from recent shot)"]
 			dui item disable $page fav_title
-		
-			set data(fav_title) [lindex $fav 1]
-			array set fav_values [lindex $fav 2]
 			
-			foreach field_name [metadata fields -domain shot -category description] {
-				if { [info exists data(fav_$field_name)] } {
+			# Initialize the actual favorite (example) data. Use the data in the current favorite
+			# if it happens to be a recent-type, otherwise need to search it in the DB or in later
+			# favorites
+			if { [current_fav_type] eq "n_recent" } {
+				set data(fav_title) [current_fav_title]
+				array set fav_values [current_fav_values]
+				
+				foreach field_name $fav_fields {
 					if { [info exists fav_values($field_name)] } {
-						set data(fav_$field_name) fav_values($field_name)
+						set data(fav_$field_name) $fav_values($field_name)
 					}
 				}
+			} else {
+				# TBD: Search in the current favorites and, if not available, search the DB
 			}
 			
-#			set data(fav_workflow) [value_or_default fav_values(workflow) {}]
-#			set data(fav_profile) [value_or_default fav_values(profile_title) {}]
-#			set data(fav_beans) [string trim "[value_or_default fav_values(bean_brand) {}] [value_or_default fav_values(bean_type) {}] [value_or_default fav_values(roast_date) {}]"]
-#			set data(fav_grinder) "[value_or_default fav_values(grinder_model) {}] @ [value_or_default fav_values(grinder_setting) {}]"
-#			set data(fav_ratio) "[value_or_default fav_values(grinder_dose_weight) {}]g : [value_or_default fav_values(drink_weight) {}]g"
-#			set data(fav_comment) [value_or_default fav_values(espresso_comment)]
-#			set data(fav_ratio) "[value_or_default fav_values(barista) {}] / [value_or_default fav_values(drinker) {}]"
+			# Initialize the "What to copy" toggle booleans from the DYE settings
+			# (changes here apply for equal to ALL recent-type favorites)
+			foreach field_name $::plugins::DYE::settings(favs_n_recent_what_to_copy) {
+				set data(fav_copy_$field_name) 1
+			}
+			
 		} elseif {$data(fav_type) eq "fixed"} {
 			dui item config $page fav_data_lbl -text [translate "Data to copy (from Next Shot definition)"]
 			dui item enable $page fav_title
 			set data(fav_title) {}
 			
+			# Copy example data from the current settings (data for next shot)
 			foreach field_name [metadata fields -domain shot -category description] {
 				if { [info exists data(fav_$field_name)] } {
 					if { [info exists ::settings($field_name)] } {
@@ -1237,22 +1263,57 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 					}
 				}
 			}
-			
-#			set data(fav_workflow) [value_or_default fav_values(workflow) {}]
-#			set data(fav_profile) $::settings(profile_title)
-#			set data(fav_beans) [string trim "[value_or_default ::settings(bean_brand) {}] [value_or_default ::settings(bean_type) {}] [value_or_default ::settings(roast_date) {}]"]
-#			set data(fav_grinder) "[value_or_default ::settings(grinder_model) {}] @ [value_or_default ::settings(grinder_setting) {}]"
-#			set data(fav_ratio) "[value_or_default ::settings(grinder_dose_weight) {}]g : [value_or_default ::settings(drink_weight) {}]g"
-#			set data(fav_comment) [value_or_default ::settings(espresso_comment)]
-#			set data(fav_people) "[value_or_default ::settings(barista) {}] / [value_or_default ::settings(drinker) {}]"
+
+			# "Interpret" what to copy depending on the data on the current Fav
+			foreach field_name $::plugins::DYE::settings(favs_n_recent_what_to_copy) {
+				if { $field_name eq "beans" } {
+					
+				} elseif {[info exists data(fav_copy_$field_name)]} {
+					set data(fav_copy_$field_name) 1
+				}
+			}
+
 		}
 	}
 
+	proc current_fav_type {} {
+		variable data
+		return [::plugins::DYE::favorites::fav_type $data(fav_number)]
+	}
+	
+	proc current_fav_title {} {
+		variable data
+		return [::plugins::DYE::favorites::fav_title $data(fav_number)]
+	}
+	
+	proc current_fav_values {} {
+		variable data
+		return [::plugins::DYE::favorites::fav_values $data(fav_number)]
+	}
+	
 	proc save_fav_edits {} {
 		variable data
+		variable fav_fields
+		variable copy_fields 
 		
 		set fav_values [list]
-		if { $data(fav_type) eq "fixed" } {
+		
+		if { $data(fav_type) eq "n_recent" } {
+			# If the current favorite is already a recent type, no need to do nothing.
+			if { [current_fav_type] ne "n_recent" } {
+				# TODO
+			}
+			
+			# Save changes to what to copy. These apply to all recent-type favs, so are stored in the settings.
+			set new_copy_fields [list]
+			foreach field_name $copy_fields {
+				if { $data(fav_copy_$field_name) == 1 } {
+					lappend new_copy_fields $field_name
+				}
+				set ::plugins::DYE::settings(favs_n_recent_what_to_copy) $new_copy_fields
+			}
+
+		} else {
 			foreach field_name {workflow profile_title roast_date grinder_model grinder_setting \
 					grinder_dose_weight drink_weight espresso_notes my_name drinker_name} {
 				if { [string is true $data(fav_copy_$field_name)] } {
@@ -1268,11 +1329,9 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			
 		}
 
-msg -INFO "DYE LREPLACING fav #$data(editing_fav) [list $data(fav_type) $data(fav_title) $fav_values]"
-		lset ::plugins::DYE::settings(favorites) $data(editing_fav) \
-			[list "$data(fav_type)" "$data(fav_title)" $fav_values]
-		plugins save_settings DYE
-msg -INFO "DYE AFTER fav #$data(editing_fav) [lindex $::plugins::DYE::settings(favorites) $data(editing_fav)]"
+		::plugins::DYE::favorites::set_fav $data(fav_number) $data(fav_type) "$data(fav_title)" $fav_values 0
+		::plugins::save_settings DYE
+		
 		dui page close_dialog
 	}
 	
@@ -1281,3 +1340,5 @@ msg -INFO "DYE AFTER fav #$data(editing_fav) [lindex $::plugins::DYE::settings(f
 	}
 	
 }
+
+

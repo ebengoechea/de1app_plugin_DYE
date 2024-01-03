@@ -53,8 +53,6 @@ namespace eval ::plugins::DYE {
 	variable past_shot_desc_one_line {}
 	variable past_shot_desc2 {}
 	variable past_shot_desc_one_line2 {}
-	
-	variable max_n_favorites 12
 }
 
 ### PLUGIN WORKFLOW ###################################################################################################
@@ -133,6 +131,9 @@ proc ::plugins::DYE::main {} {
 	} else {
 		trace add execution ::save_this_espresso_to_history leave ::plugins::DYE::save_espresso_to_history_hook
 	}
+
+	# Initialize favorites
+	favorites::update_recent
 	
 	if { [ifexists ::debugging 0] == 1 && $::android != 1 } {
 		ifexists ::debugging_window_title "Decent"
@@ -213,7 +214,6 @@ $::settings(skin) skin v[subst \$::plugins::DYE::min_$::settings(skin)_version] 
 # Ensure all settings values are defined, otherwise set them to their default values.
 proc ::plugins::DYE::check_settings {} {
 	variable settings
-	variable max_n_favorites
 	
 	if { ![info exists settings(version)] || [package vcompare $settings(version) $::plugins::DYE::version] < 0 } {
 		upgrade [value_or_default settings(version) ""]
@@ -333,15 +333,16 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 	if {[info exists settings(favorites)] == 0} {
 		set settings(favorites) [list]
 	}
-	if {[llength $settings(favorites)] < $max_n_favorites} {
-		set empty_fav [list "n_recent" "" [list]]
-		for {set i [llength $settings(favorites)]} {$i < $max_n_favorites} {incr i 1} {
-			lappend settings(favorites) $empty_fav
+	if {[llength $settings(favorites)] < [favorites::max_number]} {
+		#set empty_fav [list "n_recent" "" [list]]
+		for {set i [llength $settings(favorites)]} {$i < [favorites::max_number]} {incr i 1} {
+			favorites::set_fav $i "n_recent"
+			#lappend settings(favorites) $empty_fav
 		}
 	}
 
-	ifexists settings(favs_n_recent_grouping) {beans profile workflow}
-	ifexists settings(favs_n_recent_what_to_copy) {workflow profile beans grinder ratio}
+	ifexists settings(favs_n_recent_grouping) {beans profile_title}
+	ifexists settings(favs_n_recent_what_to_copy) {workflow profile_title beans roast_date grinder grinder_dose_weight drink_weight}
 	
 	ifexists settings(dsx2_use_dye_favs) 1
 	ifexists settings(dsx2_n_visible_dye_favs) 4
@@ -1387,72 +1388,6 @@ proc ::plugins::DYE::open_profile_tools { args } {
 	}
 }
 
-proc ::plugins::DYE::update_favorites { } {
-	variable settings	
-	variable max_n_favorites
-	
-	array set last_n_beans [::plugins::SDB::shots_by {bean_brand bean_type roast_date} 1 {} $max_n_favorites]
-	
-	set nshot 0
-	for {set i 0} {$i < $max_n_favorites} {incr i 1} {
-		set fav [lindex $settings(favorites) $i]
-		
-		if {[lindex $fav 0] eq "n_recent"} {
-			set fav_values [list]
-			if { [array size last_n_beans] > $nshot } {
-				foreach f [array names last_n_beans] {
-					lappend fav_values "$f" [join [lindex $last_n_beans($f) $nshot] " "]
-				}
-				lset fav 1 "[lindex $last_n_beans(bean_brand) $nshot]\n[lindex $last_n_beans(bean_type) $nshot] [lindex $last_n_beans(roast_date) $nshot]"
-			}
-			lset fav 2 $fav_values
-			lset settings(favorites) $i $fav
-			
-			incr nshot 1
-		}
-	}
-	
-	plugins save_settings DYE 
-}
-
-proc ::plugins::DYE::favorite_title { n_fav } {
-	variable settings
-	set title ""
-	
-	set fav [lindex $settings(favorites) $n_fav]
-	if { [lindex $fav 0] eq "n_recent" } {
-		if { [lindex $fav 1] eq {} } {
-			array set fav_values [lindex $fav 2]
-			if { [array size fav_values] > 0 } {
-				set title "$fav_values(bean_brand)\n$fav_values(bean_type) $fav_values(roast_date)"
-			}
-		} else {
-			set title [lindex $fav 1]
-		}
-	} else {
-		set title [lindex $fav 1]
-	}
-	
-msg -INFO "DYE Favorite Title #$n_fav = $title"	
-	return $title
-}
-
-proc ::plugins::DYE::load_favorite { n_fav } {
-	variable settings
-	
-	set fav [lindex $settings(favorites) $n_fav]
-	array set fav_values [lindex $fav 2]
-	
-	if { [lindex $fav 0] eq "n_recent" } {
-		if {[info exists fav_values(last_clock)]} {
-			#::plugins::DYE::open $fav_values(last_clock)
-			load_next_from_shot $fav_values(last_clock)
-		} else {
-			borg toast [translate "Malformed data, can't load DYE favorite"]
-		}
-	}
-}
-
 proc ::plugins::DYE::load_next_from_shot { src_clock } {
 	variable data
 	variable src_data
@@ -1532,6 +1467,239 @@ proc ::plugins::DYE::load_next_from_shot { src_clock } {
 	define_next_shot_desc
 	return 1
 }
+
+
+namespace eval ::plugins::DYE::favorites {
+	# Keeps the last max_number-recent shot groups data, so they don't need to
+	# be searched in the Database except when strictly needed.
+	variable all_recent
+	array set all_recent {}
+	
+	proc max_number {} {
+		return 12
+	}
+	
+	proc all_grouping_vars {} {
+		return {beans profile_title workflow grinder_model}
+	}
+	
+	proc is_valid_n_fav { n_fav } {
+		if { ![string is integer $n_fav] } {
+			msg -ERROR "favorites::is_valid_n_fav: 'n_fav' has to be an integer number, but is $n_fav"
+			return 0
+		}
+		if { $n_fav < 0 || $n_fav > [max_number] } {
+			msg -ERROR "favorites::is_valid_n_fav: 'n_fav' has to be an integer number between 0 and [max_number], but is $n_fav"
+			return 0
+		}
+		
+		return 1
+	}
+
+	proc is_valid_fav_or_n_fav { fav } {
+		if { [string is integer $fav] } {
+			if { $fav < 0 || $fav > [max_number] } {
+				msg -ERROR "favorites::is_valid_fav_or_n_fav: 'fav' has to be an integer number between 0 and [max_number], but is $fav"
+				return 0
+			}
+		} elseif { [llength $fav] != 3 } {
+			msg -ERROR "set_favorite: 'fav' is not a valid favorite list with 3 elements, but [llength $fav]"
+			return 0
+		} elseif { [lindex $fav 0] ni {n_recent fixed} } {
+			msg -ERROR "set_favorite: 'fav' type must be 'n_recent' or 'fixed', but is [lindex $fav 0]"
+			return 0
+		}		
+		return 1
+	}
+
+	proc is_valid_type { fav_type } {
+		if { $fav_type ne "n_recent" && $fav_type ne "fixed" } {
+			msg -ERROR "favorites::is_valid_type: 'fav_type' has to be either 'n_recent' or 'fixed, but is $fav_type"
+			return 0
+		}
+		return 1
+	}
+	
+	proc are_valid_values { values } {
+		set values_len [llength $values]
+		if {($values_len % 2) != 0 } {
+			msg -ERROR "favorits::are_valid_values: 'values' has to have an even number of elements, but has [llength $values]"
+			return 0
+		}
+		return 1
+	}
+	
+	
+	proc set_fav { n_fav type {title {}} {values {}} {save_settings 1} } {		
+		if { ![is_valid_n_fav $n_fav] } { return 0 }
+		
+		set type [string tolower [string trim $type]]
+		if { ![is_valid_type $type] } { return 0 }
+		if { ![are_valid_values $values] } { return 0 }
+		
+		set title [string trim $title]
+		set fav [list $type $title $values]
+		lset ::plugins::DYE::settings(favorites) $n_fav $fav
+		
+		if { [string is true $save_settings] } {
+			::plugins::save_settings DYE
+		}
+		
+		return 1
+	}
+	
+	proc get_fav { n_fav } {
+		if { ![is_valid_n_fav $n_fav] } { return {} }
+		return [lindex $::plugins::DYE::settings(favorites) $n_fav]
+	}
+	
+	# Returns the favorite type either of favorite number $fav, or from the favorite list $fav.
+	proc fav_type { fav } {
+		if { ![is_valid_fav_or_n_fav $fav] } { return {} }
+		
+		if { [string is integer $fav] } {
+			set fav_type [lindex [lindex $::plugins::DYE::settings(favorites) $fav] 0]
+		} else {
+			set fav_type [lindex $fav 0]
+		} 
+		set fav_type [string tolower [string trim $fav_type]]
+		if { [is_valid_type $fav_type] } {
+			return $fav_type
+		} else {
+			return {}
+		}
+	}
+	
+	# Returns the favorite title either of favorite number $fav, or from the favorite list $fav.
+	proc fav_title { fav } {
+		if { ![is_valid_fav_or_n_fav $fav] } { return {} }
+		
+		if { [string is integer $fav] } {
+			set title [lindex [lindex $::plugins::DYE::settings(favorites) $fav] 1]
+		} else {
+			set title [lindex $fav 1]
+		} 
+		
+		set title [string trim $title]
+		if { $title eq {} && [fav_type $fav] eq "n_recent" } {
+			array set fav_values [fav_values $fav]
+			if { [array size fav_values] > 0 } {
+				set title "[value_or_default fav_values(bean_brand) {}]\n[value_or_default fav_values(bean_type) {}] [value_or_default fav_values(roast_date) {}]"
+			}			
+		}
+		
+		return $title
+	}
+	
+	proc fav_values { fav } {
+		if { ![is_valid_fav_or_n_fav $fav] } { return {} }
+		
+		if { [string is integer $fav] } {
+			set values [lindex [lindex $::plugins::DYE::settings(favorites) $fav] 2]
+		} else {
+			set values [lindex $fav 2]
+		} 
+		
+		if { [are_valid_values $values] } {
+			return $values
+		} else {
+			return {}
+		}
+	}	
+	
+	proc update_recent { } {
+		variable all_recent
+		set max_n_favs [max_number]
+		
+		set favs_grouping_fields $::plugins::DYE::settings(favs_n_recent_grouping)
+		set beans_idx [lsearch -nocase $favs_grouping_fields "beans"]
+		if { $beans_idx > -1 } {
+			set favs_grouping_fields [lreplace $favs_grouping_fields $beans_idx $beans_idx "bean_brand"] 
+			lappend favs_grouping_fields bean_type roast_date
+		}
+		
+		array set all_recent [::plugins::SDB::shots_by $favs_grouping_fields 1 {} $max_n_favs]
+		
+		set nshot 0
+		for {set i 0} {$i < $max_n_favs} {incr i 1} {
+			set fav_title [fav_title $i]
+			
+			if {[fav_type $i] eq "n_recent"} {
+				set fav_values [list]
+				if { [array size all_recent] > $nshot } {
+					foreach f [array names all_recent] {
+						lappend fav_values "$f" [join [lindex $all_recent($f) $nshot] " "]
+					}
+					 
+					# TODO: Make the name different depending on what is imported
+					if { "bean_type" in $favs_grouping_fields } { 
+						set fav_title "[lindex $all_recent(bean_brand) $nshot]\n[lindex $all_recent(bean_type) $nshot] [lindex $all_recent(roast_date) $nshot]"
+					} elseif { "profile_title" in $favs_grouping_fields } {
+						set fav_title "[lindex $all_recent(profile_title) $nshot]"
+					} elseif { "workflow" in $favs_grouping_fields } {
+						set fav_title "[lindex $all_recent(workflow) $nshot]"
+					} elseif { "grinder_model" in $favs_grouping_fields } {
+						set fav_title "[lindex $all_recent(grinder_model) $nshot]"
+					}
+				} else {
+					set fav_title "<[translate {Recent}] #[expr $nshot+1],\n[translate {No data yet}]>"
+				}
+
+				set_fav $i "n_recent" $fav_title $fav_values 0
+				
+				incr nshot 1
+			}
+		}
+		
+		plugins save_settings DYE 
+	}
+	
+	# Return the number of recent at a given favorite position (i.e. the number of 
+	# recent-type favs before that favorite). Note that whereas n_fav starts at 0,
+	# the return value from this proc starts at 1.
+	proc recent_number { n_fav } {
+		if { ![is_valid_n_fav $n_fav] } { return -1 }
+		
+		set recent_fav_number 0
+		for { set i 0 } { $i < $n_fav } { incr i 1 } {
+			if {[fav_type $i] eq "n_recent"} {
+				incr recent_fav_number 1
+			}
+		}
+		
+		return $recent_fav_number
+	}
+	
+
+	
+	proc load { n_fav } {
+		if { ![is_valid_n_fav $n_fav] } { return 0 }
+		
+		array set fav_values [fav_values $n_fav]
+		
+		if { [array size fav_values] > 0 } {
+			if { [fav_type $n_fav] eq "n_recent" } {
+				if {[info exists fav_values(last_clock)]} {
+					#::plugins::DYE::open $fav_values(last_clock)
+					load_next_from_shot $fav_values(last_clock)
+					return 1
+				} 
+				# borg toast [translate "Malformed data, can't load DYE favorite"]
+			} else {
+				foreach field_name $fav_values {
+					# TODO Handle special cases (workflow settings, profile settings...)
+					if { [info exists ::settings($field_name)] } {
+						set ::settings($field_name) $fav_values($field_name)
+					}
+				}
+				return 1
+			}
+		}
+		
+		return 0
+	}
+}
+
 
 ### "DESCRIBE YOUR ESPRESSO" PAGE #####################################################################################
 
