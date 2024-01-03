@@ -588,7 +588,11 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	set ::main_graph_height [rescale_y_skin 900]
 	$::home_espresso_graph configure -height [rescale_y_skin 900]
 	
-	dui item config off live_graph_data -initial_state hidden -state hidden 
+	dui page add_action [lindex $::skin_home_pages 0] show ::plugins::DYE::DSx2_home_page_on_show
+	dui item config off live_graph_data -initial_state hidden -state hidden
+	
+	trace add execution ::show_graph leave ::plugins::DYE::DSx2_show_graph_hook
+	trace add execution ::hide_graph leave ::plugins::DYE::DSx2_hide_graph_hook
 	
 	#	dui add variable off 30 1570 -tags dye_last_shot_desc -textvariable {$::plugins::DYE::past_shot_desc_one_line} \
 	#		-font_size 12 -fill $::skin_forground_colour -anchor "e" -justify "left" -width 2200
@@ -626,13 +630,48 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	
 }
 
+proc ::plugins::DYE::DSx2_home_page_on_show {  } {
+	# $data(max_dsx2_home_visible_favs) = 5
+	if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
+		for {set i 0} {$i < $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {incr i 1} {
+			dui item config [lindex $::skin_home_pages 0] dye_fav_$i -state normal
+		}
+		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < 5} {incr i 1} {
+			dui item config [lindex $::skin_home_pages 0] dye_fav_$i -state hidden
+		}
+		
+		dui item config $::skin_home_pages l_favs_number -initial_state hidden -state hidden
+		dui item config $::skin_home_pages b_favs_number* -initial_state hidden -state hidden
+		dui item config $::skin_home_pages bb_favs_number* -initial_state hidden -state hidden
+	}
+}
+
+proc ::plugins::DYE::DSx2_show_graph_hook { args } {
+}
+
+proc ::plugins::DYE::DSx2_hide_graph_hook { args } {
+    if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
+    	dui item config $::skin_home_pages l_favs_number -state hidden
+    	dui item config $::skin_home_pages b_favs_number* -state hidden
+    	dui item config $::skin_home_pages bb_favs_number* -state hidden
+    }
+}
+
 namespace eval ::dui::pages::dsx2_dye_favs {
 	variable widgets
 	array set widgets {}
 	
 	variable data
 	array set data {
-		max_home_visible_favs 5
+		max_dsx2_home_visible_favs 5
+		dsx2_n_visible_dye_favs 4
+		dsx2_update_chart_on_copy 1
+		dsx2_disable_dye_favs 0
+		favs_group_by_beans 1
+		favs_group_by_grinder 1
+		favs_group_by_workflow 1
+		favs_group_by_profile 1
+		favs_settings_changed 0
 	}
 	
 	# This proc also adds the first 5 favorite buttons to the DSx2 home page
@@ -646,10 +685,67 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		dui add dtext $page 1000 175 -text [translate "DYE Favorites"] -tags dye_favs_title -style page_title 
 			#-anchor center -justify center
 		
+		# Options on the left "panel"
+		set x 100
+		set x_toggle_lbl_dist 150
+		set x_2nd_group_offset 500 
+		set y 300
+		
+		dui add dtext $page [expr $x] $y -tags favs_group_by_lbl -width 1000 -font_family notosansuibold \
+			-text [translate "Group recent favorites by"]
+
+		dui add dtext $page [expr $x+900] [expr $y+100] -width 900 -style error -tags favs_group_by_val_msg \
+			-text [translate "At least one grouping variable needs to be selected"] -initial_state hidden
+
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags favs_group_by_beans -variable favs_group_by_beans \
+			-command {%NS::validate_group_by beans}
+		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags favs_group_by_beans_lbl -width 400 \
+			-text [translate "Beans"]
+
+		dui add dtoggle $page [expr $x+$x_2nd_group_offset] $y -anchor nw -tags favs_group_by_profile \
+			-variable favs_group_by_profile	 -command {%NS::validate_group_by profile}
+		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y -tags favs_group_by_profile_lbl -width 400 \
+			-text [translate "Profile"] -command validate_group_by 
+
+		dui add dtoggle $page $x [incr y 125] -anchor nw -tags favs_group_by_workflow -variable favs_group_by_workflow \
+			-command {%NS::validate_group_by workflow}
+		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags favs_group_by_workflow_lbl -width 400 \
+			-text [translate "Workflow"]
+
+		dui add dtoggle $page [expr $x+$x_2nd_group_offset] $y -anchor nw -tags favs_group_by_grinder \
+			-variable favs_group_by_grinder -command {%NS::validate_group_by grinder}
+		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y -tags favs_group_by_grinder_lbl -width 400 \
+			-text [translate "Grinder"]
+		
+		dui add dtext $page $x [incr y 210] -width 1000 -anchor w \
+			-text "[translate {Number of DYE favorites to show on home page}] (0-$data(max_dsx2_home_visible_favs))" 
+		
+		dui add dbutton $page [expr $x+1016] [expr $y-134] -bwidth 100 -bheight 100 -shape round \
+			-symbol angle-up -symbol_pos {0.5 0.5} -symbol_font_size 34 \
+			-command {%NS::change_dsx2_n_visible_dye_favs 1}
+		dui add dbutton $page [expr $x+1016] [expr $y+35] -bwidth 100 -bheight 100 -shape round \
+			-symbol angle-down -symbol_pos {0.5 0.5} -symbol_font_size 34 \
+			-command {%NS::change_dsx2_n_visible_dye_favs -1}
+		dui add variable $page [expr $x+1050] $y -fill $::skin_text_colour -font [skin_font font_bold 24] -anchor w \
+			-tags dsx2_n_visible_dye_favs -textvariable dsx2_n_visible_dye_favs
+		
+		dui add dtoggle $page $x [incr y 200] -anchor nw -tags dsx2_update_chart_on_copy \
+			-variable dsx2_update_chart_on_copy		
+		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags dsx2_update_chart_on_copy_lbl -width 1400 \
+			-text [translate "Show previous shot chart on home page when copying the shot into Next"] 
+
+		dui add dtoggle $page $x [incr y 275] -anchor nw -tags dsx2_disable_dye_favs -variable dsx2_disable_dye_favs \
+			-command show_or_hide_disable_dye_favs_msg
+		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags dsx2_disable_dye_favs_lbl -width 1000 \
+			-text [translate "Disable DYE favorites"] 
+
+		dui add dtext $page [expr $x+600] $y -width 1000 -style error -tags disable_dye_favs_msg \
+			-text [translate "When you leave this page, DSx2 favorites will be used instead of DYE favorites. You can re-enable DYE favorites from the DYE settings page."] -initial_state hidden
+
 		# Favorites bar on the right
 		set y -20
 		for {set i 0} {$i < $::plugins::DYE::max_n_favorites} {incr i 1} {
-			if { $i < $data(max_home_visible_favs) } {
+			if { $i < $data(max_dsx2_home_visible_favs) } {
 				set target_pages [list $page dsx2_dye_edit_fav {*}$::skin_home_pages]
 			} else {
 				set target_pages [list $page dsx2_dye_edit_fav]
@@ -658,7 +754,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
 				-shape round_outline -bheight 100 -fill $::skin_forground_colour -outline $::skin_forground_colour \
 				-tags [list dye_fav_$i dye_favs] -command [list ::plugins::DYE::::load_favorite $i] \
-				-labelvariable [subst "\[::plugins::DYE::favorite_title $i\]"] -label_font_size 12 -initial_state hidden
+				-labelvariable "\[::plugins::DYE::favorite_title $i\]" -labelvariable_font_size 12 -initial_state hidden
 			
 			dui add dbutton $page [expr $::skin(button_x_fav)-150] $y -bwidth 100 -bheight 100 -shape "" \
 				-fill $::skin_background_colour -tags [list dye_fav_edit_$i dye_fav_edits] \
@@ -666,32 +762,90 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 				-symbol pen -symbol_pos {0.5 0.5} -symbol_anchor center -symbol_justify center -symbol_font_size 20 \
 				-symbol_fill $::skin_forground_colour 
 		}
-		
+				
 		dui add dbutton $::skin_home_pages [expr $::skin(button_x_fav)-50] \
 			[expr 108+(120*$::plugins::DYE::settings(dsx2_n_visible_dye_favs))] \
 			-bwidth 460 -bheight 80 -shape {} -fill $::skin_background_colour -tags dye_fav_more \
 			-label {. . .} -label_font_size 20 -label_font_family notosansuibold -label_pos {0.5 0.2} \
 			-label_fill $::skin_forground_colour -command [list dui::page::load dsx2_dye_favs]
 		
+				
 		# Bottom area
 		dui add dbutton $page 800 1425 -bwidth 300 -bheight 100 -shape round -tags close_dye_edit_favs \
-			-label [translate "Back"] -label_pos {0.5 0.5} -label_justify center -command dui::page::close_dialog
+			-label [translate "Back"] -label_pos {0.5 0.5} -label_justify center -command page_done
 		
 		dui::page::add_items $page skin_version
 		
 		show_or_hide_dye_favorites
 	}
 
+	proc load { page_to_hide page_to_show args } {
+		variable data
+		
+		set data(dsx2_disable_dye_favs) 0
+		set data(dsx2_n_visible_dye_favs) $::plugins::DYE::settings(dsx2_n_visible_dye_favs)
+		set data(dsx2_update_chart_on_copy) $::plugins::DYE::settings(dsx2_update_chart_on_copy)
+		foreach group_var {beans grinder workflow profile} {
+			set data(favs_group_by_$group_var) [expr [lsearch -nocase $::plugins::DYE::settings(favs_n_recent_grouping) $group_var] > -1]
+		}
+		
+		return 1
+	}
+	
 	proc show { page_to_hide page_to_show } {
-		dui item show $page_to_show dye_favs
+		dui item config $page_to_show dye_favs -state normal
 	}
 
-	proc hide { page_to_hide page_to_show } {
-		variable data
-		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_home_visible_favs)} {incr i 1} {
-			dui item hide $page_to_show dye_fav_$i
-		}
-	}
+#	proc hide { page_to_hide page_to_show } {
+#		variable data
+#		set favs_changed 0
+#		
+#		if { $::plugins::DYE::settings(dsx2_n_visible_dye_favs) != $data(dsx2_n_visible_dye_favs) } {
+#			set ::plugins::DYE::settings(dsx2_n_visible_dye_favs) $data(dsx2_n_visible_dye_favs)
+#			set favs_changed 1
+#
+#			if { $data(dsx2_disable_dye_favs) == 0 } {
+#				show_or_hide_dye_favorites 1
+#			}
+#		}
+#		
+#		if { $::plugins::DYE::settings(dsx2_update_chart_on_copy) != $data(dsx2_update_chart_on_copy) } {
+#			set ::plugins::DYE::settings(dsx2_update_chart_on_copy) $data(dsx2_update_chart_on_copy)
+#			set favs_changed 1
+#		}
+#			
+#		set group_recent_by [list]
+#		foreach group_var {beans profile workflow grinder} {
+#    		if { $data(favs_group_by_$group_var) == 1 } {
+#    			lappend group_recent_by $group_var
+#    		}
+#		}
+#		if { $::plugins::DYE::settings(favs_n_recent_grouping) ne $group_recent_by } {
+#			set ::plugins::DYE::settings(favs_n_recent_grouping) $group_recent_by
+#			set favs_changed 1
+#			::plugins::DYE::update_favorites
+#		}
+#			
+#		if { $data(dsx2_disable_dye_favs) == 1 } {
+#			set ::plugins::DYE::settings(dsx2_use_dye_favs) 0
+#			set favs_changed 1
+#			show_or_hide_dye_favorites 0
+#		} else {
+#			# Ensure DSx2 home pages shows the correct number of favorites
+#			# when returning
+##			for {set i 0} {$i < $data(dsx2_n_visible_dye_favs)} {incr i 1} {
+##				dui item config [lindex $::skin_home_pages 0] dye_fav_$i -initial_state normal -state normal
+##			}
+#			
+##			for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_dsx2_home_visible_favs)} {incr i 1} {
+##				dui item config [lindex $::skin_home_pages 0] dye_fav_$i -initial_state hidden -state hidden 
+##			}
+#		}
+#			
+#		if { $favs_changed == 1 } { 
+#			plugins::save_settings DYE
+#		}
+#	}
 
 	# Globally Enables/Shows or Disables/Hides the DYE favorites
 	proc show_or_hide_dye_favorites { {show {}} } {
@@ -729,18 +883,114 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		dui item config $::skin_home_pages l_dye_bg -initial_state $dsx2_favs_state -state $dsx2_favs_state
 		dui item config $::skin_home_pages li_dye_bg -initial_state $dsx2_favs_state -state $dsx2_favs_state
 
+		dui item config $::skin_home_pages l_favs_number -initial_state $dsx2_favs_state -state $dsx2_favs_state
+		dui item config $::skin_home_pages b_favs_number -initial_state $dsx2_favs_state -state $dsx2_favs_state
+		dui item config $::skin_home_pages bb_favs_number -initial_state $dsx2_favs_state -state $dsx2_favs_state
+		
 		# Show or hide DYE favorites
 		for {set i 0} {$i < $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {incr i 1} {
-			dui item config $page dye_fav_$i* -initial_state $dye_favs_state -state $dye_favs_state 
+			dui item config [lindex $::skin_home_pages 0] dye_fav_$i* -initial_state $dye_favs_state -state $dye_favs_state  
 		}
-		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_home_visible_favs)} {incr i 1} {
-			dui item config $page dye_fav_$i* -initial_state hidden -state hidden
+		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_dsx2_home_visible_favs)} {incr i 1} {
+			dui item config [lindex $::skin_home_pages 0] dye_fav_$i* -initial_state hidden -state hidden
 		}
 		
-		dui item config [lindex $::skin_home_pages 0] dye_fav_more* -initial_state $dye_favs_state -state $dye_favs_state 
+		dui item config [lindex $::skin_home_pages 0] dye_fav_more* -initial_state $dye_favs_state
+		dui item moveto [lindex $::skin_home_pages 0] dye_fav_more* [expr $::skin(button_x_fav)-50] \
+			[expr 108+(120*$::plugins::DYE::settings(dsx2_n_visible_dye_favs))]
 	}
 	
+	proc validate_group_by { group_by_var } {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { $data(favs_group_by_beans) == 0 && $data(favs_group_by_grinder) == 0 && \
+				$data(favs_group_by_workflow) == 0 && $data(favs_group_by_profile) == 0 } {
+			set data(favs_group_by_$group_by_var) 1
+			dui item show $page favs_group_by_val_msg
+			after 2000 [list dui::item::hide $page favs_group_by_val_msg]
+		} 
+	}
 	
+	proc change_dsx2_n_visible_dye_favs { change } {
+		variable data
+		if { [string is integer $change] } {
+			if { $data(dsx2_n_visible_dye_favs) + $change >= 0 && \
+					$data(dsx2_n_visible_dye_favs) + $change <= $data(max_dsx2_home_visible_favs)} {
+				set data(dsx2_n_visible_dye_favs) [expr $data(dsx2_n_visible_dye_favs) + $change]
+			}
+		}
+	}
+	
+	proc show_or_hide_disable_dye_favs_msg {} {
+		variable data
+		set page [namespace tail [namespace current]]
+	
+		if { $data(dsx2_disable_dye_favs) == 1 } {
+			dui item show $page disable_dye_favs_msg 
+		} else {
+			dui item hide $page disable_dye_favs_msg
+		}
+	}
+	
+	# Note that we cannot make all the button showing/hiding when changing the number of favorites shown if
+	# we run this code in the "hide" proc/event (not sure why...) so we do here, at the risk that unexpectedly
+	# going out of the page (e.g. GHC command) will not save the changes.
+	proc page_done {} {
+		variable data
+		set favs_changed 0
+		
+		if { $::plugins::DYE::settings(dsx2_n_visible_dye_favs) != $data(dsx2_n_visible_dye_favs) } {
+			set ::plugins::DYE::settings(dsx2_n_visible_dye_favs) $data(dsx2_n_visible_dye_favs)
+			set favs_changed 1
+
+			if { $data(dsx2_disable_dye_favs) == 0 } {
+				show_or_hide_dye_favorites 1
+			}
+		}
+		
+		if { $::plugins::DYE::settings(dsx2_update_chart_on_copy) != $data(dsx2_update_chart_on_copy) } {
+			set ::plugins::DYE::settings(dsx2_update_chart_on_copy) $data(dsx2_update_chart_on_copy)
+			set favs_changed 1
+		}
+			
+		set group_recent_by [list]
+		foreach group_var {beans profile workflow grinder} {
+			if { $data(favs_group_by_$group_var) == 1 } {
+				lappend group_recent_by $group_var
+			}
+		}
+		if { $::plugins::DYE::settings(favs_n_recent_grouping) ne $group_recent_by } {
+			set ::plugins::DYE::settings(favs_n_recent_grouping) $group_recent_by
+			set favs_changed 1
+			::plugins::DYE::update_favorites
+		}
+			
+		if { $data(dsx2_disable_dye_favs) == 1 } {
+			set ::plugins::DYE::settings(dsx2_use_dye_favs) 0
+			set favs_changed 1
+			show_or_hide_dye_favorites 0
+		} else {
+			# Ensure DSx2 home pages shows the correct number of favorites
+			# when returning
+#			for {set i 0} {$i < $data(dsx2_n_visible_dye_favs)} {incr i 1} {
+#				dui item config [lindex $::skin_home_pages 0] dye_fav_$i -initial_state normal -state normal
+#			}
+			
+#			for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_dsx2_home_visible_favs)} {incr i 1} {
+#				dui item config [lindex $::skin_home_pages 0] dye_fav_$i -initial_state hidden 
+#				#-state hidden 
+#			}
+		}
+			
+		if { $favs_changed == 1 } { 
+			plugins::save_settings DYE
+		}
+
+		# Don't need to save_description here, it is done automatically in dui::pages::DYE::hide.
+		dui sound make sound_button_in
+		dui page close_dialog
+	}
 }
 
 namespace eval ::dui::pages::dsx2_dye_edit_fav {
@@ -753,25 +1003,35 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		editing_fav -1		
 		fav_type n_recent
 		fav_title {}
-		fav_workflow 1
-		fav_workflow {espresso}		
-		fav_profile {Extractamundo 2}
-		fav_beans {D'Origen Panama BMM}
-		fav_grinder {P100 @ 1.25}
-		fav_ratio {18:36}
-		fav_comment {Comment}
-		fav_people {Enrique / Enrique}
+		
+		fav_workflow {espresso}	
+		fav_profile_title {Extractamundo 2}
+		fav_bean_brand {D'Origen}
+		fav_bean_type {Panama BMM}
+		fav_roast_date {01/04/2023}
+		fav_grinder_model {P100}
+		fav_grinder_setting {1.25}
+		fav_grinder_dose_weight {18}
+		fav_drink_weight {36}
+		fav_espresso_notes {}
+		fav_my_name {Enrique}
+		fav_drinker_name {Enrique}
+		
 		fav_copy_workflow 1	
 		fav_copy_workflow_settings 1
 		fav_copy_profile_title 1
-		fav_copy_profile 1
+		fav_copy_full_profile 1
 		fav_copy_beans 1
-		fav_copy_grinder 1
-		fav_copy_ratio 1
-		fav_copy_comment 0
-		fav_copy_people 0
+		fav_copy_roast_date 1
+		fav_copy_grinder_model 1
+		fav_copy_grinder_setting 1
+		fav_copy_grinder_dose_weight 1
+		fav_copy_drink_weight 1
+		fav_copy_espresso_notes 0
+		fav_copy_my_name 0
+		fav_copy_drinker_name 0
 	}
-	
+
 	proc setup {} {
 		variable data
 		variable widgets	
@@ -836,61 +1096,61 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			-text [translate "Profile title"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_profile fav_editing} -variable fav_copy_profile \
 			
-		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_profile_lbl fav_editing} -width 800 \
+		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_full_profile_lbl fav_editing} -width 800 \
 			-text [translate "Full profile"] 		
-		dui add variable $page $x_data $y -tags {fav_profile fav_editing} -width 800 -textvariable fav_profile \
+		dui add variable $page $x_data $y -tags {fav_full_profile fav_editing} -width 800 -textvariable fav_profile_title \
 			-anchor nw -justify left -font_size -2 
 		
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_beans fav_editing} -variable fav_copy_beans \
-			
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_beans fav_editing} -variable fav_copy_beans
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_beans_lbl fav_editing} -width 800 \
 			-text [translate "Beans"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_roast_date fav_editing} \
 			-variable fav_copy_roast_date 
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_roast_date_lbl fav_editing} -width 800 \
 			-text [translate "Roast date"] 		
-		dui add variable $page $x_data $y -tags {fav_beans fav_editing} -width 800 -textvariable fav_beans \
-			-anchor nw -justify left -font_size -2 
+		dui add variable $page $x_data $y -tags {fav_beans fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
+			-textvariable {$%NS::data(fav_bean_brand) $%NS::data(fav_bean_type) $%NS::data(fav_roast_date)}
 		
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder fav_editing} -variable fav_copy_grinder \
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder_model fav_editing} -variable fav_copy_grinder_model \
 			
-		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_lbl fav_editing} -width 800 \
+		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_model_lbl fav_editing} -width 800 \
 			-text [translate "Grinder"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_grinder_setting fav_editing} \
 			-variable fav_copy_grinder_setting 
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_setting_lbl fav_editing} -width 800 \
 			-text [translate "Grinder setting"] 
-		dui add variable $page $x_data $y -tags {fav_grinder fav_editing} -width 800 -textvariable fav_grinder \
-			-anchor nw -justify left -font_size -2 
+		dui add variable $page $x_data $y -tags {fav_grinder fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
+			-textvariable {$%NS::data(fav_grinder_model) @ $%NS::data(fav_grinder_setting)}
 		
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_dose fav_editing} -variable fav_copy_dose \
-			
-		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_dose_lbl fav_editing} -width 800 \
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder_dose_weight fav_editing} -variable fav_copy_grinder_dose_weight
+		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_dose_weight_lbl fav_editing} -width 800 \
 			-text [translate "Dose"] 
+		
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_drink_weight fav_editing} \
 			-variable fav_copy_drink_weight 
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_drink_weight_lbl fav_editing} -width 800 \
-			-text [translate "Drink weight"] 
-		dui add variable $page $x_data $y -tags {fav_ratio fav_editing} -width 800 -textvariable fav_ratio \
-			-anchor nw -justify left -font_size -2 
-
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_comment fav_editing} -variable fav_copy_comment \
-			
-		dui add dtext $page [expr $x+150] $y -tags {fav_copy_comment_lbl fav_editing} -width 800 \
-			-text [translate "Espresso comment"]  
-		dui add variable $page $x_data $y -tags {fav_comment fav_editing} -width 800 -textvariable fav_comment \
+			-text [translate "Drink weight"]
+		
+		dui add variable $page $x_data $y -tags {fav_ratio fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
+			-textvariable {$%NS::data(fav_grinder_dose_weight)g : $%NS::data(fav_drink_weight)g} 
+			 
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_espresso_notes fav_editing} -variable fav_copy_espresso_notes
+		dui add dtext $page [expr $x+150] $y -tags {fav_copy_espresso_notes_lbl fav_editing} -width 800 \
+			-text [translate "Espresso note"]  
+		dui add variable $page $x_data $y -tags {fav_espresso_note fav_editing} -width 800 -textvariable fav_espresso_notes \
 			-anchor nw -justify left -font_size -2 
 		
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_barista fav_editing} -variable fav_copy_barista \
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_my_name fav_editing} -variable fav_copy_my_name \
 			
-		dui add dtext $page [expr $x+150] $y -tags {fav_copy_barista_lbl fav_editing} -width 800 \
+		dui add dtext $page [expr $x+150] $y -tags {fav_copy_my_name_lbl fav_editing} -width 800 \
 			-text [translate "Barista"] 
-		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_drinker fav_editing} \
-			-variable fav_copy_drinker 
-		dui add dtext $page [expr $x+$x_2nd_what_offset+150] $y -tags {fav_copy_drinker_lbl fav_editing} -width 800 \
+		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_drinker_name fav_editing} \
+			-variable fav_copy_drinker_name 
+		dui add dtext $page [expr $x+$x_2nd_what_offset+150] $y -tags {fav_copy_drinker_name_lbl fav_editing} -width 800 \
 			-text [translate "Drinker"] 		
-		dui add variable $page $x_data $y -tags {fav_people fav_editing} -width 800 -textvariable fav_people \
-			-anchor nw -justify left -font_size -2 
+		dui add variable $page $x_data $y -tags {fav_people fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
+			-textvariable {$%NS::data(fav_my_name) / $%NS::data(fav_drinker_name)}
+			 
 		
 		# Bottom area
 		dui add dbutton $page 600 1425 -bwidth 300 -bheight 100 -shape round -tags save_fav_edits \
@@ -901,8 +1161,6 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			
 		
 		dui::page::add_items $page skin_version
-		
-		#show_or_hide_dye_favorites
 	}
 
 	proc load { page_to_hide page_to_show n_fav } {
@@ -915,6 +1173,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		set fav [lindex $::plugins::DYE::settings(favorites) $n_fav]
 		set data(fav_type) [lindex $fav 0]
 		change_fav_type
+		set data(fav_title) [lindex $fav 1]
 				
 		return 1
 	}
@@ -937,45 +1196,6 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			[dui::page::calc_x $page_to_show [expr $x+8]] [dui::page::calc_y $page_to_show [expr $y+40]]
 	}
 
-#	proc hide { page_to_hide page_to_show } {
-#	}
-	
-	proc edit_favorite { n_fav } {
-		variable data
-		set page [namespace tail [namespace current]]
-		
-		set data(page_title) "[translate {Edit DYE Favorite}] #[expr $data(editing_fav)+1]"
-		
-		# Show editing widgets
-		# NOTE that dui::item::moveto doesn't work with polygons atm as it's restricted to 4 coordinates
-		#	and polygons need more.
-		set x [expr $::skin(button_x_fav)-135]
-		set y [expr 123+(120*$n_fav)]
-		[dui canvas] coords [dui item get $page edit_bracket_index] \
-			[dui::page::calc_x $page [expr $x+8]] [dui::page::calc_y $page [expr $y]] \
-			[dui::page::calc_x $page [expr $x+8+35]] [dui::page::calc_y $page [expr $y+20]] \
-			[dui::page::calc_x $page [expr $x+8]] [dui::page::calc_y $page [expr $y+40]]
-		dui item show $page edit_bracket
-		
-		for {set i 0} {$i < $::plugins::DYE::max_n_favorites} {incr i 1} {
-			dui item hide $page dye_fav_edit_$i*
-			if {$i != $n_fav} {
-				dui item hide $page dye_fav_$i*
-			}
-		}
-		
-#		dui item show $page fav_type*
-#		dui item show $page fav_editing
-#		dui item hide $page close_dye_edit_favs*
-#		dui item show $page save_fav_edits*
-#		dui item show $page cancel_fav_edits*
-
-		# Load the favorite data
-		set fav [lindex $::plugins::DYE::settings(favorites) $n_fav]
-		set data(fav_type) [lindex $fav 0]
-		change_fav_type
-	}
-	
 	proc change_fav_type {} {
 		variable data
 		set page [namespace tail [namespace current]]
@@ -989,53 +1209,75 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		
 			set data(fav_title) [lindex $fav 1]
 			array set fav_values [lindex $fav 2]
-			set data(fav_workflow) [value_or_default fav_values(workflow) {}]
-			set data(fav_profile) [value_or_default fav_values(profile_title) {}]
-			set data(fav_beans) [string trim "[value_or_default fav_values(bean_brand) {}] [value_or_default fav_values(bean_type) {}] [value_or_default fav_values(roast_date) {}]"]
-			set data(fav_grinder) "[value_or_default fav_values(grinder_model) {}] @ [value_or_default fav_values(grinder_setting) {}]"
-			set data(fav_ratio) "[value_or_default fav_values(grinder_dose_weight) {}]g : [value_or_default fav_values(drink_weight) {}]g"
-			set data(fav_comment) [value_or_default fav_values(espresso_comment)]
-			set data(fav_ratio) "[value_or_default fav_values(barista) {}] / [value_or_default fav_values(drinker) {}]"
+			
+			foreach field_name [metadata fields -domain shot -category description] {
+				if { [info exists data(fav_$field_name)] } {
+					if { [info exists fav_values($field_name)] } {
+						set data(fav_$field_name) fav_values($field_name)
+					}
+				}
+			}
+			
+#			set data(fav_workflow) [value_or_default fav_values(workflow) {}]
+#			set data(fav_profile) [value_or_default fav_values(profile_title) {}]
+#			set data(fav_beans) [string trim "[value_or_default fav_values(bean_brand) {}] [value_or_default fav_values(bean_type) {}] [value_or_default fav_values(roast_date) {}]"]
+#			set data(fav_grinder) "[value_or_default fav_values(grinder_model) {}] @ [value_or_default fav_values(grinder_setting) {}]"
+#			set data(fav_ratio) "[value_or_default fav_values(grinder_dose_weight) {}]g : [value_or_default fav_values(drink_weight) {}]g"
+#			set data(fav_comment) [value_or_default fav_values(espresso_comment)]
+#			set data(fav_ratio) "[value_or_default fav_values(barista) {}] / [value_or_default fav_values(drinker) {}]"
 		} elseif {$data(fav_type) eq "fixed"} {
 			dui item config $page fav_data_lbl -text [translate "Data to copy (from Next Shot definition)"]
 			dui item enable $page fav_title
-			
 			set data(fav_title) {}
-			set data(fav_workflow) [value_or_default fav_values(workflow) {}]
-			set data(fav_profile) $::settings(profile_title)
-			set data(fav_beans) [string trim "[value_or_default ::settings(bean_brand) {}] [value_or_default ::settings(bean_type) {}] [value_or_default ::settings(roast_date) {}]"]
-			set data(fav_grinder) "[value_or_default ::settings(grinder_model) {}] @ [value_or_default ::settings(grinder_setting) {}]"
-			set data(fav_ratio) "[value_or_default ::settings(grinder_dose_weight) {}]g : [value_or_default ::settings(drink_weight) {}]g"
-			set data(fav_comment) [value_or_default ::settings(espresso_comment)]
-			set data(fav_ratio) "[value_or_default ::settings(barista) {}] / [value_or_default ::settings(drinker) {}]"
+			
+			foreach field_name [metadata fields -domain shot -category description] {
+				if { [info exists data(fav_$field_name)] } {
+					if { [info exists ::settings($field_name)] } {
+						set data(fav_$field_name) $::settings($field_name)
+					}
+				}
+			}
+			
+#			set data(fav_workflow) [value_or_default fav_values(workflow) {}]
+#			set data(fav_profile) $::settings(profile_title)
+#			set data(fav_beans) [string trim "[value_or_default ::settings(bean_brand) {}] [value_or_default ::settings(bean_type) {}] [value_or_default ::settings(roast_date) {}]"]
+#			set data(fav_grinder) "[value_or_default ::settings(grinder_model) {}] @ [value_or_default ::settings(grinder_setting) {}]"
+#			set data(fav_ratio) "[value_or_default ::settings(grinder_dose_weight) {}]g : [value_or_default ::settings(drink_weight) {}]g"
+#			set data(fav_comment) [value_or_default ::settings(espresso_comment)]
+#			set data(fav_people) "[value_or_default ::settings(barista) {}] / [value_or_default ::settings(drinker) {}]"
 		}
 	}
 
 	proc save_fav_edits {} {
+		variable data
+		
+		set fav_values [list]
+		if { $data(fav_type) eq "fixed" } {
+			foreach field_name {workflow profile_title roast_date grinder_model grinder_setting \
+					grinder_dose_weight drink_weight espresso_notes my_name drinker_name} {
+				if { [string is true $data(fav_copy_$field_name)] } {
+					lappend fav_values $field_name $data(fav_$field_name)
+				}
+			}
+			if { [string is true $data(fav_copy_beans)] } {
+				lappend fav_values bean_brand $data(fav_bean_brand)
+				lappend fav_values bean_type $data(fav_bean_type)
+#				set fav_values(roast_level) $data(fav_roast_level)
+#				set fav_values(bean_note) $data(bean_note)
+			}
+			
+		}
+
+msg -INFO "DYE LREPLACING fav #$data(editing_fav) [list $data(fav_type) $data(fav_title) $fav_values]"
+		lset ::plugins::DYE::settings(favorites) $data(editing_fav) \
+			[list "$data(fav_type)" "$data(fav_title)" $fav_values]
+		plugins save_settings DYE
+msg -INFO "DYE AFTER fav #$data(editing_fav) [lindex $::plugins::DYE::settings(favorites) $data(editing_fav)]"
 		dui page close_dialog
 	}
 	
 	proc cancel_fav_edits {} {
 		dui page close_dialog
-	}
-	
-	proc stop_editing {} {
-		variable data
-		set data(editing_fav) -1
-		set page [namespace tail [namespace current]]
-		
-#		set data(page_title) [translate "DYE Favorites"]
-#		dui item hide $page fav_type*
-#		dui item hide $page fav_editing
-#		dui item hide $page edit_bracket
-#		dui item hide $page save_fav_edits*
-#		dui item hide $page cancel_fav_edits*
-#		dui item show $page close_dye_edit_favs*
-#		
-#		for {set i 0} {$i < $::plugins::DYE::max_n_favorites} {incr i 1} {
-#			dui item show $page dye_fav_$i*
-#			dui item show $page dye_fav_edit_$i*
-#		}
 	}
 	
 }

@@ -101,7 +101,6 @@ proc ::plugins::DYE::main {} {
 			-symbol signature -symbol_pos {0.5 0.4} -symbol_fill white -label [translate {DYE PV}] -label_font_size 12 \
 			-tap_pad {40 40 30 60} -label_pos {0.5 0.8} -label_anchor center -label_justify center -label_fill "#8991cc" -label_width 130 \
 			-label_font_family notosansuibold -command [list [namespace current]::open_profile_tools viewer]]
-		
 	}
 
 	# Declare DYE pages
@@ -341,10 +340,12 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 		}
 	}
 
-	ifexists settings(dsx2_use_dye_favs) 1
-	ifexists settings(dsx2_n_visible_dye_favs) 4
 	ifexists settings(favs_n_recent_grouping) {beans profile workflow}
 	ifexists settings(favs_n_recent_what_to_copy) {workflow profile beans grinder ratio}
+	
+	ifexists settings(dsx2_use_dye_favs) 1
+	ifexists settings(dsx2_n_visible_dye_favs) 4
+	ifexists settings(dsx2_update_chart_on_copy) 1
 }
 
 proc ::plugins::DYE::upgrade { previous_version } {
@@ -1398,7 +1399,7 @@ proc ::plugins::DYE::update_favorites { } {
 		
 		if {[lindex $fav 0] eq "n_recent"} {
 			set fav_values [list]
-			if { [array size last_n_beans] >= $nshot } {
+			if { [array size last_n_beans] > $nshot } {
 				foreach f [array names last_n_beans] {
 					lappend fav_values "$f" [join [lindex $last_n_beans($f) $nshot] " "]
 				}
@@ -1428,8 +1429,11 @@ proc ::plugins::DYE::favorite_title { n_fav } {
 		} else {
 			set title [lindex $fav 1]
 		}
+	} else {
+		set title [lindex $fav 1]
 	}
 	
+msg -INFO "DYE Favorite Title #$n_fav = $title"	
 	return $title
 }
 
