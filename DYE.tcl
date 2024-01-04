@@ -628,14 +628,17 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 	msg -INFO [namespace current] save_espresso_to_history_hook
 	::plugins::DYE::define_last_shot_desc
-	plugins save_settings DYE
+	::plugins::DYE::favorites::update_recent
+	# Updating recent favorites already saves DYE settings
+	#plugins save_settings DYE
 }
 
 
 # Returns a 2 or 3-lines formatted string with the summary of a shot description.
 proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {roast_date {}} {grinder_model {}} \
 		{grinder_setting {}} {drink_tds 0} {drink_ey 0} {espresso_enjoyment 0} {lines 2} \
-		{default_if_empty "Tap to describe this shot"} {profile_title {}} } {
+		{default_if_empty "Tap to describe this shot"} {profile_title {}} {workflow {}} \
+		{grinder_dose_weight 0} {drink_weight 0} {extraction_time 0} } {
 	set shot_desc ""
 	set skin $::settings(skin)
 
@@ -649,11 +652,23 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 	}
 	
 	set grinder_items [list_remove_element [list $grinder_model $grinder_setting] ""]
+	
 	set extraction_items {}
 	if {$drink_tds > 0} { lappend extraction_items "[translate TDS] $drink_tds\%" }
 	if {$drink_ey > 0} { lappend extraction_items "[translate EY] $drink_ey\%" }
 	if {$espresso_enjoyment > 0} { lappend extraction_items "[translate Enjoyment] $espresso_enjoyment" }
 	
+	set ratio_text ""
+	if {$grinder_dose_weight > 0 || $drink_weight > 0} { 
+		set ratio_text "[value_or_default grinder_dose_weight {?}][translate g] : [value_or_default drink_weight {?}][translate g]"
+		if { $grinder_dose_weight > 0 && $drink_weight > 0 } {
+			append ratio_text " (1:[round_to_one_digits [expr $grinder_dose_weight / ($drink_weight + 0.001)]])"
+		}
+	}
+	if {$extraction_time > 0} {
+		append ratio_text " in [round_to_integer $extraction_time][translate s]"
+	}
+			
 	set each_line {}
 	if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
 	if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " \@ "]] }
@@ -684,11 +699,13 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 proc ::plugins::DYE::define_last_shot_desc { args } {	
 	variable settings
 	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {
-		if { $::settings(history_saved) == 1 } {		
+		if { $::settings(history_saved) == 1 } {
 			set settings(last_shot_desc) [shot_description_summary $::settings(bean_brand) \
 				$::settings(bean_type) $::settings(roast_date) $::settings(grinder_model) \
 				$::settings(grinder_setting) $::settings(drink_tds) $::settings(drink_ey) \
-				$::settings(espresso_enjoyment) 3]
+				$::settings(espresso_enjoyment) 3 $::settings(profile_title) \
+				[value_or_default ::settings(DSx2_workflow) "none"] $::settings(grinder_dose_weight) \
+				$::settings(drink_weight) [espresso_elapsed_timer]]
 		} else {
 			set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
 		}
@@ -755,7 +772,8 @@ proc ::plugins::DYE::define_next_shot_desc { args } {
 	if { $settings(show_shot_desc_on_home) == 1 && [info exists settings(next_bean_brand)] } {
 		set desc [shot_description_summary $settings(next_bean_brand) \
 			$settings(next_bean_type) $settings(next_roast_date) $settings(next_grinder_model) \
-			$settings(next_grinder_setting) {} {} {} 2 "\[Tap to describe the next shot\]" $::settings(profile_title)]
+			$settings(next_grinder_setting) {} {} {} 2 "\[Tap to describe the next shot\]" $::settings(profile_title) \
+			[value_or_default ::settings(DSx2_workflow) "none"]]
 		if { $settings(next_modified) == 1 } { append desc " *" }
 		set settings(next_shot_desc) $desc
 	} else {
@@ -1388,28 +1406,77 @@ proc ::plugins::DYE::open_profile_tools { args } {
 	}
 }
 
-proc ::plugins::DYE::load_next_from_shot { src_clock } {
+# Used for copying data from a shot file "template" into the Next Shot definition.
+# This was created for loading DYE favorites.
+proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 	variable data
 	variable src_data
 	
 	set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
-	set propagate [string is true $::plugins::DYE::settings(propagate_previous_shot_desc)]
 	set next_modified [string is true $::plugins::DYE::settings(next_modified)]
 	set skin $::settings(skin)
 	set settings_changed 0
 	set dye_settings_changed 0
 	set dsx_settings_changed 0
+	set dsx2_settings_changed 0
 	
-	set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
-	#array set src_shot [::plugins::SDB::shots $read_fields 1 "clock=$src_clock" 1]
-	array set src_shot [::plugins::SDB::load_shot $src_clock 0 1 1]
+	set load_workflow_settings 0
+	set load_full_profile 0
+	
+msg -INFO "DYE::load_next_from_shot initial what_to_copy=$what_to_copy" 
+	if { $what_to_copy eq {} } {
+		# Untested case
+		set what_to_copy [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
+	} else {
+		set beans_idx [lsearch $what_to_copy "beans"]
+		if { $beans_idx > -1 } {
+			set what_to_copy [lreplace $what_to_copy $beans_idx $beans_idx]
+			set what_to_copy [linsert $what_to_copy $beans_idx bean_type bean_brand roast_level bean_notes]
+		}
+		
+		set workflow_idx [lsearch $what_to_copy "workflow"]
+		if { $workflow_idx > -1 } {
+			set what_to_copy [lreplace $what_to_copy $workflow_idx $workflow_idx "DSx2_workflow"]
+		}
+		
+		set workflow_settings_idx [lsearch $what_to_copy "workflow_settings"]
+		if { $workflow_settings_idx > -1 } {
+			set what_to_copy [lreplace $what_to_copy $workflow_settings_idx $workflow_settings_idx]
+			if { [string range $skin 0 3] eq "DSx2" } {
+				set load_workflow_settings 1
+			}
+		}
+		
+		set full_profile_idx [lsearch $what_to_copy "full_profile"]
+		if { $full_profile_idx > -1 } {
+			set what_to_copy [lreplace $what_to_copy $full_profile_idx $full_profile_idx]
+			set load_full_profile 1
+		}
+	}
+msg -INFO "DYE::load_next_from_shot final what_to_copy=$what_to_copy"
+	
+	array set src_shot [::plugins::SDB::load_shot $src_clock 0 1 1 $load_workflow_settings]
 	if { [array size src_shot] == 0 } { return 0 }
-
-	foreach field [array names src_shot] {
+	
+	# Load the profile before the fields, so the target weight can be overwritten if necessary
+	if { $load_full_profile } {
+		# Copy each and every profile variable from the source shot, which may not match the
+		# current profile (with the same title) definition
+msg -INFO "DYE::load_next_from_shot LOADING FULL PROFILE $src_shot(profile_title)"		
+		set profile_imported [::profile::import_legacy [array get src_shot]]
+	} elseif { "profile_title" in $what_to_copy } {
+		# Load the current version of the same profile, if found
+msg -INFO "DYE::load_next_from_shot SELECTING EXISTING PROFILE $src_shot(profile_title)"
+		select_profile $src_shot(profile_filename)
+	}
+	
+	foreach field $what_to_copy {
 		if { [info exists ::plugins::DYE::settings(next_$field)] } {
+msg -INFO "DYE::load_next_from_shot copying field '$field'"
 			set ::plugins::DYE::settings(next_modified) 1
 			set ::plugins::DYE::settings(next_$field) $src_shot($field)
-			if { ([metadata get $field propagate] || $field eq "espresso_notes") && [info exists ::settings($field)] } {
+			
+			if { [info exists ::settings($field)] } {
 				if { $src_shot($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
 					if { $field ni {grinder_dose_weight grinder_setting} } {
 						set ::settings($field) 0
@@ -1418,7 +1485,7 @@ proc ::plugins::DYE::load_next_from_shot { src_clock } {
 					set ::settings($field) $src_shot($field)
 				}
 				set settings_changed 1
-				
+			
 				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
 					set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
 					set dsx_settings_changed 1
@@ -1443,15 +1510,47 @@ proc ::plugins::DYE::load_next_from_shot { src_clock } {
 		}
 	}
 	
-#	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
-#		if { [info exists ::settings($fn)] && [info exists src_data($fn)] } {
-#			set ::settings($fn) $::settings($fn)
-#		}
-#	}
-	set imported [::profile::import_legacy [array get src_data]]
+	if { "DSx2_workflow" in $what_to_copy || $load_workflow_settings } {
+		set workflow "none"
+		if { [info exists src_shot(DSx2_workflow)] && $src_shot(DSx2_workflow) ne {} } {
+			set workflow $src_shot(DSx2_workflow)
+		} 
+		::workflow $workflow
+	}
 	
+	if { $load_workflow_settings } {
+		# Note that flush settings are not imported
+		
+		# Steam settings
+		# Milk jug? Stored on DSx2-only variables atm
+		# Flow and temp? Not exposed by DSx2 Steam workflow
+		if { $workflow in {none latte} } {
+			if { $::settings(steam_disabled) != $src_shot(steam_disabled) } {
+				::toggle_steam_heater
+				set settings_changed 1
+			}
+			
+			if { $::settings(steam_timeout) != $src_shot(steam_timeout) } {
+				set ::settings(steam_timeout) $src_shot(steam_timeout)
+				set settings_changed 1
+			}
+		}
+		
+		# Water settings
+		if { $workflow in {none americano long} } {
+			foreach field {hotwater_flow water_temperature water_volume} {
+				if { $::settings($field) != $src_shot($field) } {
+					set ::settings($field) $src_shot($field)
+					set settings_changed 1
+				}
+			}
+		}
+	}
+
+	# TBD: This seems duplicated wrt to call to "define_next_shot_desc" below???
 	set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $src_shot(bean_brand) $src_shot(bean_type) \
 		$src_shot(roast_date) $src_shot(grinder_model) $src_shot(grinder_setting)]
+	# What? So DYE settings always change?
 	set dye_settings_changed 1
 	
 	if { $settings_changed } {
@@ -1537,8 +1636,8 @@ namespace eval ::plugins::DYE::favorites {
 		if { ![is_valid_type $type] } { return 0 }
 		if { ![are_valid_values $values] } { return 0 }
 		
-		set title [string trim $title]
-		set fav [list $type $title $values]
+		set title [string trim [join $title " "]]
+		set fav [list "$type" "$title" $values]
 		lset ::plugins::DYE::settings(favorites) $n_fav $fav
 		
 		if { [string is true $save_settings] } {
@@ -1607,7 +1706,7 @@ namespace eval ::plugins::DYE::favorites {
 		}
 	}	
 	
-	proc update_recent { } {
+	proc update_recent { {max_title_chars 28} } {
 		variable all_recent
 		set max_n_favs [max_number]
 		
@@ -1619,35 +1718,79 @@ namespace eval ::plugins::DYE::favorites {
 		}
 		
 		array set all_recent [::plugins::SDB::shots_by $favs_grouping_fields 1 {} $max_n_favs]
+		set n_recent [llength $all_recent([lindex $favs_grouping_fields 0])]
 		
 		set nshot 0
 		for {set i 0} {$i < $max_n_favs} {incr i 1} {
-			set fav_title [fav_title $i]
+			set fav_title {}
 			
 			if {[fav_type $i] eq "n_recent"} {
 				set fav_values [list]
-				if { [array size all_recent] > $nshot } {
+				if { $nshot < $n_recent } {
 					foreach f [array names all_recent] {
-						lappend fav_values "$f" [join [lindex $all_recent($f) $nshot] " "]
+						lappend fav_values "$f" "[join [lindex $all_recent($f) $nshot] { }]"
 					}
 					 
 					# TODO: Make the name different depending on what is imported
-					if { "bean_type" in $favs_grouping_fields } { 
-						set fav_title "[lindex $all_recent(bean_brand) $nshot]\n[lindex $all_recent(bean_type) $nshot] [lindex $all_recent(roast_date) $nshot]"
-					} elseif { "profile_title" in $favs_grouping_fields } {
-						set fav_title "[lindex $all_recent(profile_title) $nshot]"
-					} elseif { "workflow" in $favs_grouping_fields } {
-						set fav_title "[lindex $all_recent(workflow) $nshot]"
-					} elseif { "grinder_model" in $favs_grouping_fields } {
-						set fav_title "[lindex $all_recent(grinder_model) $nshot]"
+					set title_lines {}
+					set workflow {}
+					set profile_title {}
+					
+					if { "bean_type" in $favs_grouping_fields } {
+						set beans [string trim "[lindex $all_recent(bean_brand) $nshot] [lindex $all_recent(bean_type) $nshot] [lindex $all_recent(roast_date) $nshot]"]
+						if { $beans ne {} } {
+							lappend title_lines $beans
+						}
 					}
+					
+					if { "workflow" in $favs_grouping_fields } {
+						set workflow [lindex $all_recent(workflow) $nshot]
+					} else {
+						set workflow {}
+					}
+					if { "profile_title" in $favs_grouping_fields } {
+						set profile_title [lindex $all_recent(profile_title) $nshot]
+					} else {
+						set profile_title {}
+					}
+
+					if { $workflow ne {} && $profile_title ne {} } {
+						lappend title_lines  "$workflow: $profile_title"
+					} elseif { $workflow ne {} } {
+						lappend title_lines  "$workflow" 
+					} elseif { $profile_title ne {} } {
+						lappend title_lines  "$profile_title"
+					}
+
+					if { "grinder_model" in $favs_grouping_fields } {
+						set grinder_model [lindex $all_recent(grinder_model) $nshot]
+						if { $grinder_model ne {} } {
+							lappend title_lines  "$grinder_model"
+						}
+					}
+					
+					if { [llength $title_lines] == 0 } {
+						set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no grouping data}]>" [expr $max_title_chars*2]] 
+					} elseif  { [llength $title_lines] == 1 } {
+						set fav_title [maxstring [lindex $title_lines 0] [expr $max_title_chars*2]]
+					} elseif  { [llength $title_lines] == 3 } {
+						set title_lines [list "[lindex title_lines 0]" "[lindex title_lines 1], [lindex title_lines 2]"]
+					}
+					
+					if  { [llength $title_lines] == 2 } {
+						lset title_lines 0 [maxstring [lindex $title_lines 0] $max_title_chars]
+						lset title_lines 1 [maxstring [lindex $title_lines 1] $max_title_chars]
+						set fav_title [join $title_lines "\n"]
+					}
+					
 				} else {
-					set fav_title "<[translate {Recent}] #[expr $nshot+1],\n[translate {No data yet}]>"
+					set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no data yet}]>" [expr $max_title_chars*2]]
 				}
 
-				set_fav $i "n_recent" $fav_title $fav_values 0
-				
+				set_fav $i "n_recent" "$fav_title" $fav_values 0
 				incr nshot 1
+			} else {
+				set fav_title [fav_title $i]
 			}
 		}
 		
@@ -1680,11 +1823,12 @@ namespace eval ::plugins::DYE::favorites {
 		if { [array size fav_values] > 0 } {
 			if { [fav_type $n_fav] eq "n_recent" } {
 				if {[info exists fav_values(last_clock)]} {
-					#::plugins::DYE::open $fav_values(last_clock)
-					load_next_from_shot $fav_values(last_clock)
+					::plugins::DYE::load_next_from_shot $fav_values(last_clock) $::plugins::DYE::settings(favs_n_recent_what_to_copy)
+					borg toast [translate "Favorite loaded"]
 					return 1
-				} 
-				# borg toast [translate "Malformed data, can't load DYE favorite"]
+				} else {
+					borg toast [translate "Favorite doesn't have data to load"]
+				}
 			} else {
 				foreach field_name $fav_values {
 					# TODO Handle special cases (workflow settings, profile settings...)
