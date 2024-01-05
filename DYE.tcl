@@ -169,6 +169,22 @@ proc ::plugins::DYE::msg { {flag ""} args } {
 	}
 }
 
+proc ::plugins::DYE::is_DSx2 { {strict 0} {theme {}} } {
+	if {[string is true $strict]} {
+		set isDSx2 [expr {$::settings(skin) eq "DSx2"}]
+	} else {
+		# Handle DSx2 forks, must be named "DSx2<something>"
+		set isDSx2 [expr {[string range $::settings(skin) 0 3] eq "DSx2"}]
+	}
+		
+	if {$isDSx2 && $theme ne {} } {
+		set isDSx2 [expr {[string tolower [string trim [value_or_default ::skin(theme) ""]]] \
+				eq [string tolower [string trim $theme]]}] 
+	}
+		
+	return $isDSx2
+}
+
 # Verify the minimum required versions of DE1 app & skin are used, and that required plugins are availabe and installed,
 #	otherwise prevents startup.
 proc ::plugins::DYE::check_versions {} {
@@ -643,14 +659,7 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 	set skin $::settings(skin)
 
 	set beans_items [list_remove_element [list $bean_brand $bean_type $roast_date] ""]
-	if {[string range $skin 0 3] eq "DSx2" && $profile_title ne ""} {
-		if {[llength $beans_items] > 0} {
-			set beans_items [list $profile_title "\-" {*}$beans_items]
-		} else {
-			set beans_items [list $profile_title]
-		}		
-	}
-	
+	if { $grinder_setting == 0 } { set grinder_setting {}}
 	set grinder_items [list_remove_element [list $grinder_model $grinder_setting] ""]
 	
 	set extraction_items {}
@@ -662,7 +671,7 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 	if {$grinder_dose_weight > 0 || $drink_weight > 0} { 
 		set ratio_text "[value_or_default grinder_dose_weight {?}][translate g] : [value_or_default drink_weight {?}][translate g]"
 		if { $grinder_dose_weight > 0 && $drink_weight > 0 } {
-			append ratio_text " (1:[round_to_one_digits [expr $grinder_dose_weight / ($drink_weight + 0.001)]])"
+			append ratio_text " (1:[round_to_one_digits [expr $drink_weight / ($grinder_dose_weight + 0.001)]])"
 		}
 	}
 	if {$extraction_time > 0} {
@@ -670,22 +679,42 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 	}
 			
 	set each_line {}
-	if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
-	if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " \@ "]] }
-	if {[llength $extraction_items] > 0} { lappend each_line [string trim [join $extraction_items ", "]] }
-			
-	if { $lines == 1 } {
-		set shot_desc [join $each_line " \- "]
-	} elseif { $lines == 2 } {
-		if {[llength $each_line] == 3} {
-			set shot_desc "[lindex $each_line 0] \- [lindex $each_line 1]\n[lindex $each_line 2]"
-		} else {
-			set shot_desc [join $each_line "\n"] 
+	if { [is_DSx2] } {
+		if { $lines == 3 } {
+			if { $profile_title ne "" } { lappend each_line $profile_title }
+			if { [llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
+			if { [llength $grinder_items] > 0 && $ratio_text ne "" } {
+				lappend each_line [string trim "[join $grinder_items { @ }], $ratio_text"]
+			} elseif { [llength $grinder_items] > 0 } {
+				lappend each_line [string trim [join $grinder_items " @ "]]
+			} elseif { $ratio_text ne "" } {
+				lappend each_line $ratio_text
+			}
+			if { $lines == 1 } {
+				set shot_desc [join $each_line " \- "]
+			} else {
+				set shot_desc [join $each_line "\n"]
+			}
 		}
+			
 	} else {
-		set shot_desc [join $each_line "\n"]
+		if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
+		if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " @ "]] }
+		if {[llength $extraction_items] > 0} { lappend each_line [string trim [join $extraction_items ", "]] }
+				
+		if { $lines == 1 } {
+			set shot_desc [join $each_line " \- "]
+		} elseif { $lines == 2 } {
+			if {[llength $each_line] == 3} {
+				set shot_desc "[lindex $each_line 0] \- [lindex $each_line 1]\n[lindex $each_line 2]"
+			} else {
+				set shot_desc [join $each_line "\n"] 
+			}
+		} else {
+			set shot_desc [join $each_line "\n"]
+		}
 	}
-
+			
 	if {$shot_desc eq ""} { 
 		set shot_desc "\[[translate $default_if_empty]\]" 
 	}
@@ -699,12 +728,18 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 proc ::plugins::DYE::define_last_shot_desc { args } {	
 	variable settings
 	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {
-		if { $::settings(history_saved) == 1 } {
+			if { $::settings(history_saved) == 1 } {
+				if { [is_DSx2] } {
+				set workflow [value_or_default ::skin(workflow) "none"]
+			} else {
+				set workflow {}
+			}
+			
 			set settings(last_shot_desc) [shot_description_summary $::settings(bean_brand) \
 				$::settings(bean_type) $::settings(roast_date) $::settings(grinder_model) \
 				$::settings(grinder_setting) $::settings(drink_tds) $::settings(drink_ey) \
-				$::settings(espresso_enjoyment) 3 $::settings(profile_title) \
-				[value_or_default ::settings(DSx2_workflow) "none"] $::settings(grinder_dose_weight) \
+				$::settings(espresso_enjoyment) 3 "Tap to describe this shot" \
+				$::settings(profile_title) $workflow $::settings(grinder_dose_weight) \
 				$::settings(drink_weight) [espresso_elapsed_timer]]
 		} else {
 			set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
@@ -768,13 +803,21 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 # Needs the { args } as this is being used in a trace add execution.
 proc ::plugins::DYE::define_next_shot_desc { args } {
 	variable settings
-	
+	  
 	if { $settings(show_shot_desc_on_home) == 1 && [info exists settings(next_bean_brand)] } {
-		set desc [shot_description_summary $settings(next_bean_brand) \
-			$settings(next_bean_type) $settings(next_roast_date) $settings(next_grinder_model) \
-			$settings(next_grinder_setting) {} {} {} 2 "\[Tap to describe the next shot\]" $::settings(profile_title) \
-			[value_or_default ::settings(DSx2_workflow) "none"]]
-		if { $settings(next_modified) == 1 } { append desc " *" }
+		if { [is_DSx2] } {
+			set desc [shot_description_summary $settings(next_bean_brand) \
+				$settings(next_bean_type) $settings(next_roast_date) $settings(next_grinder_model) \
+				$settings(next_grinder_setting) {} {} {} 3 "\[Tap to describe the next shot\]" \
+				$::settings(profile_title) [value_or_default ::skin(workflow) "none"] \
+				$::settings(grinder_dose_weight) $::settings(drink_weight) ]
+		} else {
+			set desc [shot_description_summary $settings(next_bean_brand) \
+				$settings(next_bean_type) $settings(next_roast_date) $settings(next_grinder_model) \
+				$settings(next_grinder_setting) {} {} {} 2 "\[Tap to describe the next shot\]"]
+			
+			if { $settings(next_modified) } { append desc " *" }
+		}
 		set settings(next_shot_desc) $desc
 	} else {
 		set settings(next_shot_desc) ""
@@ -1442,7 +1485,7 @@ msg -INFO "DYE::load_next_from_shot initial what_to_copy=$what_to_copy"
 		set workflow_settings_idx [lsearch $what_to_copy "workflow_settings"]
 		if { $workflow_settings_idx > -1 } {
 			set what_to_copy [lreplace $what_to_copy $workflow_settings_idx $workflow_settings_idx]
-			if { [string range $skin 0 3] eq "DSx2" } {
+			if { [is_DSx2] } {
 				set load_workflow_settings 1
 			}
 		}
@@ -1773,13 +1816,15 @@ namespace eval ::plugins::DYE::favorites {
 						set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no grouping data}]>" [expr $max_title_chars*2]] 
 					} elseif  { [llength $title_lines] == 1 } {
 						set fav_title [maxstring [lindex $title_lines 0] [expr $max_title_chars*2]]
-					} elseif  { [llength $title_lines] == 3 } {
-						set title_lines [list "[lindex title_lines 0]" "[lindex title_lines 1], [lindex title_lines 2]"]
+					} elseif  { [llength $title_lines] >= 3 } {
+						set title_lines [list "[lindex $title_lines 0]" "[lindex $title_lines 1], [lindex $title_lines 2]"]
 					}
 					
 					if  { [llength $title_lines] == 2 } {
 						lset title_lines 0 [maxstring [lindex $title_lines 0] $max_title_chars]
 						lset title_lines 1 [maxstring [lindex $title_lines 1] $max_title_chars]
+						set fav_title [join $title_lines "\n"]
+					} else {
 						set fav_title [join $title_lines "\n"]
 					}
 					
@@ -1900,7 +1945,7 @@ proc ::dui::pages::DYE::setup {} {
 	variable widgets
 	set page [namespace tail [namespace current]]
 	regsub -all { } $::settings(skin) "_" skin
-	if { $skin eq "DSx2" } { set skin "DSx" }
+	if { [::plugins::DYE::is_DSx2] } { set skin "DSx" }
 	
 	#::plugins::DYE::page_skeleton $page "" "" yes no center insight_ok
 	dui add variable $page 1280 60 -tags page_title -style page_title -command {%NS::toggle_title}

@@ -1,6 +1,75 @@
 
 proc ::plugins::DYE::setup_ui_DSx2 {} {
+	DSx2_setup_dui_theme
+		
+	# define_last_shot_desc must be defined only at runtime after running a shot.
+	# TODO: Maybe an initialization is needed for first-time installs and for skin/plugin
+	#	enabling/disabling (for both DSx2 and others)
+	#::plugins::DYE::define_last_shot_desc
+	::plugins::DYE::define_next_shot_desc
+	
+	# DSx2 HOME PAGES UI INTEGRATION
+	# Only done on strict DSx2 skin (no fork) and default "Damian" DSx2 theme
+	if { ![is_DSx2 yes "Damian"] } {
+		return
+	}
+	
+	dui page add dsx2_dye_favs -namespace true -type fpdialog
+	dui page add dsx2_dye_edit_fav -namespace true -type fpdialog
+	
+	# Original 1010
+	#set ::main_graph_height [rescale_y_skin 900]
+#	$::home_espresso_graph configure -height [rescale_y_skin 900]
+	
+	# Modify DSx2 home pages to adapt to DYE workflow
+	dui page add_action [lindex $::skin_home_pages 0] show ::plugins::DYE::DSx2_home_page_on_show
+	trace add execution ::show_graph leave ::plugins::DYE::DSx2_show_graph_hook
+	trace add execution ::hide_graph leave ::plugins::DYE::DSx2_hide_graph_hook
+	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
+	
+	#	dui add variable off 30 1570 -tags dye_last_shot_desc -textvariable {$::plugins::DYE::past_shot_desc_one_line} \
+	#		-font_size 12 -fill $::skin_forground_colour -anchor "e" -justify "left" -width 2200
 
+	# Add past & next shot description buttons to the home page 
+	dui add dbutton off 50 1410 -bwidth 900 -bheight 170 -anchor nw \
+		-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.0 0.27} -label_anchor nw \
+		-label_justify left -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
+		-label1 "LAST SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
+		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 900 \
+		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
+		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1400\] -anchor sw]
+	
+#	dui add dtext off 50 1450 -tags dye_past_shot_title -text "LAST SHOT, 6 minutes ago: Americano workflow" \
+#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200 \
+#		-font_family notosansuibold		
+#	dui add dtext off 50 1500 -tags dye_past_shot_desc1 -text "Extractamundo 2 - D'Origen Ethiopia Maba Mumbi 18.03.23" \
+#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200		
+#	dui add dtext off 50 1550 -tags dye_past_shot_desc2 -text "P100 @ 1.25 - 18.0g : 36.0g (1:2.0) in 3 + 10 = 12 s" \
+#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200
+
+	dui add dbutton off 1950 1410 -bwidth 900 -bheight 170 -anchor ne \
+		-tags launch_dye_next -labelvariable {[::plugins::DYE::define_next_shot_desc]} -label_pos {1.0 0.27} -label_anchor ne \
+		-label_justify right -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
+		-label1 "NEXT SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
+		-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 900 \
+		-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {0 20 75 25} \
+		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1400\] -anchor se]
+
+		
+#	dui add dtext off 1950 1450 -tags dye_next_shot_title -text "NEXT SHOT: Espresso workflow" \
+#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200 \
+#		-font_family notosansuibold		
+#	dui add dtext off 1950 1500 -tags dye_next_shot_desc1 -text "Blooming Espresso - D'Origen Ethiopia Maba Mumbi 18.03.23" \
+#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200		
+#	dui add dtext off 1950 1550 -tags dye_next_shot_desc2 -text "P100 @ 1.5 - 19.1g : 50.0g (1:2.6)" \
+#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200
+
+	
+	#dui item config $::skin_home_pages launch_dye* -initial_state normal -state normal
+	
+}
+
+proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	### DUI ASPECTS & STYLES ###
 	dui theme add DSx2
 	dui theme set DSx2
@@ -573,71 +642,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		text_tag.background.dyev3_field_highlighted darkgrey
 		text_tag.font.dyev3_field_nonhighlighted "[dui font get $font 15]"
 		text_tag.background.dyev3_field_nonhighlighted {}	
-	}]
-
-	
-	########################################################################################################
-	## HOME PAGES INTEGRATION
-	::plugins::DYE::define_last_shot_desc
-	::plugins::DYE::define_next_shot_desc
-	
-	if { $::skin(theme) ne "Damian" } {
-		return
-	}
-	
-	dui page add dsx2_dye_favs -namespace true -type fpdialog
-	dui page add dsx2_dye_edit_fav -namespace true -type fpdialog
-	
-	# Original 1010
-	#set ::main_graph_height [rescale_y_skin 900]
-#	$::home_espresso_graph configure -height [rescale_y_skin 900]
-	
-	# Modify DSx2 home pages to adapt to DYE workflow
-	dui page add_action [lindex $::skin_home_pages 0] show ::plugins::DYE::DSx2_home_page_on_show
-	trace add execution ::show_graph leave ::plugins::DYE::DSx2_show_graph_hook
-	trace add execution ::hide_graph leave ::plugins::DYE::DSx2_hide_graph_hook
-	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
-	
-	#	dui add variable off 30 1570 -tags dye_last_shot_desc -textvariable {$::plugins::DYE::past_shot_desc_one_line} \
-	#		-font_size 12 -fill $::skin_forground_colour -anchor "e" -justify "left" -width 2200
-
-	# Add past & next shot description buttons to the home page 
-	dui add dbutton off 50 1410 -bwidth 900 -bheight 170 -anchor nw \
-		-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.0 0.27} -label_anchor nw \
-		-label_justify left -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
-		-label1 "LAST SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
-		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 900 \
-		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
-		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords {50 1400} -anchor sw]
-	
-#	dui add dtext off 50 1450 -tags dye_past_shot_title -text "LAST SHOT, 6 minutes ago: Americano workflow" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200 \
-#		-font_family notosansuibold		
-#	dui add dtext off 50 1500 -tags dye_past_shot_desc1 -text "Extractamundo 2 - D'Origen Ethiopia Maba Mumbi 18.03.23" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200		
-#	dui add dtext off 50 1550 -tags dye_past_shot_desc2 -text "P100 @ 1.25 - 18.0g : 36.0g (1:2.0) in 3 + 10 = 12 s" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200
-
-	dui add dbutton off 1950 1410 -bwidth 900 -bheight 170 -anchor ne \
-		-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} -label_pos {1.0 0.27} -label_anchor ne \
-		-label_justify right -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
-		-label1 "NEXT SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
-		-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 900 \
-		-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {0 20 75 25} \
-		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords {1950 1400} -anchor se]
-
-		
-#	dui add dtext off 1950 1450 -tags dye_next_shot_title -text "NEXT SHOT: Espresso workflow" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200 \
-#		-font_family notosansuibold		
-#	dui add dtext off 1950 1500 -tags dye_next_shot_desc1 -text "Blooming Espresso - D'Origen Ethiopia Maba Mumbi 18.03.23" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200		
-#	dui add dtext off 1950 1550 -tags dye_next_shot_desc2 -text "P100 @ 1.5 - 19.1g : 50.0g (1:2.6)" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200
-
-	
-	#dui item config $::skin_home_pages launch_dye* -initial_state normal -state normal
-	
+	}]	
 }
 
 proc ::plugins::DYE::DSx2_home_page_on_show {  } {
@@ -660,6 +665,7 @@ proc ::plugins::DYE::DSx2_home_page_on_show {  } {
 proc ::plugins::DYE::DSx2_show_graph_hook { args } {
 	$::home_espresso_graph configure -height [rescale_y_skin 900]
 	dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+	dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
 }
 
 proc ::plugins::DYE::DSx2_hide_graph_hook { args } {
@@ -668,6 +674,8 @@ proc ::plugins::DYE::DSx2_hide_graph_hook { args } {
     	dui item config $::skin_home_pages b_favs_number* -state hidden
     	dui item config $::skin_home_pages bb_favs_number* -state hidden
     }
+	
+	dui item hide [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}	
 }
 
 proc ::plugins::DYE::DSx2_press_graph_hook { args } {
@@ -739,19 +747,19 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		dui add dtext $page $x [incr y 210] -width 1000 -anchor w \
 			-text "[translate {Number of DYE favorites to show on home page}] (0-$data(max_dsx2_home_visible_favs))" 
 		
-		dui add dbutton $page [expr $x+1016] [expr $y-134] -bwidth 100 -bheight 100 -shape round \
+		dui add dbutton $page [expr $x+1018] [expr $y-134] -bwidth 100 -bheight 100 -shape round \
 			-symbol angle-up -symbol_pos {0.5 0.5} -symbol_font_size 34 \
 			-command {%NS::change_dsx2_n_visible_dye_favs 1}
-		dui add dbutton $page [expr $x+1016] [expr $y+35] -bwidth 100 -bheight 100 -shape round \
+		dui add dbutton $page [expr $x+1018] [expr $y+35] -bwidth 100 -bheight 100 -shape round \
 			-symbol angle-down -symbol_pos {0.5 0.5} -symbol_font_size 34 \
 			-command {%NS::change_dsx2_n_visible_dye_favs -1}
 		dui add variable $page [expr $x+1050] $y -fill $::skin_text_colour -font [skin_font font_bold 24] -anchor w \
 			-tags dsx2_n_visible_dye_favs -textvariable dsx2_n_visible_dye_favs
 		
 		dui add dtoggle $page $x [incr y 200] -anchor nw -tags dsx2_update_chart_on_copy \
-			-variable dsx2_update_chart_on_copy		
+			-variable dsx2_update_chart_on_copy	-initial_state disabled
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags dsx2_update_chart_on_copy_lbl -width 1400 \
-			-text [translate "Show previous shot chart on home page when copying the shot into Next"] 
+			-text [translate "Show previous shot chart on home page when copying the shot into Next"] -initial_state disabled 
 
 		dui add dtoggle $page $x [incr y 275] -anchor nw -tags dsx2_disable_dye_favs -variable dsx2_disable_dye_favs \
 			-command show_or_hide_disable_dye_favs_msg
