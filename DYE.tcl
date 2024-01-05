@@ -48,10 +48,28 @@ namespace eval ::plugins::DYE {
 
 	variable profile_shot_extra_vars {profile profile_filename profile_to_save original_profile_title}
 	
-	variable default_shot_desc_font_color {#206ad4}
+	# Shot summary description strings appearing in:
+	# All skins: 
+	#	- On DYE-launch buttons popup-menu (3 lines, Last & Next, full description beans/profile/ratio/grinder)
+	#		To add? Source shot (when copying from it to Next, same parameters)
+	#		Computed when loading the menu page
+	# DSx: 
+	#	- Home page (3 lines, Last & Next, include TDS, EY & rating, but not ratio as it already appears on DSx home),
+	#		kept on DYE $settings(last_shot_desc) & $settings(next_shot_desc)
+	#	- History viewer (1 line & 2 lines, Past and Past 2, as selected by user, XX) - stored on DYE vars past_shot_desc*
+	# DSx2: Home pages (3 lines, Next & Last or Copy Source, workflow?/beans/profile/ratio/grinder/extraction??)
+	
+ 	variable default_shot_desc_font_color {#206ad4}
+	
+	# These are calculated when entering DSx history viewer or when the user selects a 
+	# different shot, not saved on the settings 
+	# DSx History viewer left
 	variable past_shot_desc {}
+	# DSx History viewer full page chart left
 	variable past_shot_desc_one_line {}
+	# DSx History viewer right
 	variable past_shot_desc2 {}
+	# DSx History viewer full page chart right
 	variable past_shot_desc_one_line2 {}
 }
 
@@ -301,7 +319,7 @@ proc ::plugins::DYE::check_settings {} {
 	
 	# Don't use ifexists for this, as it always evaluates the default value, inducing it to be changed
 	if { ![info exists settings(last_shot_desc)] } {
-		set settings(last_shot_desc) [define_last_shot_desc]
+		set settings(last_shot_desc) [define_last_shot_desc_on_shot_end]
 	}
 	if { ![info exists settings(next_shot_desc)] } {
 		set settings(next_shot_desc) [define_next_shot_desc]
@@ -630,7 +648,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 #		}
 #	}
 
-	define_last_shot_desc
+	define_last_shot_desc_on_shot_end
 	define_next_shot_desc
 	
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
@@ -650,7 +668,86 @@ proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 }
 
 
+# Formats shot descriptions into multiple-line strings.
+# 'lines_spec' is a list of parts to include, with each list element being a line of what to include in that line,
+#	and can take values in {beans profile grind ratio extraction workflow}
+proc ::plugins::DYE::format_shot_description { values_array_name {lines_spec {beans profile {grind ratio}}} \
+		{max_line_chars 250} {default_if_empty "Tap to describe this shot"} } {
+	set shot_desc ""
+	upvar $values_array_name values
+	
+	# Flatten lines spec
+	set what_items [list]
+	foreach item $lines_spec {
+		lappend what_items {*}$item 
+	}
+
+	if { "workflow" in $what_items } {
+		set workflow [value_or_default values(workflow)]
+		if { $workflow eq {} } {
+			set workflow [value_or_default values(DSx2_workflow)]
+		}
+	}
+	if { "profile" in $what_items } {
+		set profile [string trim [value_or_default values(profile_title)]]
+	}
+	if { "beans" in $what_items } {
+		set beans [string trim [join [list_remove_element [list [value_or_default values(bean_brand)] \
+				[value_or_default values(bean_type)] [value_or_default value(roast_date)]] ""]]]
+	}
+	if { "grind" in $what_items } { 
+		if { ![info exists values(grinder_setting)] ||$values(grinder_setting) == 0 } { 
+			set values(grinder_setting) {}
+		}
+		set grind [string trim [join [list_remove_element [list \
+				[value_or_default values(grinder_model)] $values(grinder_setting)] ""] " @ "]] 
+	}
+	if { "ratio" in $what_items } {
+		set dose [value_or_default values(grinder_dose_weight) 0]
+		set yield [value_or_default values(drink_weight)]
+		
+		if {$dose > 0 || $yield > 0} { 
+			set ratio "$dose[translate g] : $yield[translate g]"
+			if { $dose > 0 && $yield > 0 } {
+				append ratio " (1:[round_to_one_digits [expr {$yield * 1.0 / $dose}]])"
+			}
+		}
+		set duration [value_or_default values(extraction_time)]
+		if {$duration > 0} {
+			append ratio " in [round_to_integer $duration][translate s]"
+		}
+	}
+	if {"extraction" in $what_items} {
+		set extraction_items {}
+		if {[value_or_default values(drink_tds) 0] > 0} { 
+			lappend extraction_items "[translate TDS] $values(drink_tds)\%" 
+		}
+		if {[value_or_default values(drink_ey) 0] > 0} { 
+			lappend extraction_items "[translate EY] $values(drink_ey)\%" }
+		if {[value_or_default espresso_enjoyment 0] > 0} { 
+			lappend extraction_items "[translate Enjoyment] $values(espresso_enjoyment)" 
+		}
+		set extraction [join $extraction_items ", "]
+	}
+		
+	set lines {}
+	foreach line $lines_spec {
+		set line_parts {}
+		foreach line_item $line {
+			if {[info exists $line_item] } {
+				lappend line_parts [subst \$$line_item]
+			} else {
+				lappend line_parts $line_item
+			}
+		}
+		lappend lines [maxstring [join [list_remove_element $line_parts {}] " - "] $max_line_chars]
+	}
+	
+	return [join [list_remove_element $lines {}] "\n"]
+} 
+
 # Returns a 2 or 3-lines formatted string with the summary of a shot description.
+# DEPRECATED!! USE format_shot_description instead
 proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {roast_date {}} {grinder_model {}} \
 		{grinder_setting {}} {drink_tds 0} {drink_ey 0} {espresso_enjoyment 0} {lines 2} \
 		{default_if_empty "Tap to describe this shot"} {profile_title {}} {workflow {}} \
@@ -721,34 +818,6 @@ proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {
 	return $shot_desc
 }
 
-# Returns a string with the summary description of the current (last) shot.
-# Needs the { args } as this is being used in a trace add execution.
-# BEWARE this should ONLY be invoked just after finishing a shot, otherwise the settings variables may contain
-# 	the plan for the next shot instead of the last one.
-proc ::plugins::DYE::define_last_shot_desc { args } {	
-	variable settings
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {
-			if { $::settings(history_saved) == 1 } {
-				if { [is_DSx2] } {
-				set workflow [value_or_default ::skin(workflow) "none"]
-			} else {
-				set workflow {}
-			}
-			
-			set settings(last_shot_desc) [shot_description_summary $::settings(bean_brand) \
-				$::settings(bean_type) $::settings(roast_date) $::settings(grinder_model) \
-				$::settings(grinder_setting) $::settings(drink_tds) $::settings(drink_ey) \
-				$::settings(espresso_enjoyment) 3 "Tap to describe this shot" \
-				$::settings(profile_title) $workflow $::settings(grinder_dose_weight) \
-				$::settings(drink_weight) [espresso_elapsed_timer]]
-		} else {
-			set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
-		}
-	} else {
-		set settings(last_shot_desc) ""
-	}
-}
-
 
 # Returns a string with the summary description of the shot selected on the left side of the DSx History Viewer.
 # Needs the { args } as this is being used in a trace add execution.
@@ -799,25 +868,78 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 	}
 }
 
-# Returns a string with the summary description of the next shot.
+# Returns a string with the summary description of the current (last) shot.
+# This is the text that is shown on the home page of DSx and DSx2.
 # Needs the { args } as this is being used in a trace add execution.
-proc ::plugins::DYE::define_next_shot_desc { args } {
+# BEWARE this should ONLY be invoked just after finishing a shot, otherwise the settings variables may contain
+# 	the plan for the next shot instead of the last one.
+proc ::plugins::DYE::define_last_shot_desc_on_shot_end { args } {	
+	variable settings
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {
+		if { $::settings(history_saved) == 1 } {
+			array set values {}
+			foreach field [metadata fields -domain shot -category description] {
+				set values($field) $::settings($field)
+			}
+			set values(extraction_time) [espresso_elapsed_timer]
+			
+			if { [is_DSx2] } {
+				set values(workflow) [value_or_default ::skin(workflow) "none"]
+				set line_spec {profile beans {grind ratio}}
+				set max_line_chars 50
+			} else {
+				# Default as for DSx
+				set line_spec {beans {grind extraction} ratio}
+				set max_line_chars 50
+			}
+			
+			set settings(last_shot_desc) [format_shot_description values $line_spec $max_line_chars]
+		} else {
+			set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
+		}
+	} else {
+		set settings(last_shot_desc) ""
+	}
+}
+
+# Returns a string with the summary description of the next shot.
+# This is the text that is shown on the home page of DSx and DSx2.
+# Needs the { args } as this is being used in a trace add execution.
+# When this is called from the DYE page after editing the next shot data,
+#	we pass the next_shot_name array name 'data' so we avoid recomputing all
+#	next data.
+proc ::plugins::DYE::define_next_shot_desc { {next_shot_name {}} args } {
 	variable settings
 	  
 	if { $settings(show_shot_desc_on_home) == 1 && [info exists settings(next_bean_brand)] } {
-		if { [is_DSx2] } {
-			set desc [shot_description_summary $settings(next_bean_brand) \
-				$settings(next_bean_type) $settings(next_roast_date) $settings(next_grinder_model) \
-				$settings(next_grinder_setting) {} {} {} 3 "\[Tap to describe the next shot\]" \
-				$::settings(profile_title) [value_or_default ::skin(workflow) "none"] \
-				$::settings(grinder_dose_weight) $::settings(drink_weight) ]
+		if { $next_shot_name eq {} } {
+			array set next_shot [load_next_shot]
 		} else {
-			set desc [shot_description_summary $settings(next_bean_brand) \
-				$settings(next_bean_type) $settings(next_roast_date) $settings(next_grinder_model) \
-				$settings(next_grinder_setting) {} {} {} 2 "\[Tap to describe the next shot\]"]
-			
-			if { $settings(next_modified) } { append desc " *" }
+			upvar $next_shot_name next_shot 
 		}
+		
+#		[list \
+#			profile_title $::settings(profile_title) \
+#			bean_brand $settings(next_bean_brand) \
+#			bean_type $settings(next_bean_type) \
+#			roast_date $settings(next_roast_date) \
+#			grinder_model $settings(next_grinder_model) \
+#			grinder_setting $settings(next_grinder_setting) \
+#			grinder_dose_weight $::settings(grinder_dose_weight) \
+#			drink_weight $::settings(drink_weight) \
+#		]
+		
+		if { [is_DSx2] } {
+			#set next_shot(workflow) [value_or_default ::skin(workflow) "none"]
+			set line_spec {profile beans {grind ratio}}
+			set max_line_chars 50
+		} else {
+			set line_spec {beans {grind extraction} ratio}
+			set max_line_chars 50
+		}
+		
+		set desc [format_shot_description next_shot $line_spec $max_line_chars]
+		if { $settings(next_modified) } { append desc " *" }
 		set settings(next_shot_desc) $desc
 	} else {
 		set settings(next_shot_desc) ""
@@ -872,15 +994,36 @@ proc ::plugins::DYE::load_next_shot { } {
 		}
 	}
 
-msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
-msg "DYE LOAD_NEXT_SHOT ::settings(final_desired_shot_volume_advanced)=$::settings(final_desired_shot_volume_advanced)"	
+#msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
+#msg "DYE LOAD_NEXT_SHOT ::settings(final_desired_shot_volume_advanced)=$::settings(final_desired_shot_volume_advanced)"
+	# Skin-specific variables or modifications
 	if { $::settings(skin) eq "MimojaCafe" && $::settings(final_desired_shot_volume_advanced) > 0 } {		
 		set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_volume_advanced)]
 	} elseif { $::settings(skin) eq "DSx" && [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
 		set shot_data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
+	} elseif { [is_DSx2]} {
+		set shot_data(workflow) $::skin(workflow)
+		if { $::settings(grinder_dose_weight) > 0 } { 
+			set shot_data(grinder_dose_weight) $::settings(grinder_dose_weight)
+		}
+		# TBD
+		if { $::settings(drink_weight) > 0 } { 
+			set shot_data(drink_weight) $::settings(drink_weight)
+		}
+		
+		#set shot_data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
 	}
-msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
-	foreach field_name {app_version firmware_version_number enabled_plugins skin skin_version profile_title beverage_type} {
+
+	# Extra profile variables
+	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+		if { [info exists ::settings($fn)] } {
+			set shot_data($fn) $::settings($fn)
+		}
+	}
+	
+#msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
+	# profile_title and beverage_type already in profile_vars above, removed
+	foreach field_name {app_version firmware_version_number enabled_plugins skin skin_version} {
 		if { [info exists ::settings($field_name)] } {
 			set shot_data($field_name) $::settings($field_name)
 		} else {
@@ -2736,86 +2879,122 @@ proc ::dui::pages::DYE::load_description {} {
 	define_title
 	
 	if { $data(describe_which_shot) eq "next" } {
-		#set data(clock) {}
 		set src_next_modified $::plugins::DYE::settings(next_modified)
+		array set shot [::plugins::DYE::load_next_shot]
 		set data(path) {}
-
-		foreach fn [metadata fields -domain shot -category description -propagate 1] {
-			set src_data($fn) $::plugins::DYE::settings(next_$fn)
-			set data($fn) $::plugins::DYE::settings(next_$fn)
-		}
-		foreach fn [metadata fields -domain shot -category description -propagate 0] {
-			if { $fn eq "espresso_notes" || $fn eq "drink_weight" } {
-				set src_data($fn) $::plugins::DYE::settings(next_$fn)
-				set data($fn) $::plugins::DYE::settings(next_$fn)
-			} else {
-				set src_data($fn) {}
-				set data($fn) {}
-			}
-		}
-		
-		load_next_profile
-		
-		# MimojaCafe and DSx allow you to define some variables of next shot, so we ensure they are coordinated
-		# with DYE next shot description.
-		if { $::settings(skin) eq "MimojaCafe" } {
-			# For these fields, the definition in MC home page takes precedence over values in DYE::settings(next_*)
-			if { [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
-				set data(grinder_dose_weight) [round_to_one_digits $::settings(grinder_dose_weight)]
-			}
-			
-			if {[::device::scale::expecting_present]} {
-				if {$::settings(settings_profile_type) eq "settings_2c"} {
-					if { [return_zero_if_blank $::settings(final_desired_shot_weight_advanced)] > 0 } {
-						set data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight_advanced)]
-					}
-				} else {
-					if { [return_zero_if_blank $::settings(final_desired_shot_weight)] > 0 } {
-						set data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
-					}
-				}
-			}
-			
-			if { [return_zero_if_blank $::settings(grinder_setting)] > 0 } {
-				set data(grinder_setting) $::settings(grinder_setting)
-			}
-		} elseif { $::settings(skin) eq "DSx" } {
-			if { [return_zero_if_blank $::DSx_settings(bean_weight)] > 0 } {
-				set data(grinder_dose_weight) [round_to_one_digits $::DSx_settings(bean_weight)]
-			}			
-			if { [return_zero_if_blank $::DSx_settings(saw)] > 0 } {
-				set data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
-			}
-		}
 	} else {
-		set src_next_modified {}
+		set src_next_modified {}		
+		array set shot [::plugins::SDB::load_shot $data(clock) 0 1 1]
+	}
+
+	if { [array size shot] == 0 } {
+		foreach fn [metadata fields -domain shot -category description] {
+			set src_data($fn) {}
+			set data($fn) {}
+		}
+		set data(path) {}
+		set data(days_offroast_msg) ""
+		foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+			set src_data($fn) {}
+		}
+		return 0 
+	} else {
+		foreach fn [metadata fields -domain shot -category description] {
+			set src_data($fn) $shot($fn)
+			set data($fn) $shot($fn)
+		}
+		set data(path) $shot(path)
 		
-		array set shot [::plugins::SDB::load_shot $data(clock) 0 1 1]	
-		if { [array size shot] == 0 } {
-			foreach fn [metadata fields -domain shot -category description] {
-				set src_data($fn) {}
-				set data($fn) {}
-			}
-			set data(path) {}
-			set data(days_offroast_msg) ""
-			foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
-				set src_data($fn) {}
-			}
-			return 0 
-		} else {			
-			foreach fn [metadata fields -domain shot -category description] {
+		foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+			if { [info exists shot($fn)] } {
 				set src_data($fn) $shot($fn)
-				set data($fn) $shot($fn)
-			}
-			set data(path) $shot(path)
-			
-			foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
-				if { [info exists shot($fn)] } {
-					set src_data($fn) $shot($fn)
-				}
 			}
 		}
 	}
+	
+	# OLD CODE, the code for loading the next shot was duplicated with ::plugins::DYE::load_next_shot, so now
+	#	we use a single source.
+#	if { $data(describe_which_shot) eq "next" } {
+#		#set data(clock) {}
+#		set src_next_modified $::plugins::DYE::settings(next_modified)
+#		set data(path) {}
+#
+#		foreach fn [metadata fields -domain shot -category description -propagate 1] {
+#			set src_data($fn) $::plugins::DYE::settings(next_$fn)
+#			set data($fn) $::plugins::DYE::settings(next_$fn)
+#		}
+#		foreach fn [metadata fields -domain shot -category description -propagate 0] {
+#			if { $fn eq "espresso_notes" || $fn eq "drink_weight" } {
+#				set src_data($fn) $::plugins::DYE::settings(next_$fn)
+#				set data($fn) $::plugins::DYE::settings(next_$fn)
+#			} else {
+#				set src_data($fn) {}
+#				set data($fn) {}
+#			}
+#		}
+#		
+#		load_next_profile
+#		
+#		# MimojaCafe and DSx allow you to define some variables of next shot, so we ensure they are coordinated
+#		# with DYE next shot description.
+#		if { $::settings(skin) eq "MimojaCafe" } {
+#			# For these fields, the definition in MC home page takes precedence over values in DYE::settings(next_*)
+#			if { [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
+#				set data(grinder_dose_weight) [round_to_one_digits $::settings(grinder_dose_weight)]
+#			}
+#			
+#			if {[::device::scale::expecting_present]} {
+#				if {$::settings(settings_profile_type) eq "settings_2c"} {
+#					if { [return_zero_if_blank $::settings(final_desired_shot_weight_advanced)] > 0 } {
+#						set data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight_advanced)]
+#					}
+#				} else {
+#					if { [return_zero_if_blank $::settings(final_desired_shot_weight)] > 0 } {
+#						set data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
+#					}
+#				}
+#			}
+#			
+#			if { [return_zero_if_blank $::settings(grinder_setting)] > 0 } {
+#				set data(grinder_setting) $::settings(grinder_setting)
+#			}
+#		} elseif { $::settings(skin) eq "DSx" } {
+#			if { [return_zero_if_blank $::DSx_settings(bean_weight)] > 0 } {
+#				set data(grinder_dose_weight) [round_to_one_digits $::DSx_settings(bean_weight)]
+#			}			
+#			if { [return_zero_if_blank $::DSx_settings(saw)] > 0 } {
+#				set data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
+#			}
+#		}
+#	} else {
+#		set src_next_modified {}
+#		
+#		array set shot [::plugins::SDB::load_shot $data(clock) 0 1 1]	
+#		if { [array size shot] == 0 } {
+#			foreach fn [metadata fields -domain shot -category description] {
+#				set src_data($fn) {}
+#				set data($fn) {}
+#			}
+#			set data(path) {}
+#			set data(days_offroast_msg) ""
+#			foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+#				set src_data($fn) {}
+#			}
+#			return 0 
+#		} else {			
+#			foreach fn [metadata fields -domain shot -category description] {
+#				set src_data($fn) $shot($fn)
+#				set data($fn) $shot($fn)
+#			}
+#			set data(path) $shot(path)
+#			
+#			foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+#				if { [info exists shot($fn)] } {
+#					set src_data($fn) $shot($fn)
+#				}
+#			}
+#		}
+#	}
 
 	# Ensure the profile's advanced_shot variable is always defined
 	switch $src_data(settings_profile_type) \
@@ -2833,6 +3012,7 @@ proc ::dui::pages::DYE::load_description {} {
 	return 1
 }
 
+# NOT NEEDED ANYMORE? Already handled by load_next_shot and load_description?
 proc ::dui::pages::DYE::load_next_profile {} {
 	variable data
 	variable src_data
@@ -2919,8 +3099,7 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 			}
 		}
 		
-		set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
-			$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
+		::plugins::DYE::define_next_shot_desc data
 		set dye_settings_changed 1
 	} elseif { $data(path) eq {} } {
 		# Past shot not properly saved to history folder
@@ -2944,7 +3123,10 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 			}
 			
 			set ::plugins::DYE::settings(last_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
-				$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
+				$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment) \
+				2 "Tap to describe this shot" $::settings(profile_title) [value_or_default ::skin(workflow) {}] $data(grinder_dose_weight) \
+				$data(drink_weight)
+			]
 			if { $dye_settings_changed } {
 				set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
 					$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
