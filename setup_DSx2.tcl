@@ -28,14 +28,21 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	trace add execution ::hide_graph leave ::plugins::DYE::DSx2_hide_graph_hook
 	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
 	
-	# Add past & next shot description buttons to the home page 
+	# Add past & next shot description buttons to the home page
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+		set istate normal
+	} else {
+		set istate hidden
+	}
+	
 	dui add dbutton off 50 1370 -bwidth 1000 -bheight 170 -anchor nw \
 		-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.0 0.27} -label_anchor nw \
 		-label_justify left -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
 		-label1 "LAST SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
 		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
-		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw]
+		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
+		-initial_state $istate
 	
 	# -labelvariable {[::plugins::DYE::define_next_shot_desc]}
 	dui add dbutton off 1950 1370 -bwidth 1000 -bheight 170 -anchor ne \
@@ -44,7 +51,8 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		-label1 "NEXT SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
 		-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {0 20 75 25} \
-		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se]
+		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se] \
+		-initial_state $istate
 
 	#dui item config $::skin_home_pages launch_dye* -initial_state normal -state normal
 }
@@ -634,38 +642,62 @@ proc ::plugins::DYE::DSx2_home_page_on_show {  } {
 			dui item config [lindex $::skin_home_pages 0] dye_fav_$i -state hidden
 		}
 		
-		dui item config $::skin_home_pages l_favs_number -initial_state hidden -state hidden
-		dui item config $::skin_home_pages b_favs_number* -initial_state hidden -state hidden
-		dui item config $::skin_home_pages bb_favs_number* -initial_state hidden -state hidden
+		dui item config $::skin_home_pages {l_favs_number b_favs_number* bb_favs_number* } \
+			-initial_state hidden -state hidden
 	}
-	$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
-	dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
+		dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+	}
 }
 
 proc ::plugins::DYE::DSx2_show_graph_hook { args } {
-	$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
-	dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
-	dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
-	::plugins::DYE::define_next_shot_desc
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
+		dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+		dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
+		::plugins::DYE::define_next_shot_desc
+	}
 }
 
 proc ::plugins::DYE::DSx2_hide_graph_hook { args } {
     if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
-    	dui item config $::skin_home_pages l_favs_number -state hidden
-    	dui item config $::skin_home_pages b_favs_number* -state hidden
-    	dui item config $::skin_home_pages bb_favs_number* -state hidden
+    	dui item config $::skin_home_pages {l_favs_number b_favs_number* bb_favs_number* } \
+    		-state hidden
     }
-	
-	dui item hide [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}	
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+		dui item hide [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
+	}
 }
 
 proc ::plugins::DYE::DSx2_press_graph_hook { args } {
-	if { $::main_graph_height == [rescale_y_skin 1010] } {
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+		if { $::main_graph_height == [rescale_y_skin 1010] } {
+			$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
+			dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
+			dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+		} elseif { $::main_graph_height == $::plugins::DYE::DSx2_main_graph_height } {
+			dui item hide [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
+		}
+	}
+}
+
+proc ::plugins::DYE::toggle_show_shot_desc_on_home { } {
+	set main_home_page [lindex $::skin_home_pages 0]
+
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+		dui item config $main_home_page {launch_dye_last* launch_dye_next*} \
+			-initial_state normal
+		dui item config $main_home_page live_graph_data -initial_state hidden
 		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
-		dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
-		dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
-	} elseif { $::main_graph_height == $::plugins::DYE::DSx2_main_graph_height } {
-		dui item hide [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
+	} else {
+		dui item config $main_home_page {launch_dye_last* launch_dye_next*} \
+			-initial_state hidden
+		
+		dui item config $::skin_home_pages live_graph_data -initial_state normal
+		if { [dui item cget $main_home_page graph_a -initial_state] ne "normal" } {
+			$::home_espresso_graph configure -height [rescale_y_skin 1010]
+		}
 	}
 }
 

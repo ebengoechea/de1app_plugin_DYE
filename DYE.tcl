@@ -7179,7 +7179,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add dtext $page $x $y -text [translate "DSx skin options"] -style section_header
 	
 	dui add dtext $page $x [incr y 100] -tags {show_shot_desc_on_home_lbl show_shot_desc_on_home*} \
-		-width [expr {$panel_width-375}] -text [translate "Show next & last shot description summaries on DSx home page"]
+		-width [expr {$panel_width-375}] -text [translate "Show next & last shot description summaries on DSx and DSx2 home page"]
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags show_shot_desc_on_home \
 		-variable ::plugins::DYE::settings(show_shot_desc_on_home) -command show_shot_desc_on_home_change 
 	
@@ -7199,7 +7199,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	
 	# RIGHT SIDE, BOTTOM
 	set y 925
-	dui add dtext $page $x $y -text [translate "Insight / MimojaCafe skin options"] -style section_header
+	dui add dtext $page $x $y -text [translate "Insight / MimojaCafe / DSx2 skin options"] -style section_header
 	
 	dui add dtext $page $x [incr y 100] -tags default_launch_action_label -width 725 \
 		-text [translate "Default action when DYE icon or button is tapped"]
@@ -7229,9 +7229,14 @@ proc ::dui::pages::DYE_settings::show { page_to_hide page_to_show } {
 }
 
 
-proc ::dui::pages::DYE_settings::show_shot_desc_on_home_change {} {	
-	::plugins::DYE::define_last_shot_desc
-	::plugins::DYE::define_next_shot_desc
+proc ::dui::pages::DYE_settings::show_shot_desc_on_home_change {} {
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+		::plugins::DYE::define_last_shot_desc
+		::plugins::DYE::define_next_shot_desc
+	}
+	if { [::plugins::DYE::is_DSx2 yes "Damian"] } {
+		::plugins::DYE::toggle_show_shot_desc_on_home	
+	}
 	plugins save_settings DYE
 }
 
