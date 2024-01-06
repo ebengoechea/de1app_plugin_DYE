@@ -13,60 +13,36 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	if { ![is_DSx2 yes "Damian"] } {
 		return
 	}
-	
+
+	# Add new pages
 	dui page add dsx2_dye_favs -namespace true -type fpdialog
 	dui page add dsx2_dye_edit_fav -namespace true -type fpdialog
 	
-	# Original 1010
-	#set ::main_graph_height [rescale_y_skin 900]
-#	$::home_espresso_graph configure -height [rescale_y_skin 900]
-	
-	# Modify DSx2 home pages to adapt to DYE workflow
+	# Modify DSx2 home pages to adapt to DYE UI widgets and workflow
 	dui page add_action [lindex $::skin_home_pages 0] show ::plugins::DYE::DSx2_home_page_on_show
 	trace add execution ::show_graph leave ::plugins::DYE::DSx2_show_graph_hook
 	trace add execution ::hide_graph leave ::plugins::DYE::DSx2_hide_graph_hook
 	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
 	
-	#	dui add variable off 30 1570 -tags dye_last_shot_desc -textvariable {$::plugins::DYE::past_shot_desc_one_line} \
-	#		-font_size 12 -fill $::skin_forground_colour -anchor "e" -justify "left" -width 2200
-
 	# Add past & next shot description buttons to the home page 
-	dui add dbutton off 50 1410 -bwidth 900 -bheight 170 -anchor nw \
+	dui add dbutton off 50 1410 -bwidth 1000 -bheight 170 -anchor nw \
 		-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.0 0.27} -label_anchor nw \
 		-label_justify left -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
 		-label1 "LAST SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
-		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 900 \
+		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1400\] -anchor sw]
 	
-#	dui add dtext off 50 1450 -tags dye_past_shot_title -text "LAST SHOT, 6 minutes ago: Americano workflow" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200 \
-#		-font_family notosansuibold		
-#	dui add dtext off 50 1500 -tags dye_past_shot_desc1 -text "Extractamundo 2 - D'Origen Ethiopia Maba Mumbi 18.03.23" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200		
-#	dui add dtext off 50 1550 -tags dye_past_shot_desc2 -text "P100 @ 1.25 - 18.0g : 36.0g (1:2.0) in 3 + 10 = 12 s" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor w -justify left -width 2200
-
-	dui add dbutton off 1950 1410 -bwidth 900 -bheight 170 -anchor ne \
-		-tags launch_dye_next -labelvariable {[::plugins::DYE::define_next_shot_desc]} -label_pos {1.0 0.27} -label_anchor ne \
-		-label_justify right -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
+	# -labelvariable {[::plugins::DYE::define_next_shot_desc]}
+	dui add dbutton off 1950 1410 -bwidth 1000 -bheight 170 -anchor ne \
+		-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} -label_pos {1.0 0.27} -label_anchor ne \
+		-label_justify right -label_font_size -4 -label_fill $::skin_forground_colour -label_width 1000 \
 		-label1 "NEXT SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
-		-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 900 \
+		-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {0 20 75 25} \
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1400\] -anchor se]
 
-		
-#	dui add dtext off 1950 1450 -tags dye_next_shot_title -text "NEXT SHOT: Espresso workflow" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200 \
-#		-font_family notosansuibold		
-#	dui add dtext off 1950 1500 -tags dye_next_shot_desc1 -text "Blooming Espresso - D'Origen Ethiopia Maba Mumbi 18.03.23" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200		
-#	dui add dtext off 1950 1550 -tags dye_next_shot_desc2 -text "P100 @ 1.5 - 19.1g : 50.0g (1:2.6)" \
-#		-font_size 12 -fill $::skin_forground_colour -anchor e -justify right -width 2200
-
-	
 	#dui item config $::skin_home_pages launch_dye* -initial_state normal -state normal
-	
 }
 
 proc ::plugins::DYE::DSx2_setup_dui_theme { } {
@@ -666,6 +642,7 @@ proc ::plugins::DYE::DSx2_show_graph_hook { args } {
 	$::home_espresso_graph configure -height [rescale_y_skin 900]
 	dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
 	dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
+	::plugins::DYE::define_next_shot_desc
 }
 
 proc ::plugins::DYE::DSx2_hide_graph_hook { args } {
@@ -781,7 +758,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
 				-shape round_outline -bheight 100 -fill $::skin_forground_colour -outline $::skin_forground_colour \
 				-tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
-				-labelvariable "\[::plugins::DYE::favorites::fav_title $i\]" -label_font_size 12 -label_width 440 \
+				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_font_size 11 -label_width 450 \
 				-initial_state hidden
 			
 			dui add dbutton $page [expr $::skin(button_x_fav)-150] $y -bwidth 100 -bheight 100 -shape "" \
@@ -1381,5 +1358,4 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 	}
 	
 }
-
 

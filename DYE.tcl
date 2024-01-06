@@ -319,7 +319,7 @@ proc ::plugins::DYE::check_settings {} {
 	
 	# Don't use ifexists for this, as it always evaluates the default value, inducing it to be changed
 	if { ![info exists settings(last_shot_desc)] } {
-		set settings(last_shot_desc) [define_last_shot_desc_on_shot_end]
+		set settings(last_shot_desc) [define_last_shot_desc]
 	}
 	if { ![info exists settings(next_shot_desc)] } {
 		set settings(next_shot_desc) [define_next_shot_desc]
@@ -648,7 +648,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 #		}
 #	}
 
-	define_last_shot_desc_on_shot_end
+	define_last_shot_desc
 	define_next_shot_desc
 	
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
@@ -672,10 +672,14 @@ proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 # 'lines_spec' is a list of parts to include, with each list element being a line of what to include in that line,
 #	and can take values in {beans profile grind ratio extraction workflow}
 proc ::plugins::DYE::format_shot_description { values_array_name {lines_spec {beans profile {grind ratio}}} \
-		{max_line_chars 250} {default_if_empty "Tap to describe this shot"} } {
+		{max_line_chars 100} {default_if_empty "\[Tap to describe this shot\]"} } {
 	set shot_desc ""
 	upvar $values_array_name values
 	
+	if { [array size values] == 0 } {
+		return "\[[translate $default_if_empty]\]" 
+	}
+			
 	# Flatten lines spec
 	set what_items [list]
 	foreach item $lines_spec {
@@ -693,7 +697,7 @@ proc ::plugins::DYE::format_shot_description { values_array_name {lines_spec {be
 	}
 	if { "beans" in $what_items } {
 		set beans [string trim [join [list_remove_element [list [value_or_default values(bean_brand)] \
-				[value_or_default values(bean_type)] [value_or_default value(roast_date)]] ""]]]
+				[value_or_default values(bean_type)] [value_or_default values(roast_date)]] ""]]]
 	}
 	if { "grind" in $what_items } { 
 		if { ![info exists values(grinder_setting)] ||$values(grinder_setting) == 0 } { 
@@ -743,14 +747,19 @@ proc ::plugins::DYE::format_shot_description { values_array_name {lines_spec {be
 		lappend lines [maxstring [join [list_remove_element $line_parts {}] " - "] $max_line_chars]
 	}
 	
-	return [join [list_remove_element $lines {}] "\n"]
+	set lines [list_remove_element $lines {}]
+	if { [llength $lines] == 0 } {
+		return "[translate $default_if_empty]"
+	} else {
+		return [join $lines "\n"]
+	}
 } 
 
 # Returns a 2 or 3-lines formatted string with the summary of a shot description.
 # DEPRECATED!! USE format_shot_description instead
 proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {roast_date {}} {grinder_model {}} \
 		{grinder_setting {}} {drink_tds 0} {drink_ey 0} {espresso_enjoyment 0} {lines 2} \
-		{default_if_empty "Tap to describe this shot"} {profile_title {}} {workflow {}} \
+		{default_if_empty "\[Tap to describe this shot\]"} {profile_title {}} {workflow {}} \
 		{grinder_dose_weight 0} {drink_weight 0} {extraction_time 0} } {
 	set shot_desc ""
 	set skin $::settings(skin)
@@ -871,31 +880,37 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 # Returns a string with the summary description of the current (last) shot.
 # This is the text that is shown on the home page of DSx and DSx2.
 # Needs the { args } as this is being used in a trace add execution.
-# BEWARE this should ONLY be invoked just after finishing a shot, otherwise the settings variables may contain
+# BEWARE this should ONLY be invoked WITHOUT DEFINING last_shot_array_name just after 
+#	finishing a shot, otherwise the settings variables may contain
 # 	the plan for the next shot instead of the last one.
-proc ::plugins::DYE::define_last_shot_desc_on_shot_end { args } {	
+proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} args } {	
 	variable settings
 	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {
-		if { $::settings(history_saved) == 1 } {
-			array set values {}
-			foreach field [metadata fields -domain shot -category description] {
-				set values($field) $::settings($field)
-			}
-			set values(extraction_time) [espresso_elapsed_timer]
-			
-			if { [is_DSx2] } {
-				set values(workflow) [value_or_default ::skin(workflow) "none"]
-				set line_spec {profile beans {grind ratio}}
-				set max_line_chars 50
-			} else {
-				# Default as for DSx
-				set line_spec {beans {grind extraction} ratio}
-				set max_line_chars 50
-			}
-			
-			set settings(last_shot_desc) [format_shot_description values $line_spec $max_line_chars]
+		if { [is_DSx2] } {
+			set values(workflow) [value_or_default ::skin(workflow) "none"]
+			set line_spec {profile beans {grind ratio}}
+			set max_line_chars 55
 		} else {
-			set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
+			# Default as for DSx
+			set line_spec {beans {grind extraction} ratio}
+			set max_line_chars 55
+		}
+		
+		if { $last_shot_array_name eq {} } {
+			if { $::settings(history_saved) == 1 } {
+				array set last_shot {}
+				foreach field [metadata fields -domain shot -category description] {
+					set last_shot($field) $::settings($field)
+				}
+				set last_shot(extraction_time) [espresso_elapsed_timer]
+								
+				set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
+			} else {
+				set settings(last_shot_desc) {\[ [translate {Shot not saved to history}] \]}
+			}
+		} else {
+			upvar $last_shot_array_name last_shot
+			set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 		}
 	} else {
 		set settings(last_shot_desc) ""
@@ -908,34 +923,23 @@ proc ::plugins::DYE::define_last_shot_desc_on_shot_end { args } {
 # When this is called from the DYE page after editing the next shot data,
 #	we pass the next_shot_name array name 'data' so we avoid recomputing all
 #	next data.
-proc ::plugins::DYE::define_next_shot_desc { {next_shot_name {}} args } {
+proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 	variable settings
 	  
 	if { $settings(show_shot_desc_on_home) == 1 && [info exists settings(next_bean_brand)] } {
-		if { $next_shot_name eq {} } {
+		if { $next_shot_array_name eq {} } {
 			array set next_shot [load_next_shot]
 		} else {
-			upvar $next_shot_name next_shot 
+			upvar $next_shot_array_name next_shot 
 		}
-		
-#		[list \
-#			profile_title $::settings(profile_title) \
-#			bean_brand $settings(next_bean_brand) \
-#			bean_type $settings(next_bean_type) \
-#			roast_date $settings(next_roast_date) \
-#			grinder_model $settings(next_grinder_model) \
-#			grinder_setting $settings(next_grinder_setting) \
-#			grinder_dose_weight $::settings(grinder_dose_weight) \
-#			drink_weight $::settings(drink_weight) \
-#		]
 		
 		if { [is_DSx2] } {
 			#set next_shot(workflow) [value_or_default ::skin(workflow) "none"]
 			set line_spec {profile beans {grind ratio}}
-			set max_line_chars 50
+			set max_line_chars 55
 		} else {
 			set line_spec {beans {grind extraction} ratio}
-			set max_line_chars 50
+			set max_line_chars 55
 		}
 		
 		set desc [format_shot_description next_shot $line_spec $max_line_chars]
@@ -948,8 +952,7 @@ proc ::plugins::DYE::define_next_shot_desc { {next_shot_name {}} args } {
 
 # Returns an array with the same structure as ::plugins::SDB::load_shot but with the data for next shot, taken from
 # the global and DYE settings. Data that doesn't apply to a "next" shot gets an empty string as value, or 0.0 for series.
-# This is used so we can easily use the returned array as the source for DYE pages.
-# TODO: REMOVE? NOT NEEDED ANYMORE?
+# This is used so we can easily use the returned array as the source for DYE pages and procs like define_next_shot_desc.
 proc ::plugins::DYE::load_next_shot { } {
 	array set shot_data {
 		comes_from_archive 0
@@ -1734,22 +1737,20 @@ msg -INFO "DYE::load_next_from_shot copying field '$field'"
 	}
 
 	# TBD: This seems duplicated wrt to call to "define_next_shot_desc" below???
-	set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $src_shot(bean_brand) $src_shot(bean_type) \
-		$src_shot(roast_date) $src_shot(grinder_model) $src_shot(grinder_setting)]
-	# What? So DYE settings always change?
-	set dye_settings_changed 1
+#	set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $src_shot(bean_brand) $src_shot(bean_type) \
+#		$src_shot(roast_date) $src_shot(grinder_model) $src_shot(grinder_setting)]
+#	# What? So DYE settings always change?
+#	set dye_settings_changed 1
 	
 	if { $settings_changed } {
 		::save_settings
-	}
-	if { $dye_settings_changed } {
-		plugins save_settings DYE
-	}
+	}	
 	if { $dsx_settings_changed } {
 		::save_DSx_settings
 	}
 	
-	define_next_shot_desc
+	define_next_shot_desc src_shot 
+	plugins save_settings DYE
 	return 1
 }
 
@@ -1866,6 +1867,8 @@ namespace eval ::plugins::DYE::favorites {
 		} 
 		
 		set title [string trim $title]
+		
+		# This should never be reached as title shouldn't be empty by 'update_recent' proc
 		if { $title eq {} && [fav_type $fav] eq "n_recent" } {
 			array set fav_values [fav_values $fav]
 			if { [array size fav_values] > 0 } {
@@ -1911,71 +1914,103 @@ namespace eval ::plugins::DYE::favorites {
 			set fav_title {}
 			
 			if {[fav_type $i] eq "n_recent"} {
-				set fav_values [list]
+				array set fav_values {}
+				set lines_spec [list]
 				if { $nshot < $n_recent } {
 					foreach f [array names all_recent] {
-						lappend fav_values "$f" "[join [lindex $all_recent($f) $nshot] { }]"
+						set fav_values($f) "[join [lindex $all_recent($f) $nshot] { }]"
 					}
-					 
-					# TODO: Make the name different depending on what is imported
-					set title_lines {}
-					set workflow {}
-					set profile_title {}
 					
-					if { "bean_type" in $favs_grouping_fields } {
-						set beans [string trim "[lindex $all_recent(bean_brand) $nshot] [lindex $all_recent(bean_type) $nshot] [lindex $all_recent(roast_date) $nshot]"]
-						if { $beans ne {} } {
-							lappend title_lines $beans
+					if { "bean_type" in $favs_grouping_fields && "profile_title" in $favs_grouping_fields } {
+						if { "workflow" in $favs_grouping_fields && "grinder_model" in $favs_grouping_fields } {
+							lappend lines_spec {beans grind} {workflow profile}
+						} elseif { "workflow" in $favs_grouping_fields } {
+							lappend lines_spec beans {workflow profile}
+						} elseif { "grinder_model" in $favs_grouping_fields } {
+							lappend lines_spec {beans grind} profile
+						} else {
+							lappend lines_spec beans profile
+						}
+					} else {
+						if { "bean_type" in $favs_grouping_fields } { 
+							append lines_spec beans
+						} else {
+							append lines_spec profile
+						}
+
+						if { "workflow" in $favs_grouping_fields && "grinder_model" in $favs_grouping_fields } {
+							lappend lines_spec {"workflow" "grind"}
+						} elseif { "workflow" in $favs_grouping_fields } {
+							lappend lines_spec "workflow"
+						} elseif { "grinder_model" in $favs_grouping_fields } {
+							lappend lines_spec "gind"
 						}
 					}
-					
-					if { "workflow" in $favs_grouping_fields } {
-						set workflow [lindex $all_recent(workflow) $nshot]
-					} else {
-						set workflow {}
-					}
-					if { "profile_title" in $favs_grouping_fields } {
-						set profile_title [lindex $all_recent(profile_title) $nshot]
-					} else {
-						set profile_title {}
-					}
 
-					if { $workflow ne {} && $profile_title ne {} } {
-						lappend title_lines  "$workflow: $profile_title"
-					} elseif { $workflow ne {} } {
-						lappend title_lines  "$workflow" 
-					} elseif { $profile_title ne {} } {
-						lappend title_lines  "$profile_title"
-					}
-
-					if { "grinder_model" in $favs_grouping_fields } {
-						set grinder_model [lindex $all_recent(grinder_model) $nshot]
-						if { $grinder_model ne {} } {
-							lappend title_lines  "$grinder_model"
-						}
-					}
+msg -INFO "DYE update_recent lines_spec=$lines_spec"
 					
-					if { [llength $title_lines] == 0 } {
-						set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no grouping data}]>" [expr $max_title_chars*2]] 
-					} elseif  { [llength $title_lines] == 1 } {
-						set fav_title [maxstring [lindex $title_lines 0] [expr $max_title_chars*2]]
-					} elseif  { [llength $title_lines] >= 3 } {
-						set title_lines [list "[lindex $title_lines 0]" "[lindex $title_lines 1], [lindex $title_lines 2]"]
-					}
+					set fav_title [::plugins::DYE::format_shot_description fav_values $lines_spec $max_title_chars \
+						[maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no grouping data}]>" [expr $max_title_chars*2]]]
 					
-					if  { [llength $title_lines] == 2 } {
-						lset title_lines 0 [maxstring [lindex $title_lines 0] $max_title_chars]
-						lset title_lines 1 [maxstring [lindex $title_lines 1] $max_title_chars]
-						set fav_title [join $title_lines "\n"]
-					} else {
-						set fav_title [join $title_lines "\n"]
-					}
+#					# TODO: Make the name different depending on what is imported
+#					set title_lines {}
+#					set workflow {}
+#					set profile_title {}
+#					
+#					if { "bean_type" in $favs_grouping_fields } {
+#						set beans [string trim "[lindex $all_recent(bean_brand) $nshot] [lindex $all_recent(bean_type) $nshot] [lindex $all_recent(roast_date) $nshot]"]
+#						if { $beans ne {} } {
+#							lappend title_lines $beans
+#						}
+#					}
+#					
+#					if { "workflow" in $favs_grouping_fields } {
+#						set workflow [lindex $all_recent(workflow) $nshot]
+#					} else {
+#						set workflow {}
+#					}
+#					if { "profile_title" in $favs_grouping_fields } {
+#						set profile_title [lindex $all_recent(profile_title) $nshot]
+#					} else {
+#						set profile_title {}
+#					}
+#
+#					if { $workflow ne {} && $profile_title ne {} } {
+#						lappend title_lines  "$workflow: $profile_title"
+#					} elseif { $workflow ne {} } {
+#						lappend title_lines  "$workflow" 
+#					} elseif { $profile_title ne {} } {
+#						lappend title_lines  "$profile_title"
+#					}
+#
+#					if { "grinder_model" in $favs_grouping_fields } {
+#						set grinder_model [lindex $all_recent(grinder_model) $nshot]
+#						if { $grinder_model ne {} } {
+#							lappend title_lines  "$grinder_model"
+#						}
+#					}
+#					
+#					if { [llength $title_lines] == 0 } {
+#						set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no grouping data}]>" [expr $max_title_chars*2]] 
+#					} elseif  { [llength $title_lines] == 1 } {
+#						set fav_title [maxstring [lindex $title_lines 0] [expr $max_title_chars*2]]
+#					} elseif  { [llength $title_lines] >= 3 } {
+#						set title_lines [list "[lindex $title_lines 0]" "[lindex $title_lines 1], [lindex $title_lines 2]"]
+#					}
+#					
+#					if  { [llength $title_lines] == 2 } {
+#						lset title_lines 0 [maxstring [lindex $title_lines 0] $max_title_chars]
+#						lset title_lines 1 [maxstring [lindex $title_lines 1] $max_title_chars]
+#						set fav_title [join $title_lines "\n"]
+#					} else {
+#						set fav_title [join $title_lines "\n"]
+#					}
 					
 				} else {
 					set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no data yet}]>" [expr $max_title_chars*2]]
 				}
 
-				set_fav $i "n_recent" "$fav_title" $fav_values 0
+				set_fav $i "n_recent" $fav_title [array get fav_values] 0
 				incr nshot 1
 			} else {
 				set fav_title [fav_title $i]
@@ -3122,14 +3157,16 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 				}
 			}
 			
-			set ::plugins::DYE::settings(last_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
-				$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment) \
-				2 "Tap to describe this shot" $::settings(profile_title) [value_or_default ::skin(workflow) {}] $data(grinder_dose_weight) \
-				$data(drink_weight)
-			]
+			::plugins::DYE::define_last_shot_desc data 
+#			set ::plugins::DYE::settings(last_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
+#				$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment) \
+#				2 "\[Tap to describe this shot\]" $::settings(profile_title) [value_or_default ::skin(workflow) {}] $data(grinder_dose_weight) \
+#				$data(drink_weight)
+#			]
 			if { $dye_settings_changed } {
-				set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
-					$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
+				::plugins::DYE::define_next_shot_desc data
+#				set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
+#					$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
 			}
 			set dye_settings_changed 1
 			
@@ -4523,11 +4560,10 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 
 	proc load { page_to_hide page_to_show args } {
 		variable data
-		set data(next_shot_summary) "[format_shot_description $::settings(profile_title) \
-			$::plugins::DYE::settings(next_grinder_dose_weight) $::plugins::DYE::settings(next_drink_weight) {} \
-			$::plugins::DYE::settings(next_bean_brand) $::plugins::DYE::settings(next_bean_type) \
-			$::plugins::DYE::settings(next_roast_date) $::plugins::DYE::settings(next_grinder_model) \
-			$::plugins::DYE::settings(next_grinder_setting)]"
+		
+		array set next_shot [::plugins::DYE::load_next_shot]
+		set data(next_shot_summary) [::plugins::DYE::format_shot_description next_shot \
+			{profile beans {grind ratio}} 45 "Next shot undefined"]
 		if { [value_or_default ::settings(espresso_clock)] == 0 } {
 			set data(last_shot_date) [translate {No shot}]
 		} else {
@@ -4536,62 +4572,63 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 			array set shot [::plugins::SDB::shots {profile_title grinder_dose_weight drink_weight extraction_time 
 				bean_brand bean_type roast_date grinder_model grinder_setting espresso_enjoyment} 1 \
 				"clock=$::settings(espresso_clock)" 1]
-			if { [array size shot] == 0 } {
-				set data(last_shot_summary) [translate "Not saved to history"] 
-			} else {
-				set data(last_shot_summary) "[format_shot_description $shot(profile_title) $shot(grinder_dose_weight) \
-					$shot(drink_weight) $shot(extraction_time) $shot(bean_brand) $shot(bean_type) $shot(roast_date) \
-					$shot(grinder_model) $shot(grinder_setting)]"
-			}
+#			if { [array size shot] == 0 } {
+#				set data(last_shot_summary) [translate "Not saved to history"] 
+#			} else {
+msg -INFO "DYE which_shot_dlg shot=[array get shot]"			
+				set data(last_shot_summary) [::plugins::DYE::format_shot_description shot \
+					{profile beans {grind ratio}} 45 "Not saved to history"]
+#				}
 		}
 		
 		return 1
 	}
 	
 	# Returns a 2 or 3-lines formatted string with the summary of a shot description.
-	proc format_shot_description { {profile_title {}} {dose {}} {yield {}} {time {}} {bean_brand {}} {bean_type {}} \
-			{roast_date {}} {grinder_model {}} {grinder_setting {}} {enjoyment 0} {default_if_empty "No description" }} {
-		set shot_desc ""
-	
-		set ratio {}
-		if { $dose ne {} || $yield ne {} || $time ne {} } {
-			if { $dose eq {} || ![string is double $dose] } { 
-				set dose "?" 
-			} else {
-				set dose [round_to_one_digits $dose]
-			}
-			if { $yield eq {} || ![string is double $yield] } { 
-				set yield "?" 			
-			} else {
-				set yield [round_to_one_digits $yield]
-			}
-			append ratio "${dose}[translate g] [translate in]:${yield}[translate g] [translate out]"
-			if { $dose ne "?" && $yield ne "?" } {
-				append ratio " (1:[round_to_one_digits [expr {$yield*1.0/$dose}]])"
-			}
-			if { $time ne {} && [string is double $time] } {
-				append ratio " [translate in] [expr {int(${time})}][translate s]"
-			}
-		}
-		
-		set beans_items [list_remove_element [list {*}$profile_title - {*}$bean_brand {*}$bean_type {*}$roast_date] ""]
-		set grinder_items [list_remove_element [list {*}$grinder_model {*}$grinder_setting] ""]
-		if { $enjoyment > 0} { 
-			lappend grinder_items "[translate Enjoyment] $espresso_enjoyment" 
-		}
-		
-		set each_line {}
-		if {[string length $ratio] > 0} { lappend each_line $ratio }
-		if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
-		if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " \@ "]] }
-				
-		set shot_desc [join $each_line "\n"]
-	
-		if {$shot_desc eq ""} { 
-			set shot_desc "\[[translate $default_if_empty]\]" 
-		}
-		return $shot_desc
-	}	
+	# OBSOLETE! Use ::plugins::DYE::format_shot_description instead.
+#	proc format_shot_description { {profile_title {}} {dose {}} {yield {}} {time {}} {bean_brand {}} {bean_type {}} \
+#			{roast_date {}} {grinder_model {}} {grinder_setting {}} {enjoyment 0} {default_if_empty "No description" }} {
+#		set shot_desc ""
+#	
+#		set ratio {}
+#		if { $dose ne {} || $yield ne {} || $time ne {} } {
+#			if { $dose eq {} || ![string is double $dose] } { 
+#				set dose "?" 
+#			} else {
+#				set dose [round_to_one_digits $dose]
+#			}
+#			if { $yield eq {} || ![string is double $yield] } { 
+#				set yield "?" 			
+#			} else {
+#				set yield [round_to_one_digits $yield]
+#			}
+#			append ratio "${dose}[translate g] [translate in]:${yield}[translate g] [translate out]"
+#			if { $dose ne "?" && $yield ne "?" } {
+#				append ratio " (1:[round_to_one_digits [expr {$yield*1.0/$dose}]])"
+#			}
+#			if { $time ne {} && [string is double $time] } {
+#				append ratio " [translate in] [expr {int(${time})}][translate s]"
+#			}
+#		}
+#		
+#		set beans_items [list_remove_element [list {*}$profile_title - {*}$bean_brand {*}$bean_type {*}$roast_date] ""]
+#		set grinder_items [list_remove_element [list {*}$grinder_model {*}$grinder_setting] ""]
+#		if { $enjoyment > 0} { 
+#			lappend grinder_items "[translate Enjoyment] $espresso_enjoyment" 
+#		}
+#		
+#		set each_line {}
+#		if {[string length $ratio] > 0} { lappend each_line $ratio }
+#		if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
+#		if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " \@ "]] }
+#				
+#		set shot_desc [join $each_line "\n"]
+#	
+#		if {$shot_desc eq ""} { 
+#			set shot_desc "\[[translate $default_if_empty]\]" 
+#		}
+#		return $shot_desc
+#	}	
 	
 	proc plan_next {} {
 		dui page close_dialog
