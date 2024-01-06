@@ -1,7 +1,10 @@
+#namespace eval {
+#	variable ::plugins::DYE::DSx2_main_graph_height [rescale_y_skin 840]
+#}
 
 proc ::plugins::DYE::setup_ui_DSx2 {} {
 	DSx2_setup_dui_theme
-		
+	
 	# define_last_shot_desc must be defined only at runtime after running a shot.
 	# TODO: Maybe an initialization is needed for first-time installs and for skin/plugin
 	#	enabling/disabling (for both DSx2 and others)
@@ -15,32 +18,33 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	}
 
 	# Add new pages
+	variable ::plugins::DYE::DSx2_main_graph_height [rescale_y_skin 840]
 	dui page add dsx2_dye_favs -namespace true -type fpdialog
 	dui page add dsx2_dye_edit_fav -namespace true -type fpdialog
 	
-	# Modify DSx2 home pages to adapt to DYE UI widgets and workflow
+	# Modify DSx2 home pages to adapt to DYE UI widgets and workflow	
 	dui page add_action [lindex $::skin_home_pages 0] show ::plugins::DYE::DSx2_home_page_on_show
 	trace add execution ::show_graph leave ::plugins::DYE::DSx2_show_graph_hook
 	trace add execution ::hide_graph leave ::plugins::DYE::DSx2_hide_graph_hook
 	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
 	
 	# Add past & next shot description buttons to the home page 
-	dui add dbutton off 50 1410 -bwidth 1000 -bheight 170 -anchor nw \
+	dui add dbutton off 50 1370 -bwidth 1000 -bheight 170 -anchor nw \
 		-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.0 0.27} -label_anchor nw \
 		-label_justify left -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
 		-label1 "LAST SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
 		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
-		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1400\] -anchor sw]
+		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw]
 	
 	# -labelvariable {[::plugins::DYE::define_next_shot_desc]}
-	dui add dbutton off 1950 1410 -bwidth 1000 -bheight 170 -anchor ne \
+	dui add dbutton off 1950 1370 -bwidth 1000 -bheight 170 -anchor ne \
 		-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} -label_pos {1.0 0.27} -label_anchor ne \
 		-label_justify right -label_font_size -4 -label_fill $::skin_forground_colour -label_width 1000 \
 		-label1 "NEXT SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
 		-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {0 20 75 25} \
-		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1400\] -anchor se]
+		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se]
 
 	#dui item config $::skin_home_pages launch_dye* -initial_state normal -state normal
 }
@@ -634,12 +638,12 @@ proc ::plugins::DYE::DSx2_home_page_on_show {  } {
 		dui item config $::skin_home_pages b_favs_number* -initial_state hidden -state hidden
 		dui item config $::skin_home_pages bb_favs_number* -initial_state hidden -state hidden
 	}
-	$::home_espresso_graph configure -height [rescale_y_skin 900]
+	$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
 	dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
 }
 
 proc ::plugins::DYE::DSx2_show_graph_hook { args } {
-	$::home_espresso_graph configure -height [rescale_y_skin 900]
+	$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
 	dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
 	dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
 	::plugins::DYE::define_next_shot_desc
@@ -656,9 +660,13 @@ proc ::plugins::DYE::DSx2_hide_graph_hook { args } {
 }
 
 proc ::plugins::DYE::DSx2_press_graph_hook { args } {
-	msg -INFO "ON DSx2_press_graph_hook"
-	$::home_espresso_graph configure -height [rescale_y_skin 900]
-	dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+	if { $::main_graph_height == [rescale_y_skin 1010] } {
+		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
+		dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
+		dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+	} elseif { $::main_graph_height == $::plugins::DYE::DSx2_main_graph_height } {
+		dui item hide [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
+	}
 }
 
 namespace eval ::dui::pages::dsx2_dye_favs {
