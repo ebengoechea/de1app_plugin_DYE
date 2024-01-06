@@ -29,7 +29,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
 	
 	# Add past & next shot description buttons to the home page
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		set istate normal
 	} else {
 		set istate hidden
@@ -645,16 +645,16 @@ proc ::plugins::DYE::DSx2_home_page_on_show {  } {
 		dui item config $::skin_home_pages {l_favs_number b_favs_number* bb_favs_number* } \
 			-initial_state hidden -state hidden
 	}
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
 		dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
 	}
 }
 
 proc ::plugins::DYE::DSx2_show_graph_hook { args } {
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
-		dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+		dui item config [lindex $::skin_home_pages 0] live_graph_data -initial_state hidden -state hidden
 		dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
 		::plugins::DYE::define_next_shot_desc
 	}
@@ -662,30 +662,30 @@ proc ::plugins::DYE::DSx2_show_graph_hook { args } {
 
 proc ::plugins::DYE::DSx2_hide_graph_hook { args } {
     if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
-    	dui item config $::skin_home_pages {l_favs_number b_favs_number* bb_favs_number* } \
+    	dui item config [lindex $::skin_home_pages 0] {l_favs_number b_favs_number* bb_favs_number* } \
     		-state hidden
     }
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		dui item hide [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
 	}
 }
 
 proc ::plugins::DYE::DSx2_press_graph_hook { args } {
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		if { $::main_graph_height == [rescale_y_skin 1010] } {
 			$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
 			dui item show [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
-			dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+			dui item config [lindex $::skin_home_pages 0] live_graph_data -initial_state hidden -state hidden
 		} elseif { $::main_graph_height == $::plugins::DYE::DSx2_main_graph_height } {
 			dui item hide [lindex $::skin_home_pages 0] {launch_dye_last* launch_dye_next*}
 		}
 	}
 }
 
-proc ::plugins::DYE::toggle_show_shot_desc_on_home { } {
+proc ::plugins::DYE::DSx2_toggle_show_shot_desc_on_home { } {
 	set main_home_page [lindex $::skin_home_pages 0]
 
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
+	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		dui item config $main_home_page {launch_dye_last* launch_dye_next*} \
 			-initial_state normal
 		dui item config $main_home_page live_graph_data -initial_state hidden
@@ -892,11 +892,14 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 #		}
 #	}
 
-	# Globally Enables/Shows or Disables/Hides the DYE favorites
+	# Globally Enables/Shows or Disables/Hides the DYE favorites.
+	# Beware this is called from different pages, so -state changes need to be made conditional
+	#	to whether favorites are actually visible now or not.
 	proc show_or_hide_dye_favorites { {show {}} } {
 		variable widgets
 		variable data
 		set page [namespace tail [namespace current]]
+		set are_favs_visible [expr {[dui page current] in [list {} $page {*}$::skin_home_pages]}]
 		
 		if {$show eq {}} {
 			set show $::plugins::DYE::settings(dsx2_use_dye_favs)
@@ -911,37 +914,37 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		}
 		
 		# Show or hide DSx2 favorites
+		set main_home_page [lindex $::skin_home_pages 0]
 		for { set i 1 } { $i < 6 } { incr i } {
-			dui item config $::skin_home_pages bb_fav$i* -initial_state $dsx2_favs_state -state $dsx2_favs_state
-			dui item config $::skin_home_pages s_fav$i* -initial_state $dsx2_favs_state -state $dsx2_favs_state
-			dui item config $::skin_home_pages b_fav$i -initial_state $dsx2_favs_state -state $dsx2_favs_state
-			dui item config $::skin_home_pages l_fav$i -initial_state $dsx2_favs_state -state $dsx2_favs_state
-			dui item config $::skin_home_pages li_fav$i -initial_state $dsx2_favs_state -state $dsx2_favs_state
+			dui item config $main_home_page [list bb_fav$i* s_fav$i* b_fav$i l_fav$i li_fav$i \
+				b_fav${i}_edit l_fav${i}_edit] -initial_state $dsx2_favs_state
 			
-			dui item config $::skin_home_pages b_fav${i}_edit -initial_state $dsx2_favs_state -state $dsx2_favs_state
-			dui item config $::skin_home_pages l_fav${i}_edit -initial_state $dsx2_favs_state -state $dsx2_favs_state
+			if { $are_favs_visible } {
+				dui item config $main_home_page [list bb_fav$i* s_fav$i* b_fav$i l_fav$i li_fav$i \
+					b_fav${i}_edit l_fav${i}_edit] -state $dsx2_favs_state
+			}
 		}
 	
-		dui item config $::skin_home_pages bb_dye_bg* -initial_state $dsx2_favs_state -state $dsx2_favs_state
-		dui item config $::skin_home_pages s_dye_bg* -initial_state $dsx2_favs_state -state $dsx2_favs_state
-		dui item config $::skin_home_pages b_dye_bg -initial_state $dsx2_favs_state -state $dsx2_favs_state
-		dui item config $::skin_home_pages l_dye_bg -initial_state $dsx2_favs_state -state $dsx2_favs_state
-		dui item config $::skin_home_pages li_dye_bg -initial_state $dsx2_favs_state -state $dsx2_favs_state
+		dui item config $main_home_page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg} \
+			-initial_state $dsx2_favs_state 
+		if { $are_favs_visible } {
+			dui item config $main_home_page {bb_dye_bg* s_dye_bg* b_dye_bg l_dye_bg li_dye_bg} \
+				-state $dsx2_favs_state
+		}
 
-		dui item config $::skin_home_pages l_favs_number -initial_state $dsx2_favs_state -state $dsx2_favs_state
-		dui item config $::skin_home_pages b_favs_number -initial_state $dsx2_favs_state -state $dsx2_favs_state
-		dui item config $::skin_home_pages bb_favs_number -initial_state $dsx2_favs_state -state $dsx2_favs_state
-		
 		# Show or hide DYE favorites
 		for {set i 0} {$i < $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {incr i 1} {
-			dui item config [lindex $::skin_home_pages 0] dye_fav_$i* -initial_state $dye_favs_state -state $dye_favs_state  
+			dui item config $main_home_page dye_fav_$i* -initial_state $dye_favs_state 
+			if { $are_favs_visible } {
+				dui item config $main_home_page dye_fav_$i* -state $dye_favs_state
+			}
 		}
 		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_dsx2_home_visible_favs)} {incr i 1} {
-			dui item config [lindex $::skin_home_pages 0] dye_fav_$i* -initial_state hidden -state hidden
+			dui item config $main_home_page dye_fav_$i* -initial_state hidden -state hidden
 		}
 		
-		dui item config [lindex $::skin_home_pages 0] dye_fav_more* -initial_state $dye_favs_state
-		dui item moveto [lindex $::skin_home_pages 0] dye_fav_more* [expr $::skin(button_x_fav)-50] \
+		dui item config $main_home_page dye_fav_more* -initial_state $dye_favs_state
+		dui item moveto $main_home_page dye_fav_more* [expr $::skin(button_x_fav)-50] \
 			[expr 108+(120*$::plugins::DYE::settings(dsx2_n_visible_dye_favs))]
 	}
 	

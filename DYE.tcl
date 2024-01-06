@@ -176,6 +176,7 @@ proc ::plugins::DYE::preload {} {
 	
 	setup_default_aspects
 	dui page add DYE_settings -namespace true -theme default -type fpdialog
+	dui page add DYE_settings2 -namespace true -theme default -type fpdialog
 	return DYE_settings
 }
 
@@ -378,6 +379,7 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 	ifexists settings(favs_n_recent_grouping) {beans profile_title}
 	ifexists settings(favs_n_recent_what_to_copy) {workflow profile_title beans roast_date grinder grinder_dose_weight drink_weight}
 	
+	ifexists settings(dsx2_show_shot_desc_on_home) 1
 	ifexists settings(dsx2_use_dye_favs) 1
 	ifexists settings(dsx2_n_visible_dye_favs) 4
 	ifexists settings(dsx2_update_chart_on_copy) 1
@@ -7112,7 +7114,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	set page [namespace tail [namespace current]]
 
 	# HEADER AND BACKGROUND
-	dui add dtext $page 1280 100 -tags page_title -text [translate "Describe Your Espresso Settings"] -style page_title
+	dui add dtext $page 1280 100 -tags page_title -text [translate "Describe Your Espresso Settings (1/2)"] -style page_title
 
 	dui add canvas_item rect $page 10 190 2550 1430 -fill "#ededfa" -width 0
 	dui add canvas_item line $page 14 188 2552 189 -fill "#c7c9d5" -width 2
@@ -7179,7 +7181,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	dui add dtext $page $x $y -text [translate "DSx skin options"] -style section_header
 	
 	dui add dtext $page $x [incr y 100] -tags {show_shot_desc_on_home_lbl show_shot_desc_on_home*} \
-		-width [expr {$panel_width-375}] -text [translate "Show next & last shot description summaries on DSx and DSx2 home page"]
+		-width [expr {$panel_width-375}] -text [translate "Show next & last shot description summaries on DSx home page"]
 	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags show_shot_desc_on_home \
 		-variable ::plugins::DYE::settings(show_shot_desc_on_home) -command show_shot_desc_on_home_change 
 	
@@ -7210,6 +7212,9 @@ proc ::dui::pages::DYE_settings::setup {} {
 	
 	# FOOTER
 	dui add dbutton $page 1035 1460 -tags page_done -style insight_ok -command page_done -label [translate Ok]
+	
+	dui add dbutton $page 2500 1460 -tags goto_settings2 -style insight_ok -command [list dui::page::load DYE_settings2] \
+		-label [translate {DSx2 settings}] -anchor ne
 }
 
 # Normally not used as this is not invoked directly but by the DSx settings pages carousel, but still kept for 
@@ -7233,9 +7238,6 @@ proc ::dui::pages::DYE_settings::show_shot_desc_on_home_change {} {
 	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
 		::plugins::DYE::define_last_shot_desc
 		::plugins::DYE::define_next_shot_desc
-	}
-	if { [::plugins::DYE::is_DSx2 yes "Damian"] } {
-		::plugins::DYE::toggle_show_shot_desc_on_home	
 	}
 	plugins save_settings DYE
 }
@@ -7418,6 +7420,110 @@ proc ::dui::pages::DYE_settings::set_default_shot_desc_font_color {} {
 #}
 
 proc ::dui::pages::DYE_settings::page_done {} {
+	dui say [translate {Done}] button_in
+	dui page close_dialog
+}
+
+#### DYE Settings page 2 ################################################################################
+
+namespace eval ::dui::pages::DYE_settings2 {
+	variable widgets
+	array set widgets {}
+	
+	variable data
+	array set data {
+		page_name "::dui::pages::DYE_settings2"
+	}
+}
+
+proc ::dui::pages::DYE_settings2::setup {} {
+	variable widgets
+	set page [namespace tail [namespace current]]
+
+	# HEADER AND BACKGROUND
+	dui add dtext $page 1280 100 -tags page_title -text [translate "Describe Your Espresso Settings (2/2)"] -style page_title
+
+	dui add canvas_item rect $page 10 190 2550 1430 -fill "#ededfa" -width 0
+	dui add canvas_item line $page 14 188 2552 189 -fill "#c7c9d5" -width 2
+	dui add canvas_item line $page 2551 188 2552 1426 -fill "#c7c9d5" -width 2
+	
+	dui add canvas_item rect $page 22 210 1270 1410 -fill white -width 0
+	dui add canvas_item rect $page 1290 210 2536 850 -fill white -width 0	
+	dui add canvas_item rect $page 1290 870 2536 1410 -fill white -width 0
+		
+	# LEFT SIDE
+	set x 75; set y 250; set vspace 150; set lwidth 1050
+	set panel_width 1248
+	
+	dui add dtext $page $x $y -text [translate "DSx2 options"] -style section_header
+		
+	dui add dtext $page $x [incr y 100] -tags {dsx2_show_shot_desc_on_home_lbl dsx2_show_shot_desc_on_home_desc*} \
+		-width [expr {$panel_width-250}] -text [translate "Show next & last shot description summaries on DSx2 home page"]
+	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags dsx2_show_shot_desc_on_home \
+		-variable ::plugins::DYE::settings(dsx2_show_shot_desc_on_home) -command dsx2_show_shot_desc_on_home_change 
+	
+	dui add dtext $page $x [incr y $vspace] -tags {dsx2_use_dye_favs_lbl dsx2_use_dye_favs*} \
+		-width [expr {$panel_width-250}] -text [translate "Use DYE favorites instead of DSx2 favorites"] 
+	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags dsx2_use_dye_favs \
+		-variable ::plugins::DYE::settings(dsx2_use_dye_favs) -command dsx2_use_dye_favs_change 
+		
+	# RIGHT SIDE, TOP
+	set x 1350; set y 250
+	#dui add dtext $page $x $y -text [translate "DSx skin options"] -style section_header
+	
+#	dui add dtext $page $x [incr y 100] -tags {show_shot_desc_on_home_lbl show_shot_desc_on_home*} \
+#		-width [expr {$panel_width-375}] -text [translate "Show next & last shot description summaries on DSx home page"]
+#	dui add dtoggle $page [expr {$x+$panel_width-100}] $y -anchor ne -tags show_shot_desc_on_home \
+#		-variable ::plugins::DYE::settings(show_shot_desc_on_home) -command show_shot_desc_on_home_change 
+	
+	incr y [expr {int($vspace * 1.40)}]
+	
+	# RIGHT SIDE, BOTTOM
+#	set y 925
+#	dui add dtext $page $x $y -text [translate "Insight / MimojaCafe / DSx2 skin options"] -style section_header
+#	
+#	dui add dtext $page $x [incr y 100] -tags default_launch_action_label -width 725 \
+#		-text [translate "Default action when DYE icon or button is tapped"]
+	
+	# FOOTER
+	dui add dbutton $page 75 1460 -tags goto_settings1 -style insight_ok -command [list dui page load DYE_settings] \
+		-label [translate {General settings}]
+
+	dui add dbutton $page 1035 1460 -tags page_done -style insight_ok -command page_done -label [translate Ok]
+}
+
+# Normally not used as this is not invoked directly but by the DSx settings pages carousel, but still kept for 
+# consistency or for launching the page from a menu.
+proc ::dui::pages::DYE_settings2::load { page_to_hide page_to_show args } {
+	return 1
+}
+
+# Added to context actions, so invoked automatically whenever the page is loaded
+proc ::dui::pages::DYE_settings2::show { page_to_hide page_to_show } {
+}
+
+
+proc ::dui::pages::DYE_settings2::dsx2_show_shot_desc_on_home_change {} {
+	if { [::plugins::DYE::is_DSx2 yes "Damian"] } {
+		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
+			::plugins::DYE::define_last_shot_desc
+			::plugins::DYE::define_next_shot_desc
+		}
+		::plugins::DYE::DSx2_toggle_show_shot_desc_on_home	
+	}
+	plugins save_settings DYE
+}
+
+proc ::dui::pages::DYE_settings2::dsx2_use_dye_favs_change {} {
+	if { [::plugins::DYE::is_DSx2 yes "Damian"] } {
+		::dui::pages::dsx2_dye_favs::show_or_hide_dye_favorites
+	}
+	plugins save_settings DYE
+}
+		
+
+
+proc ::dui::pages::DYE_settings2::page_done {} {
 	dui say [translate {Done}] button_in
 	dui page close_dialog
 }
