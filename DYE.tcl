@@ -320,10 +320,10 @@ proc ::plugins::DYE::check_settings {} {
 	
 	# Don't use ifexists for this, as it always evaluates the default value, inducing it to be changed
 	if { ![info exists settings(last_shot_desc)] } {
-		set settings(last_shot_desc) [define_last_shot_desc]
+		define_last_shot_desc
 	}
 	if { ![info exists settings(next_shot_desc)] } {
-		set settings(next_shot_desc) [define_next_shot_desc]
+		define_next_shot_desc
 	}
 	
 	# Propagation mechanism
@@ -663,7 +663,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 #	only useful if this is invoked from Insight's original Godshots/Describe Espresso pages.
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 	msg -INFO [namespace current] save_espresso_to_history_hook
-	::plugins::DYE::define_last_shot_desc
+	::plugins::DYE::define_last_shot_desc {} yes
 	::plugins::DYE::favorites::update_recent
 	# Updating recent favorites already saves DYE settings
 	#plugins save_settings DYE
@@ -717,6 +717,8 @@ proc ::plugins::DYE::format_shot_description { values_array_name {lines_spec {be
 			if { $dose > 0 && $yield > 0 } {
 				append ratio " (1:[round_to_one_digits [expr {$yield * 1.0 / $dose}]])"
 			}
+		} else {
+			set ratio ""
 		}
 		set duration [value_or_default values(extraction_time)]
 		if {$duration > 0} {
@@ -882,14 +884,14 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 # Returns a string with the summary description of the current (last) shot.
 # This is the text that is shown on the home page of DSx and DSx2.
 # Needs the { args } as this is being used in a trace add execution.
-# BEWARE this should ONLY be invoked WITHOUT DEFINING last_shot_array_name just after 
-#	finishing a shot, otherwise the settings variables may contain
-# 	the plan for the next shot instead of the last one.
-proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} args } {	
+# BEWARE this should ONLY be invoked WITHOUT DEFINING last_shot_array_name and 
+#	using use_settings=1 just after finishing a shot, otherwise the settings 
+#	variables may contain the plan for the next shot instead of the last one.
+proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_settings 0} args } {	
 	variable settings
 	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {
-		if { [is_DSx2] } {
-			set values(workflow) [value_or_default ::skin(workflow) "none"]
+		set isDSx2 [is_DSx2] 
+		if { $isDSx2 } {			
 			set line_spec {profile beans {grind ratio}}
 			set max_line_chars 55
 		} else {
@@ -899,16 +901,38 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} args } {
 		}
 		
 		if { $last_shot_array_name eq {} } {
-			if { $::settings(history_saved) == 1 } {
-				array set last_shot {}
-				foreach field [metadata fields -domain shot -category description] {
-					set last_shot($field) $::settings($field)
+			set desc_fields [metadata fields -domain shot -category description]
+			if { [string is true $use_settings] } {
+				if { $::settings(history_saved) == 1 } {
+					array set last_shot {}
+					foreach field $desc_fields {
+						if { [info exists $::settings($field)] } {
+							set last_shot($field) $::settings($field)
+						}
+					}
+					set last_shot(extraction_time) [espresso_elapsed_timer]					
+					if { $isDSx2 } {
+						set last_shot(workflow) [value_or_default ::skin(workflow) {}]
+					} else {
+						set last_shot(workflow) {}
+					}
+					
+					set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
+				} else {
+					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
 				}
-				set last_shot(extraction_time) [espresso_elapsed_timer]
-								
-				set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 			} else {
-				set settings(last_shot_desc) {\[ [translate {Shot not saved to history}] \]}
+				# Read last shot from the database
+				if { $::settings(espresso_clock) > 0 } {				
+					array last_shot [::plugins::SDB::shots "$desc_fields" 1 "clock=$::settings(espresso_clock)" 1]
+					if { [array size last_shot] 0 } {
+						set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
+					} else {
+						set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
+					}
+				} else {
+					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
+				}
 			}
 		} else {
 			upvar $last_shot_array_name last_shot
@@ -2107,8 +2131,10 @@ namespace eval ::dui::pages::DYE {
 		drinker_name {}
 		skin {}
 		beverage_type {}
-		visualizer_status_label {}
 		repository_links {}
+		profile_title {}
+		workflow {}		
+		visualizer_status_label {}
 		warning_msg {}
 		apply_action_to {beans equipment ratio people}
 		days_offroast_msg {}
@@ -2929,7 +2955,7 @@ proc ::dui::pages::DYE::load_description {} {
 	}
 
 	if { [array size shot] == 0 } {
-		foreach fn [metadata fields -domain shot -category description] {
+		foreach fn [concat profile_title [metadata fields -domain shot -category description]] {
 			set src_data($fn) {}
 			set data($fn) {}
 		}
@@ -2940,7 +2966,7 @@ proc ::dui::pages::DYE::load_description {} {
 		}
 		return 0 
 	} else {
-		foreach fn [metadata fields -domain shot -category description] {
+		foreach fn [concat profile_title [metadata fields -domain shot -category description]] {
 			set src_data($fn) $shot($fn)
 			set data($fn) $shot($fn)
 		}

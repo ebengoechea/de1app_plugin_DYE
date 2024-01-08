@@ -10,6 +10,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	#	enabling/disabling (for both DSx2 and others)
 	#::plugins::DYE::define_last_shot_desc
 	::plugins::DYE::define_next_shot_desc
+	::plugins::DYE::define_last_shot_desc
 	
 	# DSx2 HOME PAGES UI INTEGRATION
 	# Only done on strict DSx2 skin (no fork) and default "Damian" DSx2 theme
