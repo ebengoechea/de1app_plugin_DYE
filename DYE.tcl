@@ -1909,7 +1909,11 @@ namespace eval ::plugins::DYE::favorites {
 		}
 		
 		array set all_recent [::plugins::SDB::shots_by $favs_grouping_fields 1 {} $max_n_favs]
-		set n_recent [llength $all_recent([lindex $favs_grouping_fields 0])]
+		if { [array size all_recent] == 0 } {
+			set n_recent 0
+		} else {		
+			set n_recent [llength $all_recent([lindex $favs_grouping_fields 0])]
+		}
 		
 		set nshot 0
 		for {set i 0} {$i < $max_n_favs} {incr i 1} {
@@ -1923,7 +1927,7 @@ namespace eval ::plugins::DYE::favorites {
 						set fav_values($f) "[join [lindex $all_recent($f) $nshot] { }]"
 					}
 					
-					if { "bean_type" in $favs_grouping_fields && "profile_title" in $favs_grouping_fields } {
+					if { "bean_brand" in $favs_grouping_fields && "profile_title" in $favs_grouping_fields } {
 						if { "workflow" in $favs_grouping_fields && "grinder_model" in $favs_grouping_fields } {
 							lappend lines_spec {beans grind} {workflow profile}
 						} elseif { "workflow" in $favs_grouping_fields } {
@@ -5945,6 +5949,12 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		variable shots
 		
 		set data(show_indexes) {}
+		
+		if { [array size shots] == 0 } {
+			# First install, no shots available yet
+			set data(n_matches_text) [translate "No shots found"]
+			return {}
+		} 
 		
 		if { [string length $data(filter_string)] > 0 } {
 			set filter "*[regsub -all {[[:space:]]} $data(filter_string) *]*"
