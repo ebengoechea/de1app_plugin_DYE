@@ -901,7 +901,8 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 		}
 		
 		if { $last_shot_array_name eq {} } {
-			set desc_fields [metadata fields -domain shot -category description]
+			set desc_fields [list_remove_element  [metadata fields -domain shot -category description] \
+					"repository_links"]
 			if { [string is true $use_settings] } {
 				if { $::settings(history_saved) == 1 } {
 					array set last_shot {}
@@ -924,8 +925,10 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			} else {
 				# Read last shot from the database
 				if { $::settings(espresso_clock) > 0 } {				
-					array last_shot [::plugins::SDB::shots "$desc_fields" 1 "clock=$::settings(espresso_clock)" 1]
-					if { [array size last_shot] 0 } {
+					set desc_fields [concat $desc_fields extraction_time workflow] 
+					array set last_shot [::plugins::SDB::shots $desc_fields 1 \
+							"clock=$::settings(espresso_clock)" 1]
+					if { [array size last_shot] == 0 } {
 						set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
 					} else {
 						set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
@@ -964,7 +967,7 @@ proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 			set line_spec {profile beans {grind ratio}}
 			set max_line_chars 55
 		} else {
-			set line_spec {beans {grind extraction} ratio}
+			set line_spec {beans grind ratio}
 			set max_line_chars 55
 		}
 		
