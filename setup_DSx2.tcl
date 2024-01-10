@@ -650,6 +650,8 @@ proc ::plugins::DYE::DSx2_home_page_on_show {  } {
 	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
 		dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+		# Updates e.g. the profile title in the next shot desc if coming from a profile switch
+		define_next_shot_desc
 	}
 }
 
