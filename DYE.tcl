@@ -900,7 +900,6 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			set max_line_chars 55
 		}
 
-msg -INFO "DYE define_last_shot_desc,  ::settings(history_saved)=$::settings(history_saved), last_shot_array_name=$last_shot_array_name, use_settings=[string is true $use_settings] "		
 		if { $last_shot_array_name eq {} } {
 			if { [string is true $use_settings] } {				
 				if { $::settings(history_saved) == 1 } {
@@ -958,7 +957,11 @@ proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 		} else {
 			upvar $next_shot_array_name next_shot 
 		}
-		
+		# Empty variables that should be undefined on next shot
+		foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds} {
+			set next_shot($field_name) 0
+		}
+			
 		if { [is_DSx2] } {
 			#set next_shot(workflow) [value_or_default ::skin(workflow) "none"]
 			set line_spec {profile beans {grind ratio}}
@@ -1058,6 +1061,11 @@ proc ::plugins::DYE::load_next_shot { } {
 		} else {
 			set shot_data($field_name) {}
 		}
+	}
+	
+	# Empty variables that should be undefined on next shot
+	foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds} {
+		set shot_data($field_name) 0
 	}
 	
 #	if { $shot_data(grinder_dose_weight) eq "" } {
