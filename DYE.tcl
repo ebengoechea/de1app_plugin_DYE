@@ -1029,21 +1029,28 @@ proc ::plugins::DYE::load_next_shot { } {
 #msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
 #msg "DYE LOAD_NEXT_SHOT ::settings(final_desired_shot_volume_advanced)=$::settings(final_desired_shot_volume_advanced)"
 	# Skin-specific variables or modifications
-	if { $::settings(skin) eq "MimojaCafe" && $::settings(final_desired_shot_volume_advanced) > 0 } {		
-		set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_volume_advanced)]
-	} elseif { $::settings(skin) eq "DSx" && [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
-		set shot_data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
-	} elseif { [is_DSx2]} {
+	if { $::settings(skin) eq "MimojaCafe" } {
+		if { $::settings(final_desired_shot_volume_advanced) > 0 } {		
+			set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_volume_advanced)]
+		}
+	} elseif { $::settings(skin) eq "DSx" } {
+		if { [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
+			set shot_data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
+		}
+	} elseif { [is_DSx2]} {		
 		set shot_data(workflow) $::skin(workflow)
 		if { $::settings(grinder_dose_weight) > 0 } { 
 			set shot_data(grinder_dose_weight) $::settings(grinder_dose_weight)
 		}
-		# TBD
-		if { $::settings(drink_weight) > 0 } { 
-			set shot_data(drink_weight) $::settings(drink_weight)
+		if { $::settings(settings_profile_type) == "settings_2c" } {
+			if { $::settings(final_desired_shot_weight_advanced) > 0 } { 
+				set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight_advanced)]
+			}			
+		} else {
+			if { $::settings(final_desired_shot_weight) > 0 } { 
+				set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
+			}						
 		}
-		
-		#set shot_data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
 	}
 
 	# Extra profile variables
@@ -3109,6 +3116,7 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 	set propagate [string is true $::plugins::DYE::settings(propagate_previous_shot_desc)]
 	set next_modified [string is true $::plugins::DYE::settings(next_modified)]
 	set skin $::settings(skin)
+	set isDSx2 [::plugins::DYE::is_DSx2]
 	set settings_changed 0
 	set dye_settings_changed 0
 	set dsx_settings_changed 0
@@ -3167,6 +3175,12 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 							set ::DSx_settings(saw) $changes(drink_weight) 
 							set dsx_settings_changed 1
 						}
+					} elseif { $isDSx2 } {
+						if {$::settings(settings_profile_type) == "settings_2c"} {
+							set ::settings(final_desired_shot_weight_advanced) [round_to_integer $changes(drink_weight)]
+						} else {
+							set ::settings(final_desired_shot_weight) [round_to_integer $changes(drink_weight)]
+						}
 					}
 				}
 			}
@@ -3202,6 +3216,7 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 #				$data(drink_weight)
 #			]
 			if { $dye_settings_changed } {
+				# Change also next shot desc (due to propagation)
 				::plugins::DYE::define_next_shot_desc data
 #				set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
 #					$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
