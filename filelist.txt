@@ -3,6 +3,7 @@ DYE.tcl
 setup_Insight.tcl
 setup_Insight_Dark.tcl
 setup_DSx.tcl
+setup_DSx2.tcl
 setup_MimojaCafe.tcl
 README.md
 changelog.md
