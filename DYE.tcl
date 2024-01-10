@@ -899,25 +899,24 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			set line_spec {beans {grind extraction} ratio}
 			set max_line_chars 55
 		}
-		
+
+msg -INFO "DYE define_last_shot_desc,  ::settings(history_saved)=$::settings(history_saved), last_shot_array_name=$last_shot_array_name, use_settings=[string is true $use_settings] "		
 		if { $last_shot_array_name eq {} } {
-			set desc_fields [list_remove_element  [metadata fields -domain shot -category description] \
-					"repository_links"]
-			if { [string is true $use_settings] } {
+			if { [string is true $use_settings] } {				
 				if { $::settings(history_saved) == 1 } {
 					array set last_shot {}
-					foreach field $desc_fields {
-						if { [info exists $::settings($field)] } {
+					foreach field [metadata fields -domain shot -category description] {
+						if { [info exists ::settings($field)] } {
 							set last_shot($field) $::settings($field)
 						}
 					}
 					set last_shot(extraction_time) [espresso_elapsed_timer]					
+					set last_shot(profile_title) $::settings(profile_title)
 					if { $isDSx2 } {
 						set last_shot(workflow) [value_or_default ::skin(workflow) {}]
 					} else {
 						set last_shot(workflow) {}
 					}
-					
 					set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 				} else {
 					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
@@ -925,9 +924,7 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			} else {
 				# Read last shot from the database
 				if { $::settings(espresso_clock) > 0 } {				
-					set desc_fields [concat $desc_fields extraction_time workflow] 
-					array set last_shot [::plugins::SDB::shots $desc_fields 1 \
-							"clock=$::settings(espresso_clock)" 1]
+					array set last_shot [::plugins::SDB::shots "*" 1 "clock=$::settings(espresso_clock)" 1]
 					if { [array size last_shot] == 0 } {
 						set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
 					} else {
@@ -1980,8 +1977,6 @@ namespace eval ::plugins::DYE::favorites {
 						}
 					}
 
-msg -INFO "DYE update_recent lines_spec=$lines_spec"
-					
 					set fav_title [::plugins::DYE::format_shot_description fav_values $lines_spec $max_title_chars \
 						[maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no grouping data}]>" [expr $max_title_chars*2]]]
 					
