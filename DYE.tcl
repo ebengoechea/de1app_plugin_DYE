@@ -1654,7 +1654,6 @@ proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 	set load_workflow_settings 0
 	set load_full_profile 0
 	
-#msg -INFO "DYE::load_next_from_shot initial what_to_copy=$what_to_copy" 
 	if { $what_to_copy eq {} } {
 		# Untested case
 		set what_to_copy [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
@@ -1684,7 +1683,6 @@ proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 			set load_full_profile 1
 		}
 	}
-msg -INFO "DYE::load_next_from_shot final what_to_copy=$what_to_copy"
 	
 	array set src_shot [::plugins::SDB::load_shot $src_clock 0 1 1 $load_workflow_settings]
 	if { [array size src_shot] == 0 } { return 0 }
@@ -1693,17 +1691,14 @@ msg -INFO "DYE::load_next_from_shot final what_to_copy=$what_to_copy"
 	if { $load_full_profile } {
 		# Copy each and every profile variable from the source shot, which may not match the
 		# current profile (with the same title) definition
-#msg -INFO "DYE::load_next_from_shot LOADING FULL PROFILE $src_shot(profile_title)"		
 		set profile_imported [::profile::import_legacy [array get src_shot]]
 	} elseif { "profile_title" in $what_to_copy } {
 		# Load the current version of the same profile, if found
-#msg -INFO "DYE::load_next_from_shot SELECTING EXISTING PROFILE $src_shot(profile_title)"
 		select_profile $src_shot(profile_filename)
 	}
 	
 	foreach field $what_to_copy {
 		if { [info exists ::plugins::DYE::settings(next_$field)] } {
-#msg -INFO "DYE::load_next_from_shot copying field '$field'"
 			set ::plugins::DYE::settings(next_modified) 1
 			set ::plugins::DYE::settings(next_$field) $src_shot($field)
 			
@@ -1723,7 +1718,6 @@ msg -INFO "DYE::load_next_from_shot final what_to_copy=$what_to_copy"
 						set dsx_settings_changed 1
 					}
 				} elseif { $isDSx2 } {
-msg - INFO "DYE load_next_from_shot src_shot(drink_weight)=$src_shot(drink_weight), ::settings(settings_profile_type)=$::settings(settings_profile_type)"				
 					if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
 						if {$::settings(settings_profile_type) eq "settings_2c"} {
 							set ::settings(final_desired_shot_weight_advanced) $src_shot(drink_weight)
@@ -1918,17 +1912,7 @@ namespace eval ::plugins::DYE::favorites {
 			set title [lindex $fav 1]
 		} 
 		
-		set title [string trim $title]
-		
-		# This should never be reached as title shouldn't be empty by 'update_recent' proc
-		if { $title eq {} && [fav_type $fav] eq "n_recent" } {
-			array set fav_values [fav_values $fav]
-			if { [array size fav_values] > 0 } {
-				set title "[value_or_default fav_values(bean_brand) {}]\n[value_or_default fav_values(bean_type) {}] [value_or_default fav_values(roast_date) {}]"
-			}			
-		}
-		
-		return $title
+		return [string trim $title]
 	}
 	
 	proc fav_values { fav } {
@@ -1946,11 +1930,54 @@ namespace eval ::plugins::DYE::favorites {
 			return {}
 		}
 	}	
+
+	proc define_recent_title { fav_values_name {recent_number 0} {max_title_chars 28} } {
+		#array set fav_values $fav_values_list
+		upvar $fav_values_name fav_values
+		set values_names [array names fav_values]
+		set lines_spec [list]
+					
+		if { [array size fav_values] > 0 } {
+			if { "bean_brand" in $values_names  && "profile_title" in $values_names } {
+				if { "workflow" in $values_names && "grinder_model" in $values_names } {
+					lappend lines_spec {beans grind} {workflow profile}
+				} elseif { "workflow" in $values_names } {
+					lappend lines_spec beans {workflow profile}
+				} elseif { "grinder_model" in $values_names } {
+					lappend lines_spec {beans grind} profile
+				} else {
+					lappend lines_spec beans profile
+				}
+			} else {
+				if { "bean_type" in $values_names } { 
+					append lines_spec beans
+				} else {
+					append lines_spec profile
+				}
 	
-	proc update_recent { {max_title_chars 28} } {
-		variable all_recent
-		set max_n_favs [max_number]
+				if { "workflow" in $values_names && "grinder_model" in $values_names } {
+					lappend lines_spec {"workflow" "grind"}
+				} elseif { "workflow" in $values_names } {
+					lappend lines_spec "workflow"
+				} elseif { "grinder_model" in $values_names } {
+					lappend lines_spec "gind"
+				}
+			}
+	
+			set fav_title [::plugins::DYE::format_shot_description fav_values $lines_spec $max_title_chars \
+				[maxstring "<[translate {Recent}] #$recent_number,\n[translate {no grouping data}]>" [expr $max_title_chars*2]]]		
+		} else {
+			set fav_title [maxstring "<[translate {Recent}] #$recent_number,\n[translate {no data yet}]>" [expr $max_title_chars*2]]
+		}
 		
+		return $fav_title
+	}
+	
+	proc get_all_recent_descs_from_db { {max_n_recent 0} } {
+		if { $max_n_recent <= 0 } {
+			set max_n_recent [max_number]
+		}
+
 		set favs_grouping_fields $::plugins::DYE::settings(favs_n_recent_grouping)
 		set beans_idx [lsearch -nocase $favs_grouping_fields "beans"]
 		if { $beans_idx > -1 } {
@@ -1958,7 +1985,16 @@ namespace eval ::plugins::DYE::favorites {
 			lappend favs_grouping_fields bean_type roast_date
 		}
 		
-		array set all_recent [::plugins::SDB::shots_by $favs_grouping_fields 1 {} $max_n_favs]
+		return [::plugins::SDB::shots_by $favs_grouping_fields 1 {} $max_n_recent]		
+	}
+	
+	proc update_recent { {max_title_chars 28} } {
+		variable all_recent
+		set max_n_favs [max_number]
+		
+		array set all_recent [get_all_recent_descs_from_db $max_n_favs]
+		set all_recent_names [array names all_recent]
+		
 		if { [array size all_recent] == 0 } {
 			set n_recent 0
 		} else {		
@@ -1973,93 +2009,11 @@ namespace eval ::plugins::DYE::favorites {
 				array set fav_values {}
 				set lines_spec [list]
 				if { $nshot < $n_recent } {
-					foreach f [array names all_recent] {
+					foreach f $all_recent_names {
 						set fav_values($f) "[join [lindex $all_recent($f) $nshot] { }]"
 					}
 					
-					if { "bean_brand" in $favs_grouping_fields && "profile_title" in $favs_grouping_fields } {
-						if { "workflow" in $favs_grouping_fields && "grinder_model" in $favs_grouping_fields } {
-							lappend lines_spec {beans grind} {workflow profile}
-						} elseif { "workflow" in $favs_grouping_fields } {
-							lappend lines_spec beans {workflow profile}
-						} elseif { "grinder_model" in $favs_grouping_fields } {
-							lappend lines_spec {beans grind} profile
-						} else {
-							lappend lines_spec beans profile
-						}
-					} else {
-						if { "bean_type" in $favs_grouping_fields } { 
-							append lines_spec beans
-						} else {
-							append lines_spec profile
-						}
-
-						if { "workflow" in $favs_grouping_fields && "grinder_model" in $favs_grouping_fields } {
-							lappend lines_spec {"workflow" "grind"}
-						} elseif { "workflow" in $favs_grouping_fields } {
-							lappend lines_spec "workflow"
-						} elseif { "grinder_model" in $favs_grouping_fields } {
-							lappend lines_spec "gind"
-						}
-					}
-
-					set fav_title [::plugins::DYE::format_shot_description fav_values $lines_spec $max_title_chars \
-						[maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no grouping data}]>" [expr $max_title_chars*2]]]
-					
-#					# TODO: Make the name different depending on what is imported
-#					set title_lines {}
-#					set workflow {}
-#					set profile_title {}
-#					
-#					if { "bean_type" in $favs_grouping_fields } {
-#						set beans [string trim "[lindex $all_recent(bean_brand) $nshot] [lindex $all_recent(bean_type) $nshot] [lindex $all_recent(roast_date) $nshot]"]
-#						if { $beans ne {} } {
-#							lappend title_lines $beans
-#						}
-#					}
-#					
-#					if { "workflow" in $favs_grouping_fields } {
-#						set workflow [lindex $all_recent(workflow) $nshot]
-#					} else {
-#						set workflow {}
-#					}
-#					if { "profile_title" in $favs_grouping_fields } {
-#						set profile_title [lindex $all_recent(profile_title) $nshot]
-#					} else {
-#						set profile_title {}
-#					}
-#
-#					if { $workflow ne {} && $profile_title ne {} } {
-#						lappend title_lines  "$workflow: $profile_title"
-#					} elseif { $workflow ne {} } {
-#						lappend title_lines  "$workflow" 
-#					} elseif { $profile_title ne {} } {
-#						lappend title_lines  "$profile_title"
-#					}
-#
-#					if { "grinder_model" in $favs_grouping_fields } {
-#						set grinder_model [lindex $all_recent(grinder_model) $nshot]
-#						if { $grinder_model ne {} } {
-#							lappend title_lines  "$grinder_model"
-#						}
-#					}
-#					
-#					if { [llength $title_lines] == 0 } {
-#						set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no grouping data}]>" [expr $max_title_chars*2]] 
-#					} elseif  { [llength $title_lines] == 1 } {
-#						set fav_title [maxstring [lindex $title_lines 0] [expr $max_title_chars*2]]
-#					} elseif  { [llength $title_lines] >= 3 } {
-#						set title_lines [list "[lindex $title_lines 0]" "[lindex $title_lines 1], [lindex $title_lines 2]"]
-#					}
-#					
-#					if  { [llength $title_lines] == 2 } {
-#						lset title_lines 0 [maxstring [lindex $title_lines 0] $max_title_chars]
-#						lset title_lines 1 [maxstring [lindex $title_lines 1] $max_title_chars]
-#						set fav_title [join $title_lines "\n"]
-#					} else {
-#						set fav_title [join $title_lines "\n"]
-#					}
-					
+					set fav_title [define_recent_title fav_values [expr {$nshot+1}] $max_title_chars]
 				} else {
 					set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no data yet}]>" [expr $max_title_chars*2]]
 				}
@@ -2090,8 +2044,6 @@ namespace eval ::plugins::DYE::favorites {
 		return $recent_fav_number
 	}
 	
-
-	
 	proc load { n_fav } {
 		if { ![is_valid_n_fav $n_fav] } { return 0 }
 		
@@ -2100,7 +2052,8 @@ namespace eval ::plugins::DYE::favorites {
 		if { [array size fav_values] > 0 } {
 			if { [fav_type $n_fav] eq "n_recent" } {
 				if {[info exists fav_values(last_clock)]} {
-					::plugins::DYE::load_next_from_shot $fav_values(last_clock) $::plugins::DYE::settings(favs_n_recent_what_to_copy)
+					::plugins::DYE::load_next_from_shot $fav_values(last_clock) \
+						$::plugins::DYE::settings(favs_n_recent_what_to_copy)
 					borg toast [translate "Favorite loaded"]
 					return 1
 				} else {
@@ -2119,6 +2072,7 @@ namespace eval ::plugins::DYE::favorites {
 		
 		return 0
 	}
+	
 }
 
 

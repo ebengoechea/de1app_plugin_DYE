@@ -1105,6 +1105,9 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		fav_copy_drinker_name 0
 	}
 
+	variable all_recent 
+	array set all_recent {}
+	
 	variable copy_fields
 	set copy_fields {workflow workflow_settings profile_title full_profile beans roast_date grinder_model \
 		grinder_setting grinder_dose_weight drink_weight espresso_notes my_name drinker_name}
@@ -1112,7 +1115,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 	variable fav_fields
 	set fav_fields {workflow profile_title bean_brand bean_type roast_date grinder_model \
 			grinder_setting grinder_dose_weight drink_weight espresso_notes my_name drinker_name}
-		
+	
 	proc setup {} {
 		variable data
 		variable widgets	
@@ -1121,7 +1124,6 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		dui::page::add_items $page headerbar
 		
 		dui add variable $page 1000 175 -textvariable {page_title} -tags dye_edit_fav_title -style page_title 
-			#-anchor center -justify center
 		
 		# Vertical bracket
 		set x [expr $::skin(button_x_fav)-135]
@@ -1148,15 +1150,21 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		
 		dui add dtext $page $x [expr $y+25] -tags {fav_type_lbl fav_editing} -width 280 \
 			-text [translate "Favorite type"] 
-		dui add dselector $page [expr $x+300] $y -bwidth 800 -anchor nw -tags {fav_type fav_editing} \
-			-variable fav_type -values {n_recent fixed} -command change_fav_type \
-			-labels [list [translate "Recent beans"] [translate "Fixed values"]] 
+#		dui add dselector $page [expr $x+300] $y -bwidth 800 -anchor nw -tags {fav_type fav_editing} \
+#			-variable fav_type -values {n_recent fixed} -command change_fav_type \
+#			-labels [list [translate "Recent beans"] [translate "Fixed values"]] \
+#			-initial_state hidden
+		# Temporal text
+		dui add dtext $page [expr {$x+300}] [expr {$y+25}] -width 800 -text [translate "Recent beans"] \
+			-font_size +2 -font_family notosansuibold
 		
-		dui add entry $page [expr $x+300] [incr y 130] -tags {fav_title fav_editing} -canvas_width 800 \
+		dui add entry $page [expr {$x+300}] [incr y 130] -tags {fav_title fav_editing} -canvas_width 800 \
 			-label [translate "Favorite title"] -label_pos [list $x $y] 
 
 		dui add dtext $page $x [incr y 160] -tags {fav_what_copy_lbl fav_editing} -width 1000 \
-			-text [translate "What to copy?"] -font_family notosansuibold 
+			-text [translate "What to copy?"] -font_family notosansuibold
+		dui add dtext $page [expr {$x+320}] [expr {$y+5}] -tags {fav_what_copy_msg} -width 650 \
+			-text [translate "(applies to ALL recent favorites)"] -font_size -3
 		dui add dtext $page $x_data $y -tags {fav_data_lbl fav_editing} -width 800 \
 			-text [translate "Data to copy (from Next Shot definition)"] -font_family notosansuibold 
 
@@ -1247,10 +1255,12 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 
 	proc load { page_to_hide page_to_show n_fav } {
 		variable data
+		variable all_recent
 		
 		set data(fav_number) $n_fav
 		set data(page_title) "[translate {Edit DYE Favorite}] #[expr $n_fav+1]"
-
+		array set all_recent {} 
+		
 		# Load the current favorite data
 		set data(fav_type) [current_fav_type]
 		change_fav_type
@@ -1284,6 +1294,8 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable data
 		variable copy_fields
 		variable fav_fields
+		variable all_recent
+		
 		set page [namespace tail [namespace current]]
 		
 		foreach field_name $copy_fields {
@@ -1297,21 +1309,33 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			dui item config $page fav_data_lbl -text [translate "Example data (from recent shot)"]
 			dui item disable $page fav_title
 			
-			# Initialize the actual favorite (example) data. Use the data in the current favorite
-			# if it happens to be a recent-type, otherwise need to search it in the DB or in later
-			# favorites
+			# Load all recents up to the one we need
+			set recent_number [::plugins::DYE::favorites::recent_number $data(fav_number)]
 			if { [current_fav_type] eq "n_recent" } {
-				set data(fav_title) [current_fav_title]
-				array set fav_values [current_fav_values]
-				
-				foreach field_name $fav_fields {
-					if { [info exists fav_values($field_name)] } {
-						set data(fav_$field_name) $fav_values($field_name)
-					}
-				}
-			} else {
-				# TODO: Search in the current favorites and, if not available, search the DB
+				incr recent_number 1
 			}
+			if { [array size all_recent] == 0 } {				
+				array set all_recent [::plugins::DYE::favorites::get_all_recent_descs_from_db $recent_number]
+			}
+			if { [array size all_recent] == 0 } {
+				return {}
+			} elseif { [llength $all_recent([lindex [array names all_recent] 0])] <= $recent_number } {
+				set recent_number [llength $all_recent([lindex [array names all_recent] 0])]
+			}
+						
+			if { [info exists all_recent(last_clock)] } {
+				array set example_shot [::plugins::SDB::shots "*" 1 \
+					"clock=[lindex $all_recent(last_clock) [expr {$recent_number-1}]]" 1 {}]
+			} else {
+				msg -ERROR "change_fav_type: all_recent doesn't include last_clock"
+			}
+			foreach field_name $fav_fields {
+				if { [info exists example_shot($field_name)] } {
+					set data(fav_$field_name) $example_shot($field_name)
+				}
+			}
+			
+			set data(fav_title) [::plugins::DYE::favorites::define_recent_title example_shot $recent_number]
 			
 			# Initialize the "What to copy" toggle booleans from the DYE settings
 			# (changes here apply for equal to ALL recent-type favorites)
