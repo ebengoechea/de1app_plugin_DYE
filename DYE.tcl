@@ -957,7 +957,7 @@ proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 		} else {
 			upvar $next_shot_array_name next_shot 
 		}
-		# Empty variables that should be undefined on next shot
+		# Ensure variables that should be undefined on next shot are empty
 		foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds} {
 			set next_shot($field_name) 0
 		}
@@ -1645,6 +1645,7 @@ proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 	set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
 	set next_modified [string is true $::plugins::DYE::settings(next_modified)]
 	set skin $::settings(skin)
+	set isDSx2 [::plugins::DYE::is_DSx2]
 	set settings_changed 0
 	set dye_settings_changed 0
 	set dsx_settings_changed 0
@@ -1653,7 +1654,7 @@ proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 	set load_workflow_settings 0
 	set load_full_profile 0
 	
-msg -INFO "DYE::load_next_from_shot initial what_to_copy=$what_to_copy" 
+#msg -INFO "DYE::load_next_from_shot initial what_to_copy=$what_to_copy" 
 	if { $what_to_copy eq {} } {
 		# Untested case
 		set what_to_copy [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
@@ -1692,35 +1693,21 @@ msg -INFO "DYE::load_next_from_shot final what_to_copy=$what_to_copy"
 	if { $load_full_profile } {
 		# Copy each and every profile variable from the source shot, which may not match the
 		# current profile (with the same title) definition
-msg -INFO "DYE::load_next_from_shot LOADING FULL PROFILE $src_shot(profile_title)"		
+#msg -INFO "DYE::load_next_from_shot LOADING FULL PROFILE $src_shot(profile_title)"		
 		set profile_imported [::profile::import_legacy [array get src_shot]]
 	} elseif { "profile_title" in $what_to_copy } {
 		# Load the current version of the same profile, if found
-msg -INFO "DYE::load_next_from_shot SELECTING EXISTING PROFILE $src_shot(profile_title)"
+#msg -INFO "DYE::load_next_from_shot SELECTING EXISTING PROFILE $src_shot(profile_title)"
 		select_profile $src_shot(profile_filename)
 	}
 	
 	foreach field $what_to_copy {
 		if { [info exists ::plugins::DYE::settings(next_$field)] } {
-msg -INFO "DYE::load_next_from_shot copying field '$field'"
+#msg -INFO "DYE::load_next_from_shot copying field '$field'"
 			set ::plugins::DYE::settings(next_modified) 1
 			set ::plugins::DYE::settings(next_$field) $src_shot($field)
 			
-			if { [info exists ::settings($field)] } {
-				if { $src_shot($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
-					if { $field ni {grinder_dose_weight grinder_setting} } {
-						set ::settings($field) 0
-					}
-				} else {
-					set ::settings($field) $src_shot($field)
-				}
-				set settings_changed 1
-			
-				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
-					set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
-					set dsx_settings_changed 1
-				}
-			} elseif { $field eq "drink_weight" } {
+			if { $field eq "drink_weight" } {
 				if { $skin eq "MimojaCafe" } {
 					if {[::device::scale::expecting_present] && [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
 						if {$::settings(settings_profile_type) eq "settings_2c"} {
@@ -1735,7 +1722,31 @@ msg -INFO "DYE::load_next_from_shot copying field '$field'"
 						set ::DSx_settings(saw) $src_shot(drink_weight) 
 						set dsx_settings_changed 1
 					}
+				} elseif { $isDSx2 } {
+msg - INFO "DYE load_next_from_shot src_shot(drink_weight)=$src_shot(drink_weight), ::settings(settings_profile_type)=$::settings(settings_profile_type)"				
+					if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
+						if {$::settings(settings_profile_type) eq "settings_2c"} {
+							set ::settings(final_desired_shot_weight_advanced) $src_shot(drink_weight)
+						} else {
+							set ::settings(final_desired_shot_weight) $src_shot(drink_weight)
+						}
+						set settings_changed 1
+					}
 				}
+			} elseif { [info exists ::settings($field)] } {
+				if { $src_shot($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
+					if { $field ni {grinder_dose_weight grinder_setting} } {
+						set ::settings($field) 0
+					}
+				} else {
+					set ::settings($field) $src_shot($field)
+				}
+				set settings_changed 1
+			
+				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
+					set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
+					set dsx_settings_changed 1
+				}			
 			}
 		}
 	}
