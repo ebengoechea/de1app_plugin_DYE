@@ -1998,7 +1998,7 @@ namespace eval ::plugins::DYE::favorites {
 		if { [array size all_recent] == 0 } {
 			set n_recent 0
 		} else {		
-			set n_recent [llength $all_recent([lindex $favs_grouping_fields 0])]
+			set n_recent [llength $all_recent([lindex $all_recent_names 0])]
 		}
 		
 		set nshot 0
