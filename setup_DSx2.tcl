@@ -38,9 +38,11 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	}
 	
 	dui add dbutton off 50 1370 -bwidth 1000 -bheight 170 -anchor nw \
-		-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} -label_pos {0.0 0.27} -label_anchor nw \
+		-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} \
+		-label_pos {0.0 0.27} -label_anchor nw \
 		-label_justify left -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
-		-label1 "LAST SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
+		-label1variable {$::plugins::DYE::settings(last_shot_header)} -label1_font_family notosansuibold \
+		-label1_font_size -4 -label1_fill $::skin_forground_colour \
 		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
@@ -48,9 +50,11 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	
 	# -labelvariable {[::plugins::DYE::define_next_shot_desc]}
 	dui add dbutton off 1950 1370 -bwidth 1000 -bheight 170 -anchor ne \
-		-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} -label_pos {1.0 0.27} -label_anchor ne \
+		-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} \
+		-label_pos {1.0 0.27} -label_anchor ne \
 		-label_justify right -label_font_size -4 -label_fill $::skin_forground_colour -label_width 1000 \
-		-label1 "NEXT SHOT:" -label1_font_family notosansuibold -label1_font_size -4 -label1_fill $::skin_forground_colour \
+		-label1variable {$::plugins::DYE::settings(next_shot_header)} -label1_font_family notosansuibold \
+		-label1_font_size -4 -label1_fill $::skin_forground_colour \
 		-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {0 20 75 25} \
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se] \
@@ -1038,17 +1042,6 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			set ::plugins::DYE::settings(dsx2_use_dye_favs) 0
 			set favs_changed 1
 			show_or_hide_dye_favorites 0
-		} else {
-			# Ensure DSx2 home pages shows the correct number of favorites
-			# when returning
-#			for {set i 0} {$i < $data(dsx2_n_visible_dye_favs)} {incr i 1} {
-#				dui item config [lindex $::skin_home_pages 0] dye_fav_$i -initial_state normal -state normal
-#			}
-			
-#			for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_dsx2_home_visible_favs)} {incr i 1} {
-#				dui item config [lindex $::skin_home_pages 0] dye_fav_$i -initial_state hidden 
-#				#-state hidden 
-#			}
 		}
 			
 		if { $favs_changed == 1 } { 

@@ -889,7 +889,7 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 #	variables may contain the plan for the next shot instead of the last one.
 proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_settings 0} args } {	
 	variable settings
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {
+	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {		
 		set isDSx2 [is_DSx2] 
 		if { $isDSx2 } {			
 			set line_spec {profile beans {grind ratio}}
@@ -900,6 +900,8 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			set max_line_chars 55
 		}
 
+		set settings(last_shot_header) [translate {LAST SHOT: }]
+		
 		if { $last_shot_array_name eq {} } {
 			if { [string is true $use_settings] } {				
 				if { $::settings(history_saved) == 1 } {
@@ -917,6 +919,11 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 						set last_shot(workflow) {}
 					}
 					set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
+					
+					if { $::settings(espresso_clock) > 0 } {
+						append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
+					}
+					append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) {no}]] [translate {workflow}]"
 				} else {
 					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
 				}
@@ -928,7 +935,13 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 						set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
 					} else {
 						set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
+						
+						if { $::settings(espresso_clock) > 0 } {
+							append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
+						}
+						append settings(last_shot_header) ", [translate [value_or_default ::last_shot(workflow) {no}]] [translate {workflow}]"						
 					}
+					
 				} else {
 					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
 				}
@@ -936,9 +949,15 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 		} else {
 			upvar $last_shot_array_name last_shot
 			set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
+			
+			if { [info exists last_shot(clock)] } {
+				append settings(last_shot_header) [::plugins::DYE::format_date $last_shot(clock) no]
+			}
+			append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) {no}]] [translate {workflow}]"
 		}
 	} else {
-		set settings(last_shot_desc) ""
+		set settings(last_shot_desc) ""		
+		set settings(last_shot_header) ""
 	}
 }
 
@@ -950,8 +969,15 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 #	next data.
 proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 	variable settings
-	  
+	
 	if { $settings(show_shot_desc_on_home) == 1 && [info exists settings(next_bean_brand)] } {
+		set settings(next_shot_header) [translate {NEXT SHOT}]
+		if { $settings(next_modified) } { 
+			append settings(next_shot_header) "*: " 			
+		} else {
+			append settings(next_shot_header) ": "
+		}
+			
 		if { $next_shot_array_name eq {} } {
 			array set next_shot [load_next_shot]
 		} else {
@@ -966,16 +992,18 @@ proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 			#set next_shot(workflow) [value_or_default ::skin(workflow) "none"]
 			set line_spec {profile beans {grind ratio}}
 			set max_line_chars 55
+			
+			append settings(next_shot_header) "[translate [value_or_default ::skin(workflow) {no}]] [translate {workflow}]" 
 		} else {
 			set line_spec {beans grind ratio}
 			set max_line_chars 55
 		}
 		
 		set desc [format_shot_description next_shot $line_spec $max_line_chars]
-		if { $settings(next_modified) } { append desc " *" }
 		set settings(next_shot_desc) $desc
 	} else {
-		set settings(next_shot_desc) ""
+		set settings(next_shot_desc) ""		
+		set settings(next_shot_header) ""
 	}
 }
 
@@ -1938,31 +1966,59 @@ namespace eval ::plugins::DYE::favorites {
 		set lines_spec [list]
 					
 		if { [array size fav_values] > 0 } {
-			if { "bean_brand" in $values_names  && "profile_title" in $values_names } {
-				if { "workflow" in $values_names && "grinder_model" in $values_names } {
+			set grouping_vars $::plugins::DYE::settings(favs_n_recent_grouping)
+				#{beans profile_title workflow grinder_model}
+			if { "beans" in $grouping_vars  && "profile_title" in $grouping_vars } {
+				if { "workflow" in $grouping_vars && "grinder_model" in $grouping_vars } {
 					lappend lines_spec {beans grind} {workflow profile}
-				} elseif { "workflow" in $values_names } {
+				} elseif { "workflow" in $grouping_vars } {
 					lappend lines_spec beans {workflow profile}
-				} elseif { "grinder_model" in $values_names } {
+				} elseif { "grinder_model" in $grouping_vars } {
 					lappend lines_spec {beans grind} profile
 				} else {
 					lappend lines_spec beans profile
 				}
 			} else {
-				if { "bean_type" in $values_names } { 
+				if { "beans" in $grouping_vars } { 
 					append lines_spec beans
-				} else {
+				} 
+				if { "profile_title" in $grouping_vars } {
 					append lines_spec profile
 				}
 	
-				if { "workflow" in $values_names && "grinder_model" in $values_names } {
+				if { "workflow" in $grouping_vars && "grinder_model" in $grouping_vars } {
 					lappend lines_spec {"workflow" "grind"}
-				} elseif { "workflow" in $values_names } {
+				} elseif { "workflow" in $grouping_vars } {
 					lappend lines_spec "workflow"
-				} elseif { "grinder_model" in $values_names } {
-					lappend lines_spec "gind"
+				} elseif { "grinder_model" in $grouping_vars } {
+					lappend lines_spec "grind"
 				}
 			}
+#			if { "bean_brand" in $values_names  && "profile_title" in $values_names } {
+#				if { "workflow" in $values_names && "grinder_model" in $values_names } {
+#					lappend lines_spec {beans grind} {workflow profile}
+#				} elseif { "workflow" in $values_names } {
+#					lappend lines_spec beans {workflow profile}
+#				} elseif { "grinder_model" in $values_names } {
+#					lappend lines_spec {beans grind} profile
+#				} else {
+#					lappend lines_spec beans profile
+#				}
+#			} else {
+#				if { "bean_type" in $values_names } { 
+#					append lines_spec beans
+#				} else {
+#					append lines_spec profile
+#				}
+#		
+#				if { "workflow" in $values_names && "grinder_model" in $values_names } {
+#					lappend lines_spec {"workflow" "grind"}
+#				} elseif { "workflow" in $values_names } {
+#					lappend lines_spec "workflow"
+#				} elseif { "grinder_model" in $values_names } {
+#					lappend lines_spec "grind"
+#				}
+#			}
 	
 			set fav_title [::plugins::DYE::format_shot_description fav_values $lines_spec $max_title_chars \
 				[maxstring "<[translate {Recent}] #$recent_number,\n[translate {no grouping data}]>" [expr $max_title_chars*2]]]		
@@ -2010,14 +2066,13 @@ namespace eval ::plugins::DYE::favorites {
 				set lines_spec [list]
 				if { $nshot < $n_recent } {
 					foreach f $all_recent_names {
-						set fav_values($f) "[join [lindex $all_recent($f) $nshot] { }]"
+						set fav_values($f) [lindex $all_recent($f) $nshot]
 					}
-					
-					set fav_title [define_recent_title fav_values [expr {$nshot+1}] $max_title_chars]
+					set fav_title [define_recent_title fav_values [expr {$nshot+1}] $max_title_chars]															
 				} else {
 					set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no data yet}]>" [expr $max_title_chars*2]]
 				}
-
+				
 				set_fav $i "n_recent" $fav_title [array get fav_values] 0
 				incr nshot 1
 			} else {
