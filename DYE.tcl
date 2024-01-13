@@ -7616,7 +7616,7 @@ proc ::dui::pages::DYE_settings2::dsx2_show_shot_desc_on_home_change {} {
 			::plugins::DYE::define_last_shot_desc
 			::plugins::DYE::define_next_shot_desc
 		}
-		::plugins::DYE::DSx2_toggle_show_shot_desc_on_home	
+		::plugins::DYE::DSx2_toggle_show_shot_desc_on_home
 	}
 	plugins save_settings DYE
 }

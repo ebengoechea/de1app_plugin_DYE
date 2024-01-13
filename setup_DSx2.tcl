@@ -60,7 +60,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se] \
 		-initial_state $istate
 
-	#dui item config $::skin_home_pages launch_dye* -initial_state normal -state normal
+	::plugins::DYE::DSx2_toggle_show_shot_desc_on_home
 }
 
 proc ::plugins::DYE::DSx2_setup_dui_theme { } {
@@ -719,11 +719,15 @@ proc ::plugins::DYE::DSx2_press_graph_hook { args } {
 proc ::plugins::DYE::DSx2_toggle_show_shot_desc_on_home { } {
 	set main_home_page [lindex $::skin_home_pages 0]
 
-	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
+	# Show or hide DYE launch button on the workflow GHC functions buttons row
+	if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
 		dui item config $main_home_page {launch_dye_last* launch_dye_next*} \
 			-initial_state normal
 		dui item config $main_home_page live_graph_data -initial_state hidden
 		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
+		
+		dui item config $main_home_page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg launch_dye*} \
+			-initial_state hidden		
 	} else {
 		dui item config $main_home_page {launch_dye_last* launch_dye_next*} \
 			-initial_state hidden
@@ -732,6 +736,9 @@ proc ::plugins::DYE::DSx2_toggle_show_shot_desc_on_home { } {
 		if { [dui item cget $main_home_page graph_a -initial_state] ne "normal" } {
 			$::home_espresso_graph configure -height [rescale_y_skin 1010]
 		}
+		
+		dui item config $main_home_page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg launch_dye*} \
+			-initial_state normal				
 	}
 }
 
@@ -963,12 +970,10 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			}
 		}
 	
-		dui item config $main_home_page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg} \
-			-initial_state $dsx2_favs_state 
-		if { $are_favs_visible } {
-			dui item config $main_home_page {bb_dye_bg* s_dye_bg* b_dye_bg l_dye_bg li_dye_bg} \
-				-state $dsx2_favs_state
-		}
+#		if { $are_favs_visible } {
+#			dui item config $main_home_page {bb_dye_bg* s_dye_bg* b_dye_bg l_dye_bg li_dye_bg launch_dye*} \
+#				-state $dsx2_favs_state
+#		}
 
 		# Show or hide DYE favorites
 		for {set i 0} {$i < $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {incr i 1} {
