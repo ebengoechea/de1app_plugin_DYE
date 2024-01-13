@@ -931,9 +931,13 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 				# Read last shot from the database
 				if { [ifexists ::settings(espresso_clock) 0] > 0 } {				
 					array set last_shot [::plugins::SDB::shots "*" 1 "clock=$::settings(espresso_clock)" 1]
-					if { [array size last_shot] == 0 } {
+					if { [array size last_shot] == 0 } {						
 						set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
 					} else {
+						foreach field [array names last_shot] {
+							set last_shot($field) [lindex $last_shot($field) 0]
+						}				
+							
 						set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 						
 						if { $::settings(espresso_clock) > 0 } {
@@ -4669,13 +4673,15 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 			array set shot [::plugins::SDB::shots {profile_title grinder_dose_weight drink_weight extraction_time 
 				bean_brand bean_type roast_date grinder_model grinder_setting espresso_enjoyment} 1 \
 				"clock=$::settings(espresso_clock)" 1]
-#			if { [array size shot] == 0 } {
-#				set data(last_shot_summary) [translate "Not saved to history"] 
-#			} else {
-msg -INFO "DYE which_shot_dlg shot=[array get shot]"			
+			if { [array size shot] == 0 } {
+				set data(last_shot_summary) [translate "Not saved to history"] 
+			} else {
+				foreach field [array names shot] {
+					set shot($field) [lindex $shot($field) 0]
+				}
 				set data(last_shot_summary) [::plugins::DYE::format_shot_description shot \
 					{profile beans {grind ratio}} 45 "Not saved to history"]
-#				}
+			}
 		}
 		
 		return 1
