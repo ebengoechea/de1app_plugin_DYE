@@ -27,11 +27,13 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.30
+	variable version 2.31
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
 
+	# Dependece: 1.42.1.102 should contain SDB update to support favorites & workflow, 
+	#	and DUI update to support correct z-order in dui::page::add_items.
 	variable min_de1app_version {1.42.1.102}
 	variable min_DSx_version {4.79}
 	variable debug_text {}	

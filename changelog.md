@@ -2,6 +2,15 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.31] - 2024-01-13
+
+### Changed
+ - Fix bug interpreting return array from ``::plugins::SDB::shots``. This was preventing
+ DYE Shot Selector to show shots.
+ - Fix bug in showing/hiding DSx2 "launch_dye" button in the GHC-functions top button row.
+ - Fix bug that kept the tapping area of the "launch_dye" button when the button was hidden.
+ 
+ 
 ## [2.30] - 2024-01-13
 
 ### New
