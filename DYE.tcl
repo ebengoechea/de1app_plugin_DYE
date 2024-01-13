@@ -920,7 +920,7 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 					}
 					set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 					
-					if { $::settings(espresso_clock) > 0 } {
+					if { [ifexists ::settings(espresso_clock) 0] > 0 } {
 						append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
 					}
 					append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) {no}]] [translate {workflow}]"
@@ -929,7 +929,7 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 				}
 			} else {
 				# Read last shot from the database
-				if { $::settings(espresso_clock) > 0 } {				
+				if { [ifexists ::settings(espresso_clock) 0] > 0 } {				
 					array set last_shot [::plugins::SDB::shots "*" 1 "clock=$::settings(espresso_clock)" 1]
 					if { [array size last_shot] == 0 } {
 						set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
@@ -2425,7 +2425,7 @@ proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot default} } 
 	variable data
 	
 	ifexists ::settings(espresso_clock) 0
-	set current_clock $::settings(espresso_clock)
+	set current_clock [ifexists ::settings(espresso_clock) 0]
 		
 	if { $which_shot eq {} || $which_shot eq "default" } {
 		set which_shot $::plugins::DYE::settings(default_launch_action)
@@ -2581,7 +2581,7 @@ proc ::dui::pages::DYE::propagate_state_msg {} {
 	} elseif { $data(path) eq {} } {
 		dui item config $page propagate_state_msg -fill [dui aspect get dtext fill -theme [dui page theme $page] -style error]
 		return [translate "Shot not saved to history"]
-	} elseif { $data(describe_which_shot) eq "current" || $data(clock) == $::settings(espresso_clock) } {
+	} elseif { $data(describe_which_shot) eq "current" || $data(clock) == [ifexists ::settings(espresso_clock) 0] } {
 		if { ![string is true $::plugins::DYE::settings(propagate_previous_shot_desc)] } {
 			return [translate "Propagation is disabled"]
 		} elseif { [string is true $::plugins::DYE::settings(next_modified)] } {
@@ -2618,7 +2618,8 @@ proc ::dui::pages::DYE::move_forward {} {
 	
 	save_description
 	
-	if { $data(describe_which_shot) eq "current" || $data(clock) == $::settings(espresso_clock) } {
+	if { $data(describe_which_shot) eq "current" || 
+			$data(clock) == [ifexists ::settings(espresso_clock) 0] } {
 		dui page load DYE next -reload yes
 	} else {		
 		set next_clock [::plugins::SDB::next_shot $data(clock)]
@@ -2976,7 +2977,8 @@ proc ::dui::pages::DYE::define_title {} {
 		set data(page_title) [translate "Plan your NEXT shot"]
 	} elseif { $data(clock) eq {} || $data(clock) == 0 } {
 		set data(page_title) "[translate {Describe LAST shot}]"
-	} elseif { $data(describe_which_shot) eq "current" || $data(clock) == $::settings(espresso_clock) } {
+	} elseif { $data(describe_which_shot) eq "current" || 
+			$data(clock) == [ifexists ::settings(espresso_clock) 0] } {
 		set data(page_title) "[translate {Describe LAST shot}]: [::plugins::DYE::format_date $data(clock)]"
 	} else {
 		set data(page_title) "[translate {Describe shot}]: [::plugins::DYE::format_date $data(clock)]"
@@ -4659,7 +4661,7 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 		array set next_shot [::plugins::DYE::load_next_shot]
 		set data(next_shot_summary) [::plugins::DYE::format_shot_description next_shot \
 			{profile beans {grind ratio}} 45 "Next shot undefined"]
-		if { [value_or_default ::settings(espresso_clock)] == 0 } {
+		if { [ifexists ::settings(espresso_clock) 0] == 0 } {
 			set data(last_shot_date) [translate {No shot}]
 		} else {
 			set data(last_shot_date) [::plugins::DYE::format_date $::settings(espresso_clock)]
@@ -8172,13 +8174,13 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	} else {
 		if { $which_shot in {last current} } {
 			set data(which_shot) "last"
-			set data(clock) $::settings(espresso_clock)
+			set data(clock) [ifexists ::settings(espresso_clock) 0]
 			set data(path) [::plugins::SDB::get_shot_file_path $data(clock)]
 			if { $page_to_show eq "DYE_v3_next" } {
 				set page_to_show DYE_v3
 			}		
 		} elseif { [string is integer $which_shot] } {
-			if { $which_shot == $::settings(espresso_clock) } {
+			if { $which_shot == [ifexists ::settings(espresso_clock) 0] } {
 				set data(which_shot) last
 			} else {			
 				set data(which_shot) past
@@ -8205,7 +8207,7 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 	if { $data(which_compare) eq "previous" } {
 		# BEWARE $data(clock) may not be defined if -which_shot was a filename
 		if { $data(which_shot) eq "next" } {
-			set data(compare_clock) $::settings(espresso_clock)
+			set data(compare_clock) [ifexists ::settings(espresso_clock) 0]
 		} else {
 			set data(compare_clock) [::plugins::SDB::previous_shot $data(clock)]
 		}
@@ -9076,7 +9078,7 @@ proc ::dui::pages::DYE_v3::move_forward {} {
 	if { $data(which_shot) eq "next" } return
 	save_description
 	
-	if { $data(which_shot) eq "last" || $data(clock) == $::settings(espresso_clock) } {
+	if { $data(which_shot) eq "last" || $data(clock) == [ifexists ::settings(espresso_clock) 0]} {
 		dui page load [dui page current] -which_shot next -reload yes
 	} else {		
 		set next_clock [::plugins::SDB::next_shot $data(clock)]
