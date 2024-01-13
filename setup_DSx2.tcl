@@ -531,6 +531,23 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	dui aspect set -type dclicker_symbol -style dye_single {pos {0.1 0.5} font_size 24 anchor center fill "#7f879a"} 
 	dui aspect set -type dclicker_symbol1 -style dye_single {pos {0.9 0.5} font_size 24 anchor center fill "#7f879a"} 
 
+	# New aspects for the DYE main page section images, so they can be modified depending on color choices.
+	# Uses code contributed by Eran Yaniv. This determines which image to use depending on the
+	#	darkness of the current skin theme background color. 
+	lassign [winfo rgb . $::skin_background_colour] r g b
+	set luma [ expr { ((0.2126 * $r) + (0.7152 * $g) + (0.0722 * $b)) / 65535 } ]
+	if { $luma > 0.7} {
+		dui aspect set -type image -style dye_beans_img -source "bean_DSx2_black.png"
+		dui aspect set -type image -style dye_equipment_img -source "niche_DSx2_black.png"
+		dui aspect set -type image -style dye_extraction_img -source "espresso_DSx2_black.png"
+		dui aspect set -type image -style dye_people_img -source "people_DSx2_black.png"
+	} else {
+		dui aspect set -type image -style dye_beans_img -source "bean_DSx.png"
+		dui aspect set -type image -style dye_equipment_img -source "niche_DSx.png"
+		dui aspect set -type image -style dye_extraction_img -source "espresso_DSx.png"
+		dui aspect set -type image -style dye_people_img -source "people_DSx.png"
+	}
+	
 	# Profile viewer
 	dui aspect set [subst {
 		shape.fill.dye_pv_icon_btn CadetBlue4 

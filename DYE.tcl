@@ -2226,7 +2226,12 @@ proc ::dui::pages::DYE::setup {} {
 	set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
 	
 	# BEANS DATA
-	dui add image $page $x_left_label 150 "bean_${skin}.png" -tags beans_img
+	if { [dui aspect exists image -source -style dye_beans_img] } {
+		set img_src [dui aspect get image -source -style dye_beans_img]
+	} else {
+		set img_src "bean_${skin}.png"
+	}
+	dui add image $page $x_left_label 150 $img_src -tags beans_img
 	dui add dtext $page $x_left_field 250 -text [translate "Beans"] -tags beans_header -style section_header \
 		-command beans_select
 	
@@ -2270,7 +2275,12 @@ proc ::dui::pages::DYE::setup {} {
 	# EQUIPMENT
 	set y 925
 
-	dui add image $page $x_left_label $y "niche_${skin}.png" -tags equipment_img
+	if { [dui aspect exists image -source -style dye_equipment_img] } {
+		set img_src [dui aspect get image -source -style dye_equipment_img]
+	} else {
+		set img_src "niche_${skin}.png"
+	}
+	dui add image $page $x_left_label $y $img_src -tags equipment_img
 	dui add dtext $page $x_left_field [expr {$y+130}] -text [translate "Equipment"] -style section_header
 			
 	# Grinder model
@@ -2289,7 +2299,13 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# EXTRACTION
 	set x_right_label 1280; set x_right_field 1525
-	dui add image $page $x_right_label 150 "espresso_${skin}.png" -tags extraction_img
+	
+	if { [dui aspect exists image -source -style dye_extraction_img] } {
+		set img_src [dui aspect get image -source -style dye_extraction_img]
+	} else {
+		set img_src "espresso_${skin}.png"
+	}	
+	dui add image $page $x_right_label 150 $img_src -tags extraction_img
 	dui add dtext $page 1550 250 -text [translate "Extraction"] -style section_header
 
 	# Calc EY from TDS button
@@ -2364,7 +2380,13 @@ proc ::dui::pages::DYE::setup {} {
 
 	# PEOPLE
 	set y 1030
-	dui add image $page $x_right_label $y "people_${skin}.png" -tags people_img
+	
+	if { [dui aspect exists image -source -style dye_people_img] } {
+		set img_src [dui aspect get image -source -style dye_people_img]
+	} else {
+		set img_src "people_${skin}.png"
+	}
+	dui add image $page $x_right_label $y $img_src -tags people_img
 	dui add dtext $page $x_right_field [expr {$y+140}] -text [translate "People"] -style section_header 
 		
 	# Barista (my_name)
