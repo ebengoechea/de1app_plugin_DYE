@@ -2,6 +2,45 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.30] - 2024-01-13
+
+### New
+- **DYE Favorites**. Inspired on DSx2 Favorites, DYE Favorites of type "recent" remember up the 
+ last 12 combinations of beans/profile/grinder/DSx2_workflow (at user choice) used and can
+ copy the last shot done with each combination to the next shot definition.
+ 
+- **Integration with Damian's new DSx2 skin**:
+ 
+    * New DSx2 theme to show DYE pages using a color palette consistent with DSx2 current
+ 	theme. Code kindly contributed by Eran Yaniv.
+ 	
+    * DYE Favorites can (at user choice) be used instead of DSx2 favorites on DSx2 default 
+ 	home page (Damian theme):
+ 	
+        - One-click instant swap between recently used beans (or beans/profile/grinder/DSx2_workflow 
+ 		combinations, at user choice)
+ 		
+        - Tap on the "..." below the favorites bar on the right to get to the new 
+ 		DYE Favorites page.
+ 		
+        - Tap on the pencil close to any favorite on the DYE Favorites page to open the
+ 		new DYE Favorite Edit page.
+ 		
+    * Last and Next shot descriptions can be shown on DSx2 default home page (Damian theme),
+ 	below the chart, at user choice, and they link to the main DYE page for editing its metadata. Changes on DSx2 espresso
+ 	settings variables such as dose, yield, or profile, are reflected inmediately in these descriptions as well as in
+ 	DYE pages, and viceversa.
+ 	
+    * DSx2 workflow is now stored with shot data in DYE/SDB and can be propagated to the next shot 
+ 	when using DSx2 from any previous shot done with DSx2. 
+ 	
+    * New settings page for DSx2 user options, linked from DYE main settings page.
+ 
+### Changed
+- Fix a couple of bugs that could produce runtime errors when using DYE on fresh new DE1 app 
+installs (without any shots) or when the DE1 app settings file had been removed, as reported
+by Paul Chan.
+
 ## [2.29] - 2024-01-03
 
 ### Changed

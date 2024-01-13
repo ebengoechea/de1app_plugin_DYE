@@ -27,12 +27,12 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.29
+	variable version 2.30
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people."]
 
-	variable min_de1app_version {1.42}
+	variable min_de1app_version {1.42.1.102}
 	variable min_DSx_version {4.79}
 	variable debug_text {}	
 	
