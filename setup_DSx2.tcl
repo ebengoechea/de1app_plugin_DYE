@@ -29,6 +29,8 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	trace add execution ::show_graph leave ::plugins::DYE::DSx2_show_graph_hook
 	trace add execution ::hide_graph leave ::plugins::DYE::DSx2_hide_graph_hook
 	trace add execution ::adjust leave ::plugins::DYE::DSx2_adjust_hook
+	trace add execution ::set_scale_weight_to_dose leave ::plugins::DYE::DSx2_set_scale_weight_to_dose_hook
+	
 	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
 	
 	# Add past & next shot description buttons to the home page
@@ -759,6 +761,10 @@ proc ::plugins::DYE::DSx2_toggle_show_shot_desc_on_home { } {
 
 proc ::plugins::DYE::DSx2_adjust_hook { args } {
 	::plugins::DYE::define_next_shot_desc	
+}
+
+proc ::plugins::DYE::DSx2_set_scale_weight_to_dose_hook { args } {
+	::plugins::DYE::define_next_shot_desc
 }
 
 namespace eval ::dui::pages::dsx2_dye_favs {
