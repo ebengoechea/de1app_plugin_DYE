@@ -1,6 +1,3 @@
-#namespace eval {
-#	variable ::plugins::DYE::DSx2_main_graph_height [rescale_y_skin 840]
-#}
 
 proc ::plugins::DYE::setup_ui_DSx2 {} {
 	DSx2_setup_dui_theme
@@ -1123,6 +1120,11 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		fav_title {}
 		
 		fav_workflow {}	
+		fav_steam_timeout 0
+		fav_hotwater_flow 0
+		fav_water_temperature 0
+		fav_water_volume 0
+		fav_steam_disabled 0
 		fav_profile_title {}
 		fav_profile_filename {}
 		fav_bean_brand {}
@@ -1131,7 +1133,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		fav_roast_date {}
 		fav_bean_notes {}
 		fav_grinder_model {}
-		fav_grinder_setting {}
+		fav_grinder_setting 0
 		fav_grinder_dose_weight 0
 		fav_drink_weight 0
 		fav_espresso_notes {}
@@ -1161,9 +1163,10 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		grinder_setting grinder_dose_weight drink_weight espresso_notes my_name drinker_name}
 	
 	variable fav_fields
-	set fav_fields {workflow profile_title profile_filename bean_brand bean_type roast_level roast_date \
-			bean_notes grinder_model grinder_setting grinder_dose_weight drink_weight espresso_notes \
-			my_name drinker_name}
+	set fav_fields {workflow steam_timeout hotwater_flow water_temperature water_volume steam_disabled \
+		profile_title profile_filename bean_brand bean_type roast_level roast_date bean_notes \
+		grinder_model grinder_setting grinder_dose_weight drink_weight espresso_notes \
+		my_name drinker_name}
 	
 	proc setup {} {
 		variable data
@@ -1208,7 +1211,8 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 #			-font_size +2 -font_family notosansuibold
 		
 		dui add entry $page [expr {$x+300}] [incr y 130] -tags {fav_title fav_editing} -canvas_width 800 \
-			-label [translate "Favorite title"] -label_pos [list $x $y] 
+			-label [translate "Favorite title"] -label_pos [list $x $y] \
+			-validate all -vcmd {expr {[string length %P] <= 55}}
 
 		dui add dtext $page $x [incr y 160] -tags {fav_what_copy_lbl fav_editing} -width 1000 \
 			-text [translate "What to copy?"] -font_family notosansuibold
@@ -1365,7 +1369,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			if { [current_fav_type] eq "n_recent" } {
 				incr recent_number 1
 			}
-			if { [array size all_recent] == 0 } {				
+			if { [array size all_recent] == 0 } {
 				array set all_recent [::plugins::DYE::favorites::get_all_recent_descs_from_db $recent_number]
 			}
 			if { [array size all_recent] == 0 } {
@@ -1426,13 +1430,14 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 #			foreach field_name [concat [metadata fields -domain shot -category description] \
 #					profile_title DSx2_workflow] {}
 			foreach field_name $fav_fields {
-				if { [info exists data(fav_$field_name)] &&
-						[info exists ::settings($field_name)] } {
+				if { [info exists ::plugins::DYE::settings(next_$field_name)] } {
+					set data(fav_$field_name) $::plugins::DYE::settings(next_$field_name)
+				} elseif { [info exists ::settings($field_name)] } {
 					set data(fav_$field_name) $::settings($field_name)
 				}
 			}
 			if { [::plugins::DYE::is_DSx2] } {
-				set data(fav_workflow) [value_or_default $::skin(workflow) "none"]
+				set data(fav_workflow) [value_or_default ::skin(workflow) "none"]
 			}
 		}
 	}
@@ -1479,31 +1484,46 @@ msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', recent_number=$rec
 					foreach field_name [array names all_recent] {
 						lappend fav_values $field_name $all_recent($field_name)
 					}
-msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_values"					
+msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_values"
 				}				
 			}
 
 		} else {
 			set fav_copy_fields [list]
 			foreach field_name $copy_fields {
-				if { [string is true $data(fav_copy_$field_name)] &&
-						[info exists data(fav_$field_name)] } {
-					lappend fav_values $field_name $data(fav_$field_name)
+				if { [string is true $data(fav_copy_$field_name)]} {
 					lappend fav_copy_fields $field_name
 				}
 			}
 			lappend fav_values "what_to_copy" $fav_copy_fields
-			
-			if { [string is true $data(fav_copy_beans)] } {
-				lappend fav_values bean_brand $data(fav_bean_brand)
-				lappend fav_values bean_type $data(fav_bean_type)
-				lappend fav_values roast_level $data(fav_roast_level)
-				lappend fav_values bean_notes $data(fav_bean_notes)
+
+			foreach what_copy $fav_copy_fields {
+				if { $what_copy eq "workflow_settings" } {
+					foreach workflow_field \
+							$::plugins::DYE::workflow_settings_vars([value_or_default ::settings(DSx2_workflow) {none}]) {
+						if { [info exists ::settings($workflow_field)] } {
+							lappend fav_values $workflow_field $::settings($workflow_field)
+						} else {
+							msg -WARNING [namespace current] "save_fav_edits: workflow field $workflow_field not found in global settings"
+						}
+					}
+				} elseif { $what_copy eq "beans" } {
+					lappend fav_values bean_brand $data(fav_bean_brand)
+					lappend fav_values bean_type $data(fav_bean_type)
+					lappend fav_values roast_level $data(fav_roast_level)
+					lappend fav_values bean_notes $data(fav_bean_notes)
+				} elseif { $what_copy eq "profile_title" } {
+					lappend fav_values profile_title $data(fav_profile_title)
+					lappend fav_values profile_filename $data(fav_profile_filename)
+				} elseif { [info exists data(fav_$what_copy)] } {
+					lappend fav_values $what_copy $data(fav_$what_copy)
+				} elseif { [info exists ::settings($what_copy)] } {
+					lappend fav_values $what_copy $::settings($what_copy)
+				} else {
+					msg -WARNING [namespace current] "save_fav_edits: field $what_copy not found"
+				}
 			}
-			if { [string is true $data(fav_copy_profile_title)] } {
-				lappend fav_values profile_filename $data(fav_profile_filename)
-			}
-msg -INFO "DYE save_fav_edits 'fixed', fav_values=$fav_values"			
+			#msg -INFO "DYE save_fav_edits 'fixed', fav_values=$fav_values"
 		}
 
 		::plugins::DYE::favorites::set_fav $data(fav_number) $data(fav_type) "$data(fav_title)" $fav_values 0
