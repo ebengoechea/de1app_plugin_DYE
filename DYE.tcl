@@ -149,7 +149,7 @@ proc ::plugins::DYE::main {} {
 		plugins load visualizer_upload
 		trace add execution ::plugins::visualizer_upload::uploadShotData leave ::plugins::DYE::save_espresso_to_history_hook
 	} else {
-		trace add execution ::save_this_espresso_to_history leave ::plugins::DYE::save_espresso_to_history_hook
+		trace add execution ::plugins::SDB::save_espresso_to_history_hook leave ::plugins::DYE::save_espresso_to_history_hook
 	}
 
 	# Initialize favorites
