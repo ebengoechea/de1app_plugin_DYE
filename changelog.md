@@ -2,6 +2,20 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.32] - 2024-01-14
+
+### Changed
+ - Update Next Shot description when DSx2 dose button on the scale is tapped (needs checking). 
+ Reported by Mario on Diaspora.
+ - Ensures number of visible DSx2 favorites on DSx2 home page persists through DYE favorites
+ enabling/disabling and app restarts. Reported by Damian on Diaspora.
+ - Recent-type favorites now are properly updated when a shot finishes. Reported by Nic on Discord.
+ - Change color of Next & Last shot descriptions on DSx2 home, as well as the "..." DYE Favs expansion
+ button and some DYE page titles. They were not visible with dark themes. Reported by Matt Bower
+ on Diaspora.
+ - Items of example data when editing a recent DYE fav were lists instead of strings (appeared
+ between brackets). Corrected.
+ 
 ## [2.31] - 2024-01-13
 
 ### Changed
