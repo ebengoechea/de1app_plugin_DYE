@@ -2121,12 +2121,37 @@ namespace eval ::plugins::DYE::favorites {
 					borg toast [translate "Favorite doesn't have data to load"]
 				}
 			} else {
-				foreach field_name $fav_values {
+				set what_to_copy [value_or_default fav_values(what_to_copy) [array names fav_values]]
+				foreach what_copy $what_to_copy {
 					# TODO Handle special cases (workflow settings, profile settings...)
-					if { [info exists ::settings($field_name)] } {
-						set ::settings($field_name) $fav_values($field_name)
+					if { $what_copy eq "profile_title"} {
+						# Load the current version of the same profile, if found
+						# TODO: Need to store the profile filename on the fav!!
+						select_profile $fav_values(profile_filename)
+					} elseif { $what_copy eq "full_profile" } {
+						# Do nothing, full profiles can't be saved on fixed favorites.
+					} elseif { $what_copy eq "workflow" || $what_copy eq "DSx2_workflow" } {
+						if { [::plugins::DYE::is_DSx2] } {
+							::workflow $fav_values($what_copy)
+						} else {
+							set ::settings(DSx2_workflow) $fav_values($what_copy)
+						}
+					} elseif { $what_copy eq "workflow_settings" } {
+						
+					} elseif { $what_copy eq "beans" } {
+						set ::settings(bean_brand) [value_or_default fav_values(bean_brand) {}]
+						set ::settings(bean_type) [value_or_default fav_values(bean_type) {}]
+						set ::settings(roast_level) [value_or_default fav_values(roast_level) {}]
+						set ::settings(bean_notes) [value_or_default fav_values(bean_notes) {}]
+					} elseif { [info exists ::settings($what_copy)] } {
+						set ::settings($what_copy) $fav_values($what_copy)
+					} else {
+						msg -WARNING "favorites::load: can't copy field '$what_copy' from (fixed) favorite $n_fav"
 					}
 				}
+				
+				::plugins::DYE::define_next_shot_desc
+				::save_settings
 				return 1
 			}
 		}

@@ -1101,18 +1101,21 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		fav_type n_recent
 		fav_title {}
 		
-		fav_workflow {espresso}	
-		fav_profile_title {Extractamundo 2}
-		fav_bean_brand {D'Origen}
-		fav_bean_type {Panama BMM}
-		fav_roast_date {01/04/2023}
-		fav_grinder_model {P100}
-		fav_grinder_setting {1.25}
-		fav_grinder_dose_weight {18}
-		fav_drink_weight {36}
+		fav_workflow {}	
+		fav_profile_title {}
+		fav_profile_filename {}
+		fav_bean_brand {}
+		fav_bean_type {}
+		fav_roast_level {}
+		fav_roast_date {}
+		fav_bean_notes {}
+		fav_grinder_model {}
+		fav_grinder_setting {}
+		fav_grinder_dose_weight 0
+		fav_drink_weight 0
 		fav_espresso_notes {}
-		fav_my_name {Enrique}
-		fav_drinker_name {Enrique}
+		fav_my_name {}
+		fav_drinker_name {}
 		
 		fav_copy_workflow 1	
 		fav_copy_workflow_settings 1
@@ -1137,8 +1140,9 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		grinder_setting grinder_dose_weight drink_weight espresso_notes my_name drinker_name}
 	
 	variable fav_fields
-	set fav_fields {workflow profile_title bean_brand bean_type roast_date grinder_model \
-			grinder_setting grinder_dose_weight drink_weight espresso_notes my_name drinker_name}
+	set fav_fields {workflow profile_title profile_filename bean_brand bean_type roast_level roast_date \
+			bean_notes grinder_model grinder_setting grinder_dose_weight drink_weight espresso_notes \
+			my_name drinker_name}
 	
 	proc setup {} {
 		variable data
@@ -1174,20 +1178,20 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		
 		dui add dtext $page $x [expr $y+25] -tags {fav_type_lbl fav_editing} -width 280 \
 			-text [translate "Favorite type"] 
-#		dui add dselector $page [expr $x+300] $y -bwidth 800 -anchor nw -tags {fav_type fav_editing} \
-#			-variable fav_type -values {n_recent fixed} -command change_fav_type \
-#			-labels [list [translate "Recent beans"] [translate "Fixed values"]] \
-#			-initial_state hidden
+		dui add dselector $page [expr $x+300] $y -bwidth 800 -anchor nw -tags {fav_type fav_editing} \
+			-variable fav_type -values {n_recent fixed} -command change_fav_type \
+			-labels [list [translate "Recent"] [translate "Fixed"]] \
+			-initial_state hidden
 		# Temporal text
-		dui add dtext $page [expr {$x+300}] [expr {$y+25}] -width 800 -text [translate "Recent beans"] \
-			-font_size +2 -font_family notosansuibold
+#		dui add dtext $page [expr {$x+300}] [expr {$y+25}] -width 800 -text [translate "Recent beans"] \
+#			-font_size +2 -font_family notosansuibold
 		
 		dui add entry $page [expr {$x+300}] [incr y 130] -tags {fav_title fav_editing} -canvas_width 800 \
 			-label [translate "Favorite title"] -label_pos [list $x $y] 
 
 		dui add dtext $page $x [incr y 160] -tags {fav_what_copy_lbl fav_editing} -width 1000 \
 			-text [translate "What to copy?"] -font_family notosansuibold
-		dui add dtext $page [expr {$x+320}] [expr {$y+5}] -tags {fav_what_copy_msg} -width 650 \
+		dui add dtext $page [expr {$x+320}] [expr {$y+5}] -tags fav_what_copy_msg -width 650 \
 			-text [translate "(applies to ALL recent favorites)"] -font_size -3
 		dui add dtext $page $x_data $y -tags {fav_data_lbl fav_editing} -width 800 \
 			-text [translate "Data to copy (from Next Shot definition)"] -font_family notosansuibold 
@@ -1330,8 +1334,10 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		}
 		
 		if {$data(fav_type) eq "n_recent"} {
+			dui item config $page fav_what_copy_msg -text [translate "(applies to ALL recent favorites)"]			
 			dui item config $page fav_data_lbl -text [translate "Example data (from recent shot)"]
-			dui item disable $page fav_title
+			dui item disable $page fav_title -initial yes -current yes
+			dui item enable $page {fav_copy_full_profile_lbl fav_copy_full_profile} -initial yes -current yes 
 			
 			# Load all recents up to the one we need
 			set recent_number [::plugins::DYE::favorites::recent_number $data(fav_number)]
@@ -1368,28 +1374,45 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			}
 			
 		} elseif {$data(fav_type) eq "fixed"} {
+			dui item config $page fav_what_copy_msg -text [translate "(applies only to THIS favorite)"]
 			dui item config $page fav_data_lbl -text [translate "Data to copy (from Next Shot definition)"]
-			dui item enable $page fav_title
-			set data(fav_title) {}
+			dui item enable $page fav_title -initial yes -current yes
+			set data(fav_copy_full_profile) 0
+			dui item disable $page {fav_copy_full_profile_lbl fav_copy_full_profile} -initial yes -current yes
 			
-			# Copy example data from the current settings (data for next shot)
-			foreach field_name [metadata fields -domain shot -category description] {
-				if { [info exists data(fav_$field_name)] } {
-					if { [info exists ::settings($field_name)] } {
-						set data(fav_$field_name) $::settings($field_name)
+			if { [current_fav_type] eq "fixed" } {
+				set data(fav_title) [current_fav_title]
+				array set fav_values [current_fav_values]
+				foreach field_name [value_or_default fav_values(what_to_copy) \
+						$::plugins::DYE::settings(favs_n_recent_what_to_copy)] {
+					if { [info exists data(fav_copy_$field_name)] } {
+						set data(fav_copy_$field_name) 1
 					}
 				}
+			} else {
+				set data(fav_title) ""
+				
+				# As no default what_to_copy in current fav, use the default
+				# ones for n_recent favs. 
+				foreach field_name $::plugins::DYE::settings(favs_n_recent_what_to_copy) {
+					if { $field_name ne "full_profile" } {
+						set data(fav_copy_$field_name) 1
+					}
+				}					
 			}
-
-			# "Interpret" what to copy depending on the data on the current Fav
-			foreach field_name $::plugins::DYE::settings(favs_n_recent_what_to_copy) {
-				if { $field_name eq "beans" } {
-					
-				} elseif {[info exists data(fav_copy_$field_name)]} {
-					set data(fav_copy_$field_name) 1
+			
+			# Copy actual data from the current settings (data for Next Shot)
+#			foreach field_name [concat [metadata fields -domain shot -category description] \
+#					profile_title DSx2_workflow] {}
+			foreach field_name $fav_fields {
+				if { [info exists data(fav_$field_name)] &&
+						[info exists ::settings($field_name)] } {
+					set data(fav_$field_name) $::settings($field_name)
 				}
 			}
-
+			if { [::plugins::DYE::is_DSx2] } {
+				set data(fav_workflow) [value_or_default $::skin(workflow) "none"]
+			}
 		}
 	}
 
@@ -1412,15 +1435,11 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable data
 		variable fav_fields
 		variable copy_fields 
+		variable all_recent
 		
 		set fav_values [list]
 		
 		if { $data(fav_type) eq "n_recent" } {
-			# If the current favorite is already a recent type, no need to do nothing.
-			if { [current_fav_type] ne "n_recent" } {
-				# TODO
-			}
-			
 			# Save changes to what to copy. These apply to all recent-type favs, so are stored in the settings.
 			set new_copy_fields [list]
 			foreach field_name $copy_fields {
@@ -1429,21 +1448,41 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 				}
 				set ::plugins::DYE::settings(favs_n_recent_what_to_copy) $new_copy_fields
 			}
+			
+			# If the current favorite is already a recent type, no need to do anything.
+			if { [current_fav_type] ne "n_recent" } {
+				# Copy the data from all_recent loaded at the beginning
+				set recent_number [::plugins::DYE::favorites::recent_number $data(fav_number)]
+msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', recent_number=$recent_number"	
+				if { [llength $all_recent([lindex [array names all_recent] 0])] >= $recent_number } {
+					foreach field_name [array names all_recent] {
+						lappend fav_values $field_name $all_recent($field_name)
+					}
+msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_values"					
+				}				
+			}
 
 		} else {
-			foreach field_name {workflow profile_title roast_date grinder_model grinder_setting \
-					grinder_dose_weight drink_weight espresso_notes my_name drinker_name} {
-				if { [string is true $data(fav_copy_$field_name)] } {
+			set fav_copy_fields [list]
+			foreach field_name $copy_fields {
+				if { [string is true $data(fav_copy_$field_name)] &&
+						[info exists data(fav_$field_name)] } {
 					lappend fav_values $field_name $data(fav_$field_name)
+					lappend fav_copy_fields $field_name
 				}
 			}
+			lappend fav_values "what_to_copy" $fav_copy_fields
+			
 			if { [string is true $data(fav_copy_beans)] } {
 				lappend fav_values bean_brand $data(fav_bean_brand)
 				lappend fav_values bean_type $data(fav_bean_type)
-#				set fav_values(roast_level) $data(fav_roast_level)
-#				set fav_values(bean_note) $data(bean_note)
+				lappend fav_values roast_level $data(fav_roast_level)
+				lappend fav_values bean_notes $data(fav_bean_notes)
 			}
-			
+			if { [string is true $data(fav_copy_profile_title)] } {
+				lappend fav_values profile_filename $data(fav_profile_filename)
+			}
+msg -INFO "DYE save_fav_edits 'fixed', fav_values=$fav_values"			
 		}
 
 		::plugins::DYE::favorites::set_fav $data(fav_number) $data(fav_type) "$data(fav_title)" $fav_values 0
