@@ -41,9 +41,9 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	dui add dbutton off 50 1370 -bwidth 1000 -bheight 170 -anchor nw \
 		-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} \
 		-label_pos {0.0 0.27} -label_anchor nw \
-		-label_justify left -label_font_size -4 -label_fill $::skin_forground_colour -label_width 900 \
+		-label_justify left -label_font_size -4 -label_fill $::skin_text_colour -label_width 900 \
 		-label1variable {$::plugins::DYE::settings(last_shot_header)} -label1_font_family notosansuibold \
-		-label1_font_size -4 -label1_fill $::skin_forground_colour \
+		-label1_font_size -4 -label1_fill $::skin_text_colour \
 		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
@@ -53,9 +53,9 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	dui add dbutton off 1950 1370 -bwidth 1000 -bheight 170 -anchor ne \
 		-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} \
 		-label_pos {1.0 0.27} -label_anchor ne \
-		-label_justify right -label_font_size -4 -label_fill $::skin_forground_colour -label_width 1000 \
+		-label_justify right -label_font_size -4 -label_fill $::skin_text_colour -label_width 1000 \
 		-label1variable {$::plugins::DYE::settings(next_shot_header)} -label1_font_family notosansuibold \
-		-label1_font_size -4 -label1_fill $::skin_forground_colour \
+		-label1_font_size -4 -label1_fill $::skin_text_colour \
 		-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 1000 \
 		-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {0 20 75 25} \
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se] \
@@ -113,7 +113,7 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		
 		dtext.font_family.page_title "$font"
 		dtext.font_size.page_title 26
-		dtext.fill.page_title $foreground_c
+		dtext.fill.page_title $text_c
 		dtext.anchor.page_title center
 		dtext.justify.page_title center
 					
@@ -787,7 +787,6 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		dui::page::add_items $page headerbar
 		
 		dui add dtext $page 1000 175 -text [translate "DYE Favorites"] -tags dye_favs_title -style page_title 
-			#-anchor center -justify center
 		
 		# Options on the left "panel"
 		set x 100
@@ -865,14 +864,14 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 				-fill $::skin_background_colour -tags [list dye_fav_edit_$i dye_fav_edits] \
 				-command [list ::dui::page::load dsx2_dye_edit_fav $i] \
 				-symbol pen -symbol_pos {0.5 0.5} -symbol_anchor center -symbol_justify center -symbol_font_size 20 \
-				-symbol_fill $::skin_forground_colour 
+				-symbol_fill $::skin_text_colour 
 		}
 				
 		dui add dbutton $::skin_home_pages [expr $::skin(button_x_fav)-50] \
 			[expr 108+(120*$::plugins::DYE::settings(dsx2_n_visible_dye_favs))] \
 			-bwidth 460 -bheight 80 -shape {} -fill $::skin_background_colour -tags dye_fav_more \
 			-label {. . .} -label_font_size 20 -label_font_family notosansuibold -label_pos {0.5 0.2} \
-			-label_fill $::skin_forground_colour -command [list dui::page::load dsx2_dye_favs]
+			-label_fill $::skin_text_colour -command [list dui::page::load dsx2_dye_favs]
 		
 				
 		# Bottom area
