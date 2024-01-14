@@ -24,6 +24,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	dui page add dsx2_dye_edit_fav -namespace true -type fpdialog
 	
 	# Modify DSx2 home pages to adapt to DYE UI widgets and workflow	
+	dui page add_action [lindex $::skin_home_pages 0] load ::plugins::DYE::DSx2_home_page_on_load
 	dui page add_action [lindex $::skin_home_pages 0] show ::plugins::DYE::DSx2_home_page_on_show
 	trace add execution ::show_graph leave ::plugins::DYE::DSx2_show_graph_hook
 	trace add execution ::hide_graph leave ::plugins::DYE::DSx2_hide_graph_hook
@@ -656,32 +657,46 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	}]	
 }
 
-proc ::plugins::DYE::DSx2_home_page_on_show {  } {
+proc ::plugins::DYE::DSx2_home_page_on_load { args } {
+	set main_home_page [lindex $::skin_home_pages 0]
 	if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
 		for {set i 0} {$i < $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {incr i 1} {
-			dui item config [lindex $::skin_home_pages 0] dye_fav_$i -state normal
+			dui item config $main_home_page dye_fav_$i -initial_state normal
 		}
 		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < 5} {incr i 1} {
-			dui item config [lindex $::skin_home_pages 0] dye_fav_$i -state hidden
+			dui item config $main_home_page dye_fav_$i -initial_state hidden
 		}
 		
-		dui item config $::skin_home_pages {l_favs_number b_favs_number* bb_favs_number* } \
-			-initial_state hidden -state hidden
+		dui item config $main_home_page {l_favs_number b_favs_number* bb_favs_number* } \
+			-initial_state hidden
 	}
+	
 	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
-		dui item config $::skin_home_pages live_graph_data -initial_state hidden -state hidden
+		dui item config $::skin_home_pages live_graph_data -initial_state hidden
 		
+		# Updates e.g. the profile title in the next shot desc if coming from a profile switch
+		::plugins::DYE::define_next_shot_desc
+	}
+	
+	return 1
+}
+
+proc ::plugins::DYE::DSx2_home_page_on_show { args } {
+	# This call doesn't work on the page load event, so we need to put it here,
+	# but it produces a slight flickering effect as all DSx2 favs are first shown,
+	# then hidden
+	if { ![string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
+		::rest_fav_buttons
+	}
+	
+	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 		# If the graph is hidden, hide the shot desc texts too (this happens and is not
 		# captured elsewhere e.g. if entering a DYE favs page from a GHC settings "page"
 		# and coming back.
-		if { [[dui canvas] itemcget main_graph -state ] eq "hidden" && 
-				$::plugins::DYE::settings(dsx2_show_shot_desc_on_home)} {
+		if { [[dui canvas] itemcget main_graph -state ] eq "hidden"} {
 			dui item config $::skin_home_pages {launch_dye_last* launch_dye_next*} -state hidden
 		}
-		
-		# Updates e.g. the profile title in the next shot desc if coming from a profile switch
-		define_next_shot_desc
 	}
 }
 
@@ -956,6 +971,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		} else {
 			set dsx2_favs_state normal
 			set dye_favs_state hidden
+			::rest_fav_buttons
 		}
 		
 		# Show or hide DSx2 favorites
