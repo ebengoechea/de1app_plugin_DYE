@@ -1376,7 +1376,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			}
 			foreach field_name $fav_fields {
 				if { [info exists example_shot($field_name)] } {
-					set data(fav_$field_name) $example_shot($field_name)
+					set data(fav_$field_name) [lindex $example_shot($field_name) 0]
 				}
 			}
 			
