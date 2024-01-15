@@ -1,13 +1,7 @@
 
 proc ::plugins::DYE::setup_ui_DSx2 {} {
+	variable settings
 	DSx2_setup_dui_theme
-	
-	# define_last_shot_desc must be defined only at runtime after running a shot.
-	# TODO: Maybe an initialization is needed for first-time installs and for skin/plugin
-	#	enabling/disabling (for both DSx2 and others)
-	#::plugins::DYE::define_last_shot_desc
-	::plugins::DYE::define_next_shot_desc
-	::plugins::DYE::define_last_shot_desc
 	
 	# DSx2 HOME PAGES UI INTEGRATION
 	# Only done on strict DSx2 skin (no fork) and default "Damian" DSx2 theme
@@ -28,10 +22,25 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	trace add execution ::adjust leave ::plugins::DYE::DSx2_adjust_hook
 	trace add execution ::set_scale_weight_to_dose leave ::plugins::DYE::DSx2_set_scale_weight_to_dose_hook
 	
+	# Main DSx2 graph
 	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
 	
-	# Add past & next shot description buttons to the home page
-	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
+	blt::vector create src_elapsed src_pressure src_pressure_goal src_flow src_flow_goal \
+		src_flow_weight src_weight src_temperature_basket src_temperature_mix src_temperature_goal src_state_change
+	
+	if { [ifexists ::settings(espresso_clock) 0] > 0 && \
+			$settings(next_src_clock) != $::settings(espresso_clock) && \
+			[string is true $settings(dsx2_update_chart_on_copy)] && \
+			[string is true $settings(dsx2_show_shot_desc_on_home)] } {
+		# Called proc already defines the source shot desc
+		DSx2_load_home_graph_from $settings(next_src_clock) 
+	} else {
+		define_last_shot_desc
+	}
+	define_next_shot_desc
+	
+	# Add last/source & next shot description buttons to the home page
+	if { [string is true $settings(dsx2_show_shot_desc_on_home)] } {
 		set istate normal
 	} else {
 		set istate hidden
@@ -44,7 +53,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		-label1variable {$::plugins::DYE::settings(last_shot_header)} -label1_font_family notosansuibold \
 		-label1_font_size -4 -label1_fill $::skin_text_colour \
 		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 1000 \
-		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
+		-command [::list ::plugins::DYE::open -which_shot "source"] -tap_pad {50 20 0 25} \
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
 		-initial_state $istate
 	
@@ -763,6 +772,51 @@ proc ::plugins::DYE::DSx2_adjust_hook { args } {
 proc ::plugins::DYE::DSx2_set_scale_weight_to_dose_hook { args } {
 	::plugins::DYE::define_next_shot_desc
 }
+
+# Modified from ::restore_live_graphs
+proc ::plugins::DYE::DSx2_load_home_graph_from { {src_clock {}} {src_array_name {}} } {
+	if { [string is integer $src_clock] && $src_clock > 0 } {
+		array set src_shot [::plugins::SDB::load_shot $src_clock 1 1 0 0]
+	} elseif { $src_array_name ne {} } {
+		upvar $src_array_name src_shot
+	} else {
+		msg -ERROR [namespace current] "DSx2_load_live_graphs_from: Invoked without input data"
+		return
+	}
+	
+	#set last_elapsed_time_index [expr {[espresso_elapsed length] - 1}]
+	if { ! [info exists src_shot(graph_espresso_elapsed)] } {
+		msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: source shot data doesn't include 'graph_espresso_elapsed'"
+		return
+	}
+	if {[llength $src_shot(graph_espresso_elapsed)] < 2} {
+		msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: source espresso_elapsed only has 0 or 1 elements"			
+		return
+	}
+	
+	src_elapsed length 0
+	src_elapsed set $src_shot(graph_espresso_elapsed)
+	
+	# resistance  ?
+	foreach lg {pressure_goal flow_goal pressure flow weight temperature_basket state_change} {
+		src_$lg length 0
+		if {[info exists src_shot(graph_espresso_$lg)]} {
+			src_$lg set $src_shot(graph_espresso_$lg)
+			if { $lg eq "temperature_basket" } {
+				$::home_espresso_graph element configure home_temperature -xdata src_elapsed -ydata src_$lg
+			} elseif { $lg eq "state_change" } {
+				$::home_espresso_graph element configure home_steps -xdata src_elapsed -ydata src_$lg
+			} else {
+				$::home_espresso_graph element configure home_$lg -xdata src_elapsed -ydata src_$lg
+			}
+		} else {
+			msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: series '$lg' not found on shot file with clock '$src_clock"
+		}
+	}
+	
+	define_last_shot_desc src_shot
+}
+
 
 namespace eval ::dui::pages::dsx2_dye_favs {
 	variable widgets

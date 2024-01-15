@@ -398,6 +398,7 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 	ifexists settings(dsx2_use_dye_favs) 1
 	ifexists settings(dsx2_n_visible_dye_favs) 4
 	ifexists settings(dsx2_update_chart_on_copy) 1
+	ifexists settings(next_src_clock) 0
 }
 
 proc ::plugins::DYE::upgrade { previous_version } {
@@ -634,7 +635,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	
 	set settings(next_espresso_notes) {}
 	set settings(next_modified) 0
-	
+	set settings(next_src_clock) $::settings(espresso_clock)
 	
 #	if { $::undroid == 1 } {		
 #		if { $skin eq "DSx" && [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
@@ -665,7 +666,8 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 #		}
 #	}
 
-	define_last_shot_desc
+	#define_last_shot_desc
+	set settings(last_shot_desc) "\[ [translate {Ongoing shot, please wait until saved}] \]"
 	define_next_shot_desc
 	
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
@@ -902,9 +904,10 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 # BEWARE this should ONLY be invoked WITHOUT DEFINING last_shot_array_name and 
 #	using use_settings=1 just after finishing a shot, otherwise the settings 
 #	variables may contain the plan for the next shot instead of the last one.
+# NOTE that since DYE favorites, this also formats the "SOURCE" shot description.
 proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_settings 0} args } {	
 	variable settings
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {		
+	if { $settings(show_shot_desc_on_home) == 1 } {
 		set isDSx2 [is_DSx2] 
 		if { $isDSx2 } {			
 			set line_spec {profile beans {grind ratio}}
@@ -915,10 +918,10 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			set max_line_chars 55
 		}
 
-		set settings(last_shot_header) [translate {LAST SHOT: }]
-		
 		if { $last_shot_array_name eq {} } {
-			if { [string is true $use_settings] } {				
+			set settings(last_shot_header) [translate {LAST SHOT: }]
+			
+			if { [string is true $use_settings] } {	
 				if { $::settings(history_saved) == 1 } {
 					array set last_shot {}
 					foreach field [metadata fields -domain shot -category description] {
@@ -926,7 +929,7 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 							set last_shot($field) $::settings($field)
 						}
 					}
-					set last_shot(extraction_time) [espresso_elapsed_timer]					
+					set last_shot(extraction_time) [espresso_elapsed_timer]	
 					set last_shot(profile_title) $::settings(profile_title)
 					if { $isDSx2 } {
 						set last_shot(workflow) [value_or_default ::skin(workflow) {}]
@@ -970,10 +973,19 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 			
 			if { [info exists last_shot(clock)] } {
-				append settings(last_shot_header) [::plugins::DYE::format_date $last_shot(clock) no]
+				if { $last_shot(clock) == $::settings(espresso_clock) } {
+					set settings(last_shot_header) [translate {LAST SHOT: }]
+				} else {
+					set settings(last_shot_header) [translate {SOURCE SHOT: }]
+				}
+				append settings(last_shot_header) [format_date $last_shot(clock) no]
+			} else {
+				set settings(last_shot_header) [translate {LAST SHOT: }]	
 			}
 			append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) {no}]] [translate {workflow}]"
 		}
+		
+		
 	} else {
 		set settings(last_shot_desc) ""		
 		set settings(last_shot_header) ""
@@ -999,7 +1011,6 @@ proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 			
 		if { $next_shot_array_name eq {} } {
 			array set next_shot [load_next_shot]
-msg -INFO "DYE NEXT SHOT grinder_setting = $next_shot(grinder_setting)"			
 		} else {
 			upvar $next_shot_array_name next_shot 
 		}
@@ -1692,9 +1703,10 @@ proc ::plugins::DYE::open_profile_tools { args } {
 proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_to_copy {}} } {
 	variable data
 	variable src_data
+	variable settings 
 	
 	set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
-	set next_modified [string is true $::plugins::DYE::settings(next_modified)]
+	set next_modified [string is true $settings(next_modified)]
 	set skin $::settings(skin)
 	set isDSx2 [::plugins::DYE::is_DSx2]
 	set settings_changed 0
@@ -1739,7 +1751,13 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	
 	### GET THE SOURCE DATA
 	if { $src_clock ne {} } {
-		array set src_shot [::plugins::SDB::load_shot $src_clock 0 1 1 $load_workflow_settings]
+		array set src_shot [::plugins::SDB::load_shot $src_clock 1 1 1 $load_workflow_settings]
+		set ::plugins::DYE::settings(next_src_clock) $src_clock
+		
+		if { $isDSx2 && [string is true $settings(dsx2_update_chart_on_copy)] &&
+				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
+			::plugins::DYE::DSx2_load_home_graph_from {} src_shot 
+		}
 	} elseif { $src_array_name ne {} } {
 		upvar $src_array_name src_shot
 	} else {
@@ -1851,7 +1869,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		::save_DSx_settings
 	}
 	
-	set ::plugins::DYE::settings(next_modified) 1
+	set ::plugins::DYE::settings(next_modified) 1	
 	define_next_shot_desc
 	plugins save_settings DYE
 	return 1
@@ -2209,7 +2227,7 @@ namespace eval ::dui::pages::DYE {
 		beverage_type {}
 		repository_links {}
 		profile_title {}
-		workflow {}		
+		workflow {}
 		visualizer_status_label {}
 		warning_msg {}
 		apply_action_to {beans equipment ratio people}
@@ -2495,6 +2513,16 @@ proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot default} } 
 #		} else {
 #			set data(clock) $current_clock
 #		}
+	} elseif { $which_shot eq "source" } {
+		if { $::plugins::DYE::settings(next_src_clock) == $current_clock } {
+			set which_shot "current"
+			set data(describe_which_shot) "current"
+			set data(clock) $current_clock
+		} else {
+			set which_shot "past"
+			set data(describe_which_shot) "past"
+			set data(clock) $::plugins::DYE::settings(next_src_clock)
+		}
 	} elseif { $which_shot eq "next" } {
 		set data(clock) {}
 	} elseif { [string range $which_shot 0 2] eq "DSx" } {
@@ -3297,16 +3325,9 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 			}
 			
 			::plugins::DYE::define_last_shot_desc data 
-#			set ::plugins::DYE::settings(last_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
-#				$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment) \
-#				2 "\[Tap to describe this shot\]" $::settings(profile_title) [value_or_default ::skin(workflow) {}] $data(grinder_dose_weight) \
-#				$data(drink_weight)
-#			]
 			if { $dye_settings_changed } {
 				# Change also next shot desc (due to propagation)
 				::plugins::DYE::define_next_shot_desc data
-#				set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
-#					$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
 			}
 			set dye_settings_changed 1
 			
@@ -3323,6 +3344,12 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 					set dsx_settings_changed 1
 				}
 			}
+		} elseif { $data(describe_which_shot) eq "past" || \
+					$data(clock) == $::plugins::DYE::settings(next_src_clock) } {
+			::plugins::DYE::define_last_shot_desc data
+#			TBD: Propagate changes to next shot, if it has not been modified??
+#				Not clear, as the source shot may be partial... 
+			set dye_settings_changed 1
 		}
 		
 		::plugins::SDB::modify_shot_file $data(path) changes
