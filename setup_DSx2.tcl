@@ -890,9 +890,9 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			-tags dsx2_n_visible_dye_favs -textvariable dsx2_n_visible_dye_favs
 		
 		dui add dtoggle $page $x [incr y 200] -anchor nw -tags dsx2_update_chart_on_copy \
-			-variable dsx2_update_chart_on_copy	-initial_state disabled
+			-variable dsx2_update_chart_on_copy
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags dsx2_update_chart_on_copy_lbl -width 1400 \
-			-text [translate "Show previous shot chart on home page when copying the shot into Next"] -initial_state disabled 
+			-text [translate "Show source shot chart on home page when loading a recent-type favorite"] 
 
 		dui add dtoggle $page $x [incr y 275] -anchor nw -tags dsx2_disable_dye_favs -variable dsx2_disable_dye_favs \
 			-command show_or_hide_disable_dye_favs_msg
@@ -943,12 +943,22 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 	proc load { page_to_hide page_to_show args } {
 		variable data
 		
-		set data(dsx2_disable_dye_favs) 0
 		set data(dsx2_n_visible_dye_favs) $::plugins::DYE::settings(dsx2_n_visible_dye_favs)
-		set data(dsx2_update_chart_on_copy) $::plugins::DYE::settings(dsx2_update_chart_on_copy)
-		foreach group_var [::plugins::DYE::favorites::all_grouping_vars] {
-			set data(favs_group_by_$group_var) [expr [lsearch -nocase $::plugins::DYE::settings(favs_n_recent_grouping) $group_var] > -1]
+		
+		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
+			set data(dsx2_update_chart_on_copy) [string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)]
+			dui item enable $page_to_show dsx2_update_chart_on_copy -initial 1
+		} else {
+			set data(dsx2_update_chart_on_copy) 0
+			dui item disable $page_to_show dsx2_update_chart_on_copy -initial 1 
 		}
+		
+		foreach group_var [::plugins::DYE::favorites::all_grouping_vars] {
+			set data(favs_group_by_$group_var) [expr \
+				[lsearch -nocase $::plugins::DYE::settings(favs_n_recent_grouping) $group_var] > -1]
+		}
+		
+		set data(dsx2_disable_dye_favs) 0
 		
 		return 1
 	}
@@ -1124,11 +1134,6 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			}
 		}
 		
-		if { $::plugins::DYE::settings(dsx2_update_chart_on_copy) != $data(dsx2_update_chart_on_copy) } {
-			set ::plugins::DYE::settings(dsx2_update_chart_on_copy) $data(dsx2_update_chart_on_copy)
-			set favs_changed 1
-		}
-			
 		set group_recent_by [list]
 		foreach group_var [::plugins::DYE::favorites::all_grouping_vars] {
 			if { $data(favs_group_by_$group_var) == 1 } {
@@ -1140,7 +1145,27 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			set favs_changed 1
 			::plugins::DYE::favorites::update_recent
 		}
-			
+		
+		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
+			if { $data(dsx2_update_chart_on_copy) == 1 && \
+					! [string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)] } {
+				if { $data(dsx2_disable_dye_favs) == 0 && \
+						$::plugins::DYE::settings(next_src_clock) != [ifexists ::settings(espresso_clock) 0]} {
+					::plugins::DYE::DSx2_load_home_graph_from $::plugins::DYE::settings(next_src_clock)
+				}
+				set ::plugins::DYE::settings(dsx2_update_chart_on_copy) 1
+				set favs_changed 1
+			} elseif { $data(dsx2_update_chart_on_copy) == 0 && \
+						[string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)] } {
+				if { $data(dsx2_disable_dye_favs) == 0 && \
+						$::plugins::DYE::settings(next_src_clock) != [ifexists ::settings(espresso_clock) 0]} {
+					::plugins::DYE::DSx2_load_home_graph_from $::settings(espresso_clock)
+				}
+				set ::plugins::DYE::settings(dsx2_update_chart_on_copy) 0
+				set favs_changed 1
+			}
+		}
+		
 		if { $data(dsx2_disable_dye_favs) == 1 } {
 			set ::plugins::DYE::settings(dsx2_use_dye_favs) 0
 			set favs_changed 1
