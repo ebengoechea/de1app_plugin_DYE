@@ -48,6 +48,19 @@ namespace eval ::plugins::DYE {
 	variable propagated_fields {bean_brand bean_type roast_date roast_level bean_notes grinder_model grinder_setting \
 		my_name drinker_name}
 
+	# About Steam settings:
+	# 	- Milk jug? Stored on DSx2-only variables atm
+	# 	- Flow and temp? Not exposed by DSx2 Steam workflow		
+	# Note that steam_disabled is *always* imported and flush settings are *never* imported.
+	variable workflow_settings_vars
+	array set workflow_settings_vars {
+		espresso {steam_disabled}
+		latte {steam_timeout steam_disabled}
+		long {hotwater_flow water_temperature water_volume steam_disabled}
+		americano {hotwater_flow water_temperature water_volume steam_disabled}
+		none {steam_timeout hotwater_flow water_temperature water_volume steam_disabled}
+	}
+	
 	variable profile_shot_extra_vars {profile profile_filename profile_to_save original_profile_title}
 	
 	# Shot summary description strings appearing in:
@@ -385,6 +398,7 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 	ifexists settings(dsx2_use_dye_favs) 1
 	ifexists settings(dsx2_n_visible_dye_favs) 4
 	ifexists settings(dsx2_update_chart_on_copy) 1
+	ifexists settings(next_src_clock) 0
 }
 
 proc ::plugins::DYE::upgrade { previous_version } {
@@ -621,7 +635,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	
 	set settings(next_espresso_notes) {}
 	set settings(next_modified) 0
-	
+	set settings(next_src_clock) $::settings(espresso_clock)
 	
 #	if { $::undroid == 1 } {		
 #		if { $skin eq "DSx" && [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
@@ -652,7 +666,8 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 #		}
 #	}
 
-	define_last_shot_desc
+	#define_last_shot_desc
+	set settings(last_shot_desc) "\[ [translate {Ongoing shot, please wait until saved}] \]"
 	define_next_shot_desc
 	
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
@@ -889,9 +904,10 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 # BEWARE this should ONLY be invoked WITHOUT DEFINING last_shot_array_name and 
 #	using use_settings=1 just after finishing a shot, otherwise the settings 
 #	variables may contain the plan for the next shot instead of the last one.
+# NOTE that since DYE favorites, this also formats the "SOURCE" shot description.
 proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_settings 0} args } {	
 	variable settings
-	if { $::plugins::DYE::settings(show_shot_desc_on_home) == 1 } {		
+	if { $settings(show_shot_desc_on_home) == 1 } {
 		set isDSx2 [is_DSx2] 
 		if { $isDSx2 } {			
 			set line_spec {profile beans {grind ratio}}
@@ -902,10 +918,10 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			set max_line_chars 55
 		}
 
-		set settings(last_shot_header) [translate {LAST SHOT: }]
-		
 		if { $last_shot_array_name eq {} } {
-			if { [string is true $use_settings] } {				
+			set settings(last_shot_header) [translate {LAST SHOT: }]
+			
+			if { [string is true $use_settings] } {	
 				if { $::settings(history_saved) == 1 } {
 					array set last_shot {}
 					foreach field [metadata fields -domain shot -category description] {
@@ -913,7 +929,7 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 							set last_shot($field) $::settings($field)
 						}
 					}
-					set last_shot(extraction_time) [espresso_elapsed_timer]					
+					set last_shot(extraction_time) [espresso_elapsed_timer]	
 					set last_shot(profile_title) $::settings(profile_title)
 					if { $isDSx2 } {
 						set last_shot(workflow) [value_or_default ::skin(workflow) {}]
@@ -957,10 +973,19 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 			
 			if { [info exists last_shot(clock)] } {
-				append settings(last_shot_header) [::plugins::DYE::format_date $last_shot(clock) no]
+				if { $last_shot(clock) == $::settings(espresso_clock) } {
+					set settings(last_shot_header) [translate {LAST SHOT: }]
+				} else {
+					set settings(last_shot_header) [translate {SOURCE SHOT: }]
+				}
+				append settings(last_shot_header) [format_date $last_shot(clock) no]
+			} else {
+				set settings(last_shot_header) [translate {LAST SHOT: }]	
 			}
 			append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) {no}]] [translate {workflow}]"
 		}
+		
+		
 	} else {
 		set settings(last_shot_desc) ""		
 		set settings(last_shot_header) ""
@@ -979,7 +1004,7 @@ proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 	if { $settings(show_shot_desc_on_home) == 1 && [info exists settings(next_bean_brand)] } {
 		set settings(next_shot_header) [translate {NEXT SHOT}]
 		if { $settings(next_modified) } { 
-			append settings(next_shot_header) "*: " 			
+			append settings(next_shot_header) "*: "
 		} else {
 			append settings(next_shot_header) ": "
 		}
@@ -1041,7 +1066,15 @@ proc ::plugins::DYE::load_next_shot { } {
 		espresso_state_change {0.0}
 		repository_links {}
 	}
-		
+
+	# Copy profile & extra profile variables first as we risk John adding whatever here and
+	# overwritting our data...
+	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+		if { [info exists ::settings($fn)] } {
+			set shot_data($fn) $::settings($fn)
+		}
+	}
+	
 	#set text_fields [::plugins::SDB::field_names "category text long_text date" "shot"]
 	foreach field_name [metadata fields -domain shot -category description -data_type "category text long_text complex"] {
 		if { [info exists ::plugins::DYE::settings(next_$field_name)] } {
@@ -1084,13 +1117,6 @@ proc ::plugins::DYE::load_next_shot { } {
 			if { $::settings(final_desired_shot_weight) > 0 } { 
 				set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
 			}						
-		}
-	}
-
-	# Extra profile variables
-	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
-		if { [info exists ::settings($fn)] } {
-			set shot_data($fn) $::settings($fn)
 		}
 	}
 	
@@ -1671,13 +1697,16 @@ proc ::plugins::DYE::open_profile_tools { args } {
 }
 
 # Used for copying data from a shot file "template" into the Next Shot definition.
-# This was created for loading DYE favorites.
-proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
+# This was created for loading DYE favorites, either from a saved shot 
+#	(recent-type favs, when src_clock is given), or from an array
+#	(fixed-type favs, when src_array_name is given, can be partial).
+proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_to_copy {}} } {
 	variable data
 	variable src_data
+	variable settings 
 	
 	set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
-	set next_modified [string is true $::plugins::DYE::settings(next_modified)]
+	set next_modified [string is true $settings(next_modified)]
 	set skin $::settings(skin)
 	set isDSx2 [::plugins::DYE::is_DSx2]
 	set settings_changed 0
@@ -1688,8 +1717,10 @@ proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 	set load_workflow_settings 0
 	set load_full_profile 0
 	
+	###### PROCESS WHAT TO COPY
 	if { $what_to_copy eq {} } {
-		# Untested case
+		# BEWARE: UNTESTED CASE
+		msg -WARNING [namespace current] "load_next_from: BEWARE 'what_to_copy' is empty, this is a NON-TESTED scenari"
 		set what_to_copy [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
 	} else {
 		set beans_idx [lsearch $what_to_copy "beans"]
@@ -1718,22 +1749,46 @@ proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 		}
 	}
 	
-	array set src_shot [::plugins::SDB::load_shot $src_clock 0 1 1 $load_workflow_settings]
-	if { [array size src_shot] == 0 } { return 0 }
+	### GET THE SOURCE DATA
+	if { $src_clock ne {} } {
+		array set src_shot [::plugins::SDB::load_shot $src_clock 1 1 1 $load_workflow_settings]
+		set ::plugins::DYE::settings(next_src_clock) $src_clock
+		
+		if { $isDSx2 && [string is true $settings(dsx2_update_chart_on_copy)] &&
+				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
+			::plugins::DYE::DSx2_load_home_graph_from {} src_shot 
+		}
+	} elseif { $src_array_name ne {} } {
+		upvar $src_array_name src_shot
+	} else {
+		msg -ERROR [namespace current] "load_next_from: Either 'src_clock' or 'src_array_name' have to be provided"
+		return 0
+	}
 	
-	# Load the profile before the fields, so the target weight can be overwritten if necessary
+	if { [array size src_shot] == 0 } { 
+		msg -WARNING [namespace current] "load_next_from: Shot data is empty"
+		return 0 
+	}
+		
+	### PUT THE DATA INTO THE "NEXT SHOT" DEFINITION (Distributed between DYE "next_*" variables
+	#	and global "$::settings" variables, depending on the variable)
+	# Load the profile before the fields, so if there are duplicate variables (dose, yield, grinder setting, or
+	# whatever John wants to add in the future) they can be overwritten if necessary
 	if { $load_full_profile } {
 		# Copy each and every profile variable from the source shot, which may not match the
 		# current profile (with the same title) definition
 		set profile_imported [::profile::import_legacy [array get src_shot]]
-	} elseif { "profile_title" in $what_to_copy } {
+	} elseif { "profile_title" in $what_to_copy || "profile" in $what_to_copy } {
 		# Load the current version of the same profile, if found
-		select_profile $src_shot(profile_filename)
+		if { [info exists src_shot(profile_filename)] } {
+			::select_profile $src_shot(profile_filename)
+		} else {
+			msg -WARNING [namespace current] "load_next_from: profile in 'what_to_copy', but profile_filename not found"
+		}
 	}
 	
 	foreach field $what_to_copy {
 		if { [info exists ::plugins::DYE::settings(next_$field)] } {
-			set ::plugins::DYE::settings(next_modified) 1
 			set ::plugins::DYE::settings(next_$field) $src_shot($field)
 			
 			if { $field eq "drink_weight" } {
@@ -1779,49 +1834,34 @@ proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 		}
 	}
 	
-	if { "DSx2_workflow" in $what_to_copy || $load_workflow_settings } {
+	if { "DSx2_workflow" in $what_to_copy || "workflow" in $what_to_copy || $load_workflow_settings } {
 		set workflow "none"
 		if { [info exists src_shot(DSx2_workflow)] && $src_shot(DSx2_workflow) ne {} } {
 			set workflow $src_shot(DSx2_workflow)
-		} 
+		} elseif { [info exists src_shot(workflow)] && $src_shot(workflow) ne {} } {
+			set workflow $src_shot(workflow)
+		}
+		if { $workflow ni [array names ::plugins::DYE::workflow_settings_vars]} {
+			msg -WARNING [namespace current] "load_next_from: workflow value '$workflow' not recognized"
+			set workflow "none"
+		}
 		::workflow $workflow
 	}
 	
-	if { $load_workflow_settings } {
-		# Note that flush settings are not imported
-		
-		# Steam settings
-		# Milk jug? Stored on DSx2-only variables atm
-		# Flow and temp? Not exposed by DSx2 Steam workflow
-		if { $workflow in {none latte} } {
-			if { $::settings(steam_disabled) != $src_shot(steam_disabled) } {
-				::toggle_steam_heater
-				set settings_changed 1
-			}
-			
-			if { $::settings(steam_timeout) != $src_shot(steam_timeout) } {
-				set ::settings(steam_timeout) $src_shot(steam_timeout)
-				set settings_changed 1
-			}
+	if { $isDSx2 && $load_workflow_settings } {
+		if { $::settings(steam_disabled) != $src_shot(steam_disabled) } {
+			::toggle_steam_heater
+			set settings_changed 1
 		}
 		
-		# Water settings
-		if { $workflow in {none americano long} } {
-			foreach field {hotwater_flow water_temperature water_volume} {
-				if { $::settings($field) != $src_shot($field) } {
-					set ::settings($field) $src_shot($field)
-					set settings_changed 1
-				}
+		foreach field $::plugins::DYE::workflow_settings_vars($workflow) {
+			if { $::settings($field) != $src_shot($field) } {
+				set ::settings($field) $src_shot($field)
+				set settings_changed 1
 			}
 		}
 	}
 
-	# TBD: This seems duplicated wrt to call to "define_next_shot_desc" below???
-#	set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $src_shot(bean_brand) $src_shot(bean_type) \
-#		$src_shot(roast_date) $src_shot(grinder_model) $src_shot(grinder_setting)]
-#	# What? So DYE settings always change?
-#	set dye_settings_changed 1
-	
 	if { $settings_changed } {
 		::save_settings
 	}	
@@ -1829,7 +1869,8 @@ proc ::plugins::DYE::load_next_from_shot { src_clock {what_to_copy {}} } {
 		::save_DSx_settings
 	}
 	
-	define_next_shot_desc src_shot 
+	set ::plugins::DYE::settings(next_modified) 1	
+	define_next_shot_desc
 	plugins save_settings DYE
 	return 1
 }
@@ -2110,49 +2151,38 @@ namespace eval ::plugins::DYE::favorites {
 		
 		array set fav_values [fav_values $n_fav]
 		
-		if { [array size fav_values] > 0 } {
-			if { [fav_type $n_fav] eq "n_recent" } {
-				if {[info exists fav_values(last_clock)]} {
-					::plugins::DYE::load_next_from_shot $fav_values(last_clock) \
-						$::plugins::DYE::settings(favs_n_recent_what_to_copy)
-					borg toast [translate "Favorite loaded"]
+		if { [array size fav_values] == 0 } {
+			return 0
+		}
+		
+		if { [fav_type $n_fav] eq "n_recent" } {
+			if {[info exists fav_values(last_clock)]} {
+				set load_success [::plugins::DYE::load_next_from $fav_values(last_clock) \
+					{} $::plugins::DYE::settings(favs_n_recent_what_to_copy)]
+				if { [string is true $load_success ] } {
+					borg toast [translate "Recent favorite loaded"]
 					return 1
 				} else {
-					borg toast [translate "Favorite doesn't have data to load"]
+					borg toast [translate "Error loading recent favorite"]
 				}
 			} else {
-				set what_to_copy [value_or_default fav_values(what_to_copy) [array names fav_values]]
-				foreach what_copy $what_to_copy {
-					# TODO Handle special cases (workflow settings, profile settings...)
-					if { $what_copy eq "profile_title"} {
-						# Load the current version of the same profile, if found
-						# TODO: Need to store the profile filename on the fav!!
-						select_profile $fav_values(profile_filename)
-					} elseif { $what_copy eq "full_profile" } {
-						# Do nothing, full profiles can't be saved on fixed favorites.
-					} elseif { $what_copy eq "workflow" || $what_copy eq "DSx2_workflow" } {
-						if { [::plugins::DYE::is_DSx2] } {
-							::workflow $fav_values($what_copy)
-						} else {
-							set ::settings(DSx2_workflow) $fav_values($what_copy)
-						}
-					} elseif { $what_copy eq "workflow_settings" } {
-						
-					} elseif { $what_copy eq "beans" } {
-						set ::settings(bean_brand) [value_or_default fav_values(bean_brand) {}]
-						set ::settings(bean_type) [value_or_default fav_values(bean_type) {}]
-						set ::settings(roast_level) [value_or_default fav_values(roast_level) {}]
-						set ::settings(bean_notes) [value_or_default fav_values(bean_notes) {}]
-					} elseif { [info exists ::settings($what_copy)] } {
-						set ::settings($what_copy) $fav_values($what_copy)
-					} else {
-						msg -WARNING "favorites::load: can't copy field '$what_copy' from (fixed) favorite $n_fav"
-					}
-				}
-				
-				::plugins::DYE::define_next_shot_desc
-				::save_settings
+				borg toast [translate "Recent favorite doesn't have data to load"]
+				msg -WARNING [namespace current] "load: Recent favorite doesn't have data to load"
+			}			
+		} else {
+			if { "what_to_copy" in [array names fav_values] } {
+				set what_to_copy $fav_values(what_to_copy)
+				array unset fav_values what_to_copy
+			} else {
+				set what_to_copy [array names fav_values]
+			}
+			
+			set load_success [::plugins::DYE::load_next_from {} fav_values $what_to_copy]
+			if { [string is true $load_success] } {
+				borg toast [translate "Fixed favorite loaded"]
 				return 1
+			} else {
+				borg toast [translate "Error loading fixed favorite"]
 			}
 		}
 		
@@ -2197,7 +2227,7 @@ namespace eval ::dui::pages::DYE {
 		beverage_type {}
 		repository_links {}
 		profile_title {}
-		workflow {}		
+		workflow {}
 		visualizer_status_label {}
 		warning_msg {}
 		apply_action_to {beans equipment ratio people}
@@ -2483,6 +2513,16 @@ proc ::dui::pages::DYE::load { page_to_hide page_to_show {which_shot default} } 
 #		} else {
 #			set data(clock) $current_clock
 #		}
+	} elseif { $which_shot eq "source" } {
+		if { $::plugins::DYE::settings(next_src_clock) == $current_clock } {
+			set which_shot "current"
+			set data(describe_which_shot) "current"
+			set data(clock) $current_clock
+		} else {
+			set which_shot "past"
+			set data(describe_which_shot) "past"
+			set data(clock) $::plugins::DYE::settings(next_src_clock)
+		}
 	} elseif { $which_shot eq "next" } {
 		set data(clock) {}
 	} elseif { [string range $which_shot 0 2] eq "DSx" } {
@@ -3285,16 +3325,9 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 			}
 			
 			::plugins::DYE::define_last_shot_desc data 
-#			set ::plugins::DYE::settings(last_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
-#				$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment) \
-#				2 "\[Tap to describe this shot\]" $::settings(profile_title) [value_or_default ::skin(workflow) {}] $data(grinder_dose_weight) \
-#				$data(drink_weight)
-#			]
 			if { $dye_settings_changed } {
 				# Change also next shot desc (due to propagation)
 				::plugins::DYE::define_next_shot_desc data
-#				set ::plugins::DYE::settings(next_shot_desc) [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) \
-#					$data(roast_date) $data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
 			}
 			set dye_settings_changed 1
 			
@@ -3311,6 +3344,12 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 					set dsx_settings_changed 1
 				}
 			}
+		} elseif { $data(describe_which_shot) eq "past" || \
+					$data(clock) == $::plugins::DYE::settings(next_src_clock) } {
+			::plugins::DYE::define_last_shot_desc data
+#			TBD: Propagate changes to next shot, if it has not been modified??
+#				Not clear, as the source shot may be partial... 
+			set dye_settings_changed 1
 		}
 		
 		::plugins::SDB::modify_shot_file $data(path) changes

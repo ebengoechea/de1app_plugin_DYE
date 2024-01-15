@@ -1,16 +1,7 @@
-#namespace eval {
-#	variable ::plugins::DYE::DSx2_main_graph_height [rescale_y_skin 840]
-#}
 
 proc ::plugins::DYE::setup_ui_DSx2 {} {
+	variable settings
 	DSx2_setup_dui_theme
-	
-	# define_last_shot_desc must be defined only at runtime after running a shot.
-	# TODO: Maybe an initialization is needed for first-time installs and for skin/plugin
-	#	enabling/disabling (for both DSx2 and others)
-	#::plugins::DYE::define_last_shot_desc
-	::plugins::DYE::define_next_shot_desc
-	::plugins::DYE::define_last_shot_desc
 	
 	# DSx2 HOME PAGES UI INTEGRATION
 	# Only done on strict DSx2 skin (no fork) and default "Damian" DSx2 theme
@@ -31,10 +22,25 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	trace add execution ::adjust leave ::plugins::DYE::DSx2_adjust_hook
 	trace add execution ::set_scale_weight_to_dose leave ::plugins::DYE::DSx2_set_scale_weight_to_dose_hook
 	
+	# Main DSx2 graph
 	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
 	
-	# Add past & next shot description buttons to the home page
-	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
+	blt::vector create src_elapsed src_pressure src_pressure_goal src_flow src_flow_goal \
+		src_flow_weight src_weight src_temperature_basket src_temperature_mix src_temperature_goal src_state_change
+	
+	if { [ifexists ::settings(espresso_clock) 0] > 0 && \
+			$settings(next_src_clock) != $::settings(espresso_clock) && \
+			[string is true $settings(dsx2_update_chart_on_copy)] && \
+			[string is true $settings(dsx2_show_shot_desc_on_home)] } {
+		# Called proc already defines the source shot desc
+		DSx2_load_home_graph_from $settings(next_src_clock) 
+	} else {
+		define_last_shot_desc
+	}
+	define_next_shot_desc
+	
+	# Add last/source & next shot description buttons to the home page
+	if { [string is true $settings(dsx2_show_shot_desc_on_home)] } {
 		set istate normal
 	} else {
 		set istate hidden
@@ -47,7 +53,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		-label1variable {$::plugins::DYE::settings(last_shot_header)} -label1_font_family notosansuibold \
 		-label1_font_size -4 -label1_fill $::skin_text_colour \
 		-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 1000 \
-		-command [::list ::plugins::DYE::open -which_shot last] -tap_pad {50 20 0 25} \
+		-command [::list ::plugins::DYE::open -which_shot "source"] -tap_pad {50 20 0 25} \
 		-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
 		-initial_state $istate
 	
@@ -767,6 +773,51 @@ proc ::plugins::DYE::DSx2_set_scale_weight_to_dose_hook { args } {
 	::plugins::DYE::define_next_shot_desc
 }
 
+# Modified from ::restore_live_graphs
+proc ::plugins::DYE::DSx2_load_home_graph_from { {src_clock {}} {src_array_name {}} } {
+	if { [string is integer $src_clock] && $src_clock > 0 } {
+		array set src_shot [::plugins::SDB::load_shot $src_clock 1 1 0 0]
+	} elseif { $src_array_name ne {} } {
+		upvar $src_array_name src_shot
+	} else {
+		msg -ERROR [namespace current] "DSx2_load_live_graphs_from: Invoked without input data"
+		return
+	}
+	
+	#set last_elapsed_time_index [expr {[espresso_elapsed length] - 1}]
+	if { ! [info exists src_shot(graph_espresso_elapsed)] } {
+		msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: source shot data doesn't include 'graph_espresso_elapsed'"
+		return
+	}
+	if {[llength $src_shot(graph_espresso_elapsed)] < 2} {
+		msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: source espresso_elapsed only has 0 or 1 elements"			
+		return
+	}
+	
+	src_elapsed length 0
+	src_elapsed set $src_shot(graph_espresso_elapsed)
+	
+	# resistance  ?
+	foreach lg {pressure_goal flow_goal pressure flow weight temperature_basket state_change} {
+		src_$lg length 0
+		if {[info exists src_shot(graph_espresso_$lg)]} {
+			src_$lg set $src_shot(graph_espresso_$lg)
+			if { $lg eq "temperature_basket" } {
+				$::home_espresso_graph element configure home_temperature -xdata src_elapsed -ydata src_$lg
+			} elseif { $lg eq "state_change" } {
+				$::home_espresso_graph element configure home_steps -xdata src_elapsed -ydata src_$lg
+			} else {
+				$::home_espresso_graph element configure home_$lg -xdata src_elapsed -ydata src_$lg
+			}
+		} else {
+			msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: series '$lg' not found on shot file with clock '$src_clock"
+		}
+	}
+	
+	define_last_shot_desc src_shot
+}
+
+
 namespace eval ::dui::pages::dsx2_dye_favs {
 	variable widgets
 	array set widgets {}
@@ -1123,6 +1174,11 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		fav_title {}
 		
 		fav_workflow {}	
+		fav_steam_timeout 0
+		fav_hotwater_flow 0
+		fav_water_temperature 0
+		fav_water_volume 0
+		fav_steam_disabled 0
 		fav_profile_title {}
 		fav_profile_filename {}
 		fav_bean_brand {}
@@ -1131,7 +1187,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		fav_roast_date {}
 		fav_bean_notes {}
 		fav_grinder_model {}
-		fav_grinder_setting {}
+		fav_grinder_setting 0
 		fav_grinder_dose_weight 0
 		fav_drink_weight 0
 		fav_espresso_notes {}
@@ -1161,9 +1217,10 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		grinder_setting grinder_dose_weight drink_weight espresso_notes my_name drinker_name}
 	
 	variable fav_fields
-	set fav_fields {workflow profile_title profile_filename bean_brand bean_type roast_level roast_date \
-			bean_notes grinder_model grinder_setting grinder_dose_weight drink_weight espresso_notes \
-			my_name drinker_name}
+	set fav_fields {workflow steam_timeout hotwater_flow water_temperature water_volume steam_disabled \
+		profile_title profile_filename bean_brand bean_type roast_level roast_date bean_notes \
+		grinder_model grinder_setting grinder_dose_weight drink_weight espresso_notes \
+		my_name drinker_name}
 	
 	proc setup {} {
 		variable data
@@ -1208,7 +1265,8 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 #			-font_size +2 -font_family notosansuibold
 		
 		dui add entry $page [expr {$x+300}] [incr y 130] -tags {fav_title fav_editing} -canvas_width 800 \
-			-label [translate "Favorite title"] -label_pos [list $x $y] 
+			-label [translate "Favorite title"] -label_pos [list $x $y] \
+			-validate all -vcmd {expr {[string length %P] <= 55}}
 
 		dui add dtext $page $x [incr y 160] -tags {fav_what_copy_lbl fav_editing} -width 1000 \
 			-text [translate "What to copy?"] -font_family notosansuibold
@@ -1365,7 +1423,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			if { [current_fav_type] eq "n_recent" } {
 				incr recent_number 1
 			}
-			if { [array size all_recent] == 0 } {				
+			if { [array size all_recent] == 0 } {
 				array set all_recent [::plugins::DYE::favorites::get_all_recent_descs_from_db $recent_number]
 			}
 			if { [array size all_recent] == 0 } {
@@ -1426,13 +1484,14 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 #			foreach field_name [concat [metadata fields -domain shot -category description] \
 #					profile_title DSx2_workflow] {}
 			foreach field_name $fav_fields {
-				if { [info exists data(fav_$field_name)] &&
-						[info exists ::settings($field_name)] } {
+				if { [info exists ::plugins::DYE::settings(next_$field_name)] } {
+					set data(fav_$field_name) $::plugins::DYE::settings(next_$field_name)
+				} elseif { [info exists ::settings($field_name)] } {
 					set data(fav_$field_name) $::settings($field_name)
 				}
 			}
 			if { [::plugins::DYE::is_DSx2] } {
-				set data(fav_workflow) [value_or_default $::skin(workflow) "none"]
+				set data(fav_workflow) [value_or_default ::skin(workflow) "none"]
 			}
 		}
 	}
@@ -1479,31 +1538,46 @@ msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', recent_number=$rec
 					foreach field_name [array names all_recent] {
 						lappend fav_values $field_name $all_recent($field_name)
 					}
-msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_values"					
+msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_values"
 				}				
 			}
 
 		} else {
 			set fav_copy_fields [list]
 			foreach field_name $copy_fields {
-				if { [string is true $data(fav_copy_$field_name)] &&
-						[info exists data(fav_$field_name)] } {
-					lappend fav_values $field_name $data(fav_$field_name)
+				if { [string is true $data(fav_copy_$field_name)]} {
 					lappend fav_copy_fields $field_name
 				}
 			}
 			lappend fav_values "what_to_copy" $fav_copy_fields
-			
-			if { [string is true $data(fav_copy_beans)] } {
-				lappend fav_values bean_brand $data(fav_bean_brand)
-				lappend fav_values bean_type $data(fav_bean_type)
-				lappend fav_values roast_level $data(fav_roast_level)
-				lappend fav_values bean_notes $data(fav_bean_notes)
+
+			foreach what_copy $fav_copy_fields {
+				if { $what_copy eq "workflow_settings" } {
+					foreach workflow_field \
+							$::plugins::DYE::workflow_settings_vars([value_or_default ::settings(DSx2_workflow) {none}]) {
+						if { [info exists ::settings($workflow_field)] } {
+							lappend fav_values $workflow_field $::settings($workflow_field)
+						} else {
+							msg -WARNING [namespace current] "save_fav_edits: workflow field $workflow_field not found in global settings"
+						}
+					}
+				} elseif { $what_copy eq "beans" } {
+					lappend fav_values bean_brand $data(fav_bean_brand)
+					lappend fav_values bean_type $data(fav_bean_type)
+					lappend fav_values roast_level $data(fav_roast_level)
+					lappend fav_values bean_notes $data(fav_bean_notes)
+				} elseif { $what_copy eq "profile_title" } {
+					lappend fav_values profile_title $data(fav_profile_title)
+					lappend fav_values profile_filename $data(fav_profile_filename)
+				} elseif { [info exists data(fav_$what_copy)] } {
+					lappend fav_values $what_copy $data(fav_$what_copy)
+				} elseif { [info exists ::settings($what_copy)] } {
+					lappend fav_values $what_copy $::settings($what_copy)
+				} else {
+					msg -WARNING [namespace current] "save_fav_edits: field $what_copy not found"
+				}
 			}
-			if { [string is true $data(fav_copy_profile_title)] } {
-				lappend fav_values profile_filename $data(fav_profile_filename)
-			}
-msg -INFO "DYE save_fav_edits 'fixed', fav_values=$fav_values"			
+			#msg -INFO "DYE save_fav_edits 'fixed', fav_values=$fav_values"
 		}
 
 		::plugins::DYE::favorites::set_fav $data(fav_number) $data(fav_type) "$data(fav_title)" $fav_values 0
