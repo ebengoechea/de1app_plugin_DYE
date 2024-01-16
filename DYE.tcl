@@ -1944,8 +1944,7 @@ namespace eval ::plugins::DYE::favorites {
 		if { ![is_valid_type $type] } { return 0 }
 		if { ![are_valid_values $values] } { return 0 }
 		
-		set title [string trim [join $title " "]]
-		set fav [list "$type" "$title" $values]
+		set fav [list $type "$title" $values]
 		lset ::plugins::DYE::settings(favorites) $n_fav $fav
 		
 		if { [string is true $save_settings] } {
