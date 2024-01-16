@@ -2228,6 +2228,7 @@ namespace eval ::dui::pages::DYE {
 		repository_links {}
 		profile_title {}
 		workflow {}
+		extraction_time 0
 		visualizer_status_label {}
 		warning_msg {}
 		apply_action_to {beans equipment ratio people}
@@ -3082,29 +3083,47 @@ proc ::dui::pages::DYE::load_description {} {
 		array set shot [::plugins::SDB::load_shot $data(clock) 0 1 1]
 	}
 
+	set copy_fields [concat profile_title profile_filename extraction_time \
+			[metadata fields -domain shot -category description]]
+	
 	if { [array size shot] == 0 } {
-		foreach fn [concat profile_title [metadata fields -domain shot -category description]] {
+		foreach fn $copy_fields {
 			set src_data($fn) {}
 			set data($fn) {}
 		}
 		set data(path) {}
+		set data(workflow) {}
 		set data(days_offroast_msg) ""
 		foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
 			set src_data($fn) {}
 		}
 		return 0 
 	} else {
-		foreach fn [concat profile_title [metadata fields -domain shot -category description]] {
-			set src_data($fn) $shot($fn)
-			set data($fn) $shot($fn)
-		}
-		set data(path) $shot(path)
-		
+		# Always copy first the profile fields, so that new variables handled
+		# by DYE can be overwritten afterwards.
 		foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
 			if { [info exists shot($fn)] } {
 				set src_data($fn) $shot($fn)
 			}
 		}
+		
+		foreach fn $copy_fields {
+			set src_data($fn) $shot($fn)
+			set data($fn) $shot($fn)
+		}		
+		set data(path) $shot(path)
+		
+		if { [string range $shot(skin) 0 3] eq "DSx2" } {
+			set data(workflow) [value_or_default shot(workflow) {}]
+			if { $data(workflow) eq {} } {
+				set data(workflow) [value_or_default shot(DSx2_workflow) {}]
+			}
+			set src_data(workflow) $data(workflow)
+		} else {
+			set data(workflow) {}
+			set src_data(workflow) {}
+		}
+		
 	}
 	
 	# OLD CODE, the code for loading the next shot was duplicated with ::plugins::DYE::load_next_shot, so now
