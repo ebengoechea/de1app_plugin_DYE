@@ -2233,6 +2233,7 @@ namespace eval ::dui::pages::DYE {
 		warning_msg {}
 		apply_action_to {beans equipment ratio people}
 		days_offroast_msg {}
+		ratio_and_time_label {}
 	}
 	#		other_equipment {}
 
@@ -2371,32 +2372,39 @@ proc ::dui::pages::DYE::setup {} {
 	dui add dtext $page 1550 250 -text [translate "Extraction"] -style section_header
 
 	# Calc EY from TDS button
-	dui add dbutton $page 2050 175 -tags calc_ey_from_tds -style dsx_settings -label [translate "Calc EY from TDS"] \
-		-label_pos {0.5 0.3} -label1variable {$::plugins::DYE::settings(calc_ey_from_tds)} -label1_pos {0.5 0.7} \
-		-command calc_ey_from_tds_click -bheight 140 -tap_pad {20 0 20 20}
+	dui add dtoggle $page 1935 245 -tags calc_ey_from_tds -label [translate "Calc EY from TDS"] \
+		-label_pos {2075 248} -variable ::plugins::DYE::settings(calc_ey_from_tds) -command calc_ey_from_tds_click 
 	
 	# Grinder Dose weight
 	set y 350
 	lassign [::plugins::SDB::field_lookup grinder_dose_weight {n_decimals min_value max_value default_value small_increment big_increment}] \
 		n_decimals min max default smallinc biginc
 	
-	dui add entry $page $x_right_field $y -tags grinder_dose_weight -width 8 -label_pos [list $x_right_label $y] \
-		-label [translate [::plugins::SDB::field_lookup grinder_dose_weight name]] -data_type numeric \
+	# [translate [::plugins::SDB::field_lookup grinder_dose_weight name]]
+	dui add entry $page $x_right_field $y -tags grinder_dose_weight -width 5 -label_pos [list $x_right_label $y] \
+		-label [translate "Dose (g)"] -data_type numeric \
 		-editor_page yes -editor_page_title [translate "Edit beans dose weight (g)"] \
-		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc 
-	bind $widgets(grinder_dose_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
+		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc
 	
-	# Drink weight
-	set offset 525
+	bind $widgets(grinder_dose_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
+	bind $widgets(grinder_dose_weight) <FocusOut> "[namespace current]::calc_ratio_and_time_label"
+	
+	# Drink weight (Yield)
+	set offset 350
 	lassign [::plugins::SDB::field_lookup drink_weight {n_decimals min_value max_value default_value small_increment big_increment}] \
 		n_decimals min max default smallinc biginc
 	
-	dui add entry $page [expr {$x_right_field+$offset}] $y -tags drink_weight -width 8 \
-		-label [translate [::plugins::SDB::field_lookup drink_weight name]] -label_pos [list [expr {$x_right_label+$offset}] $y] \
-		-data_type numeric -editor_page yes -editor_page_title [translate "Edit final drink weight (g)"]\
+	# [translate [::plugins::SDB::field_lookup drink_weight name]]
+	dui add entry $page [expr {$x_right_field+$offset}] $y -tags drink_weight -width 5 \
+		-label [translate "Yield (g)"] -label_pos [list [expr {$x_right_field+$offset-20}] $y] -label_anchor ne -label_justify right \
+		-data_type numeric -editor_page yes -editor_page_title [translate "Edit final drink weight (g)"] \
 		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc
-	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
 	
+	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
+	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ratio_and_time_label"
+	
+	dui add variable $page [expr {$x_right+50}] $y -tags ratio_and_time_label -anchor ne -justify right -font_size +2
+		
 	# Total Dissolved Solids
 	set x_hclicker_field 2050
 	incr y 100	
@@ -3223,6 +3231,7 @@ proc ::dui::pages::DYE::load_description {} {
 		}
 
 	compute_days_offroast 0
+	calc_ratio_and_time_label
 	return 1
 }
 
@@ -3705,13 +3714,22 @@ proc ::dui::pages::DYE::needs_saving { } {
 	return 0
 }
 
+proc ::dui::pages::DYE::calc_ratio_and_time_label {} {
+	variable data
+	
+	set data(ratio_and_time_label) ""
+	if { $data(grinder_dose_weight) > 0 && $data(drink_weight) > 0 } {
+		append data(ratio_and_time_label) "1 : [round_to_one_digits [expr {$data(drink_weight)/$data(grinder_dose_weight)}]]"
+	}
+	if { $data(describe_which_shot) ne "next" && $data(extraction_time) > 0 } {
+		append data(ratio_and_time_label) " in [round_to_integer $data(extraction_time)] sec"
+	}
+}
+
 proc ::dui::pages::DYE::calc_ey_from_tds_click {} {
 	say "" $::settings(sound_button_in)
-	if { $::plugins::DYE::settings(calc_ey_from_tds) eq "on" } {
-		set ::plugins::DYE::settings(calc_ey_from_tds) off
-	} else { 
-		set ::plugins::DYE::settings(calc_ey_from_tds) on 
-		::dui::pages::DYE::calc_ey_from_tds
+	if { [string is true $::plugins::DYE::settings(calc_ey_from_tds)] } {
+		calc_ey_from_tds
 	}
 }
 
@@ -3720,7 +3738,7 @@ proc ::dui::pages::DYE::calc_ey_from_tds_click {} {
 proc ::dui::pages::DYE::calc_ey_from_tds  {} {
 	variable data 
 	
-	if { $::plugins::DYE::settings(calc_ey_from_tds) eq "on" } {		
+	if { [string is true $::plugins::DYE::settings(calc_ey_from_tds) ] } {		
 		if { $data(drink_weight) > 0 && $data(grinder_dose_weight) > 0 && $data(drink_tds) > 0 } {
 			set data(drink_ey) [round_to_two_digits [expr {$data(drink_weight) * $data(drink_tds) / \
 				$data(grinder_dose_weight)}]]
