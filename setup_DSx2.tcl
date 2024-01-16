@@ -1301,78 +1301,85 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			-text [translate "Data to copy (from Next Shot definition)"] -font_family notosansuibold 
 
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_workflow fav_editing} \
-			-variable fav_copy_workflow 
+			-variable fav_copy_workflow -command [list %NS::validate_what_to_copy workflow] 
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_workflow_lbl fav_editing} -width 400 \
 			-text [translate "Workflow"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_workflow_settings fav_editing} \
-			-variable fav_copy_workflow_settings 
+			-variable fav_copy_workflow_settings -command [list %NS::validate_what_to_copy workflow_settings] 
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_workflow_settings_lbl fav_editing} -width 400 \
 			-text [translate "Workflow settings"] 
 		dui add variable $page $x_data $y -tags {fav_workflow fav_editing} -width 800 -textvariable fav_workflow \
 			-anchor nw -justify left -font_size -2 
 		
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_profile_title fav_editing} \
-			-variable fav_copy_profile_title 
+			-variable fav_copy_profile_title -command [list %NS::validate_what_to_copy profile_title]
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_profile_title_lbl fav_editing} -width 800 \
 			-text [translate "Profile"] 
 		
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_full_profile fav_editing} \
-			-variable fav_copy_full_profile
+			-variable fav_copy_full_profile -command [list %NS::validate_what_to_copy full_profile]
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_full_profile_lbl fav_editing} \
-			-width 800 -text [translate "Full profile"] 		
+			-width 800 -text [translate "Shot profile"] 		
 		dui add variable $page $x_data $y -tags {fav_full_profile fav_editing} -width 800 -textvariable fav_profile_title \
 			-anchor nw -justify left -font_size -2 
 		
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_beans fav_editing} -variable fav_copy_beans
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_beans fav_editing} -variable fav_copy_beans \
+			-command [list %NS::validate_what_to_copy beans]
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_beans_lbl fav_editing} -width 800 \
 			-text [translate "Beans"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_roast_date fav_editing} \
-			-variable fav_copy_roast_date 
+			-variable fav_copy_roast_date -command [list %NS::validate_what_to_copy roast_date]
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_roast_date_lbl fav_editing} -width 800 \
 			-text [translate "Roast date"] 		
 		dui add variable $page $x_data $y -tags {fav_beans fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
 			-textvariable {$%NS::data(fav_bean_brand) $%NS::data(fav_bean_type) $%NS::data(fav_roast_date)}
 		
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder_model fav_editing} -variable fav_copy_grinder_model \
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder_model fav_editing} \
+			-variable fav_copy_grinder_model -command [list %NS::validate_what_to_copy grinder_model]  
 			
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_model_lbl fav_editing} -width 800 \
 			-text [translate "Grinder"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_grinder_setting fav_editing} \
-			-variable fav_copy_grinder_setting 
+			-variable fav_copy_grinder_setting -command [list %NS::validate_what_to_copy grinder_setting]
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_setting_lbl fav_editing} -width 800 \
 			-text [translate "Grinder setting"] 
 		dui add variable $page $x_data $y -tags {fav_grinder fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
 			-textvariable {$%NS::data(fav_grinder_model) @ $%NS::data(fav_grinder_setting)}
 		
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder_dose_weight fav_editing} -variable fav_copy_grinder_dose_weight
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder_dose_weight fav_editing} \
+			-variable fav_copy_grinder_dose_weight -command [list %NS::validate_what_to_copy grinder_dose_weight]
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_dose_weight_lbl fav_editing} -width 800 \
 			-text [translate "Dose"] 
 		
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_drink_weight fav_editing} \
-			-variable fav_copy_drink_weight 
+			-variable fav_copy_drink_weight -command [list %NS::validate_what_to_copy drink_weight]
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_drink_weight_lbl fav_editing} -width 800 \
 			-text [translate "Drink weight"]
 		
 		dui add variable $page $x_data $y -tags {fav_ratio fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
 			-textvariable {$%NS::data(fav_grinder_dose_weight)g : $%NS::data(fav_drink_weight)g} 
 			 
-		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_espresso_notes fav_editing} -variable fav_copy_espresso_notes
+		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_espresso_notes fav_editing} \
+			-variable fav_copy_espresso_notes -command [list %NS::validate_what_to_copy espresso_notes]
 		dui add dtext $page [expr $x+150] $y -tags {fav_copy_espresso_notes_lbl fav_editing} -width 800 \
 			-text [translate "Espresso note"]  
 		dui add variable $page $x_data $y -tags {fav_espresso_note fav_editing} -width 800 -textvariable fav_espresso_notes \
 			-anchor nw -justify left -font_size -2 
 		
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_my_name fav_editing} -variable fav_copy_my_name \
+			-command [list %NS::validate_what_to_copy my_name]
 			
 		dui add dtext $page [expr $x+150] $y -tags {fav_copy_my_name_lbl fav_editing} -width 800 \
 			-text [translate "Barista"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_drinker_name fav_editing} \
-			-variable fav_copy_drinker_name 
+			-variable fav_copy_drinker_name -command [list %NS::validate_what_to_copy drinker_name] 
 		dui add dtext $page [expr $x+$x_2nd_what_offset+150] $y -tags {fav_copy_drinker_name_lbl fav_editing} -width 800 \
 			-text [translate "Drinker"] 		
 		dui add variable $page $x_data $y -tags {fav_people fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
 			-textvariable {$%NS::data(fav_my_name) / $%NS::data(fav_drinker_name)}
 			 
+		dui add dtext $page $x [incr y 100] -tags what_to_copy_validate_msg -style "error" -width 1800 \
+			-text [translate {At least one element to be copied must be selected}] -initial_state hidden
 		
 		# Bottom area
 		dui add dbutton $page 600 1425 -bwidth 300 -bheight 100 -shape round -tags save_fav_edits \
@@ -1419,7 +1426,8 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		
 		# The call to change_fav_type on the loade proc doesn't disable fav_title when opening the page, 
 		# as the page is not shown yet at that moment.
-		dui item enable_or_disable [expr {$data(fav_type) eq "fixed"}] $page_to_show fav_title 
+		dui item enable_or_disable [expr {$data(fav_type) eq "fixed"}] $page_to_show fav_title
+		validate_what_to_copy 
 	}
 
 	proc change_fav_type {} {
@@ -1521,6 +1529,36 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		}
 	}
 
+	proc validate_what_to_copy { {changed {}} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { [llength [get_what_to_copy]] == 0 } {
+			#dui item disable $page save_fav_edits*
+			if { $changed ne {} } {
+				set data(fav_copy_$changed) 1
+			}
+			dui item show $page what_to_copy_validate_msg
+			after 2000 [list dui::item::hide $page what_to_copy_validate_msg]
+		} else {
+			dui item enable $page save_fav_edits*
+		}
+	}
+	
+	proc get_what_to_copy {} {
+		variable data 
+		variable copy_fields
+		
+		set what_to_copy [list]
+		foreach field_name $copy_fields {
+			if { $data(fav_copy_$field_name) == 1 } {
+				lappend what_to_copy $field_name
+			}
+		}
+
+		return $what_to_copy
+	}
+
 	proc current_fav_type {} {
 		variable data
 		return [::plugins::DYE::favorites::fav_type $data(fav_number)]
@@ -1541,18 +1579,18 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable fav_fields
 		variable copy_fields 
 		variable all_recent
+
+		set what_to_copy [get_what_to_copy]
+		if { [llength $what_to_copy] == 0 } {
+			borg toast [translate "At least one element to copy must be selected"]
+			return 
+		}
 		
 		set fav_values [list]
 		
 		if { $data(fav_type) eq "n_recent" } {
 			# Save changes to what to copy. These apply to all recent-type favs, so are stored in the settings.
-			set new_copy_fields [list]
-			foreach field_name $copy_fields {
-				if { $data(fav_copy_$field_name) == 1 } {
-					lappend new_copy_fields $field_name
-				}
-				set ::plugins::DYE::settings(favs_n_recent_what_to_copy) $new_copy_fields
-			}
+			set ::plugins::DYE::settings(favs_n_recent_what_to_copy) $what_to_copy
 			
 			# If the current favorite is already a recent type, no need to do anything.
 			if { [current_fav_type] ne "n_recent" } {
@@ -1568,15 +1606,9 @@ msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_va
 			}
 
 		} else {
-			set fav_copy_fields [list]
-			foreach field_name $copy_fields {
-				if { [string is true $data(fav_copy_$field_name)]} {
-					lappend fav_copy_fields $field_name
-				}
-			}
-			lappend fav_values "what_to_copy" $fav_copy_fields
+			lappend fav_values "what_to_copy" $what_to_copy
 
-			foreach what_copy $fav_copy_fields {
+			foreach what_copy $what_to_copy {
 				if { $what_copy eq "workflow_settings" } {
 					foreach workflow_field \
 							$::plugins::DYE::workflow_settings_vars([value_or_default ::settings(DSx2_workflow) {none}]) {
