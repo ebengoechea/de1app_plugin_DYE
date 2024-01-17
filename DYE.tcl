@@ -2075,6 +2075,26 @@ namespace eval ::plugins::DYE::favorites {
 		return $fav_title
 	}
 	
+	proc fixed_title_exists { title {except_fav_n {} } } {
+		set max_n_favs [max_number]
+		set title [string trim $title]
+		if { $title eq {} } {
+			return 0
+		}		
+		if { $except_fav_n ne {} && ![is_valid_n_fav $except_fav_n] } {
+			set except_fav_n {}
+		}
+		
+		for { set i 0 } { $i < $max_n_favs } { incr i 1 } {
+			if { [fav_title $i] eq $title && [fav_type $i] eq "fixed" && \
+					$except_fav_n != $i } {
+				return 1
+			}
+		}
+		
+		return 0
+	}
+	
 	proc get_all_recent_descs_from_db { {max_n_recent 0} } {
 		if { $max_n_recent <= 0 } {
 			set max_n_recent [max_number]
@@ -2087,7 +2107,7 @@ namespace eval ::plugins::DYE::favorites {
 			lappend favs_grouping_fields bean_type roast_date
 		}
 		
-		return [::plugins::SDB::shots_by $favs_grouping_fields 1 {} $max_n_recent]		
+		return [::plugins::SDB::shots_by $favs_grouping_fields 1 {} $max_n_recent]
 	}
 	
 	proc update_recent { {max_title_chars 28} } {
@@ -2199,8 +2219,9 @@ namespace eval ::dui::pages::DYE {
 	
 	# Widgets in the page bind to variables in this data array, not to the actual global variables behind, so they 
 	# can be changed dynamically to load and save to different shots (last, next or those selected in the left or 
-	# right of the history viewer). Values are actually saved only when tapping the "Done" button.
-	# describe_which_shot: next / current / past / DSx_past / DSx_past2	
+	# right of the history viewer). Values are actually saved only when tapping the "Done" button or when 
+	# leaving the page unexpectedly (hide page event).
+	# describe_which_shot: next / current (=last) / source (input only, turned to "past") /past / DSx_past / DSx_past2	
 	variable data
 	array set data {
 		page_title {Describe your last espresso}
