@@ -1645,17 +1645,17 @@ msg -INFO "DYE validate what_to_copy=[get_what_to_copy]"
 		if { $data(fav_type) eq "n_recent" } {
 			# Save changes to what to copy. These apply to all recent-type favs, so are stored in the settings.
 			set ::plugins::DYE::settings(favs_n_recent_what_to_copy) $what_to_copy
-s			
+			
 			# If the current favorite is already a recent type, no need to do anything.
 			if { [current_fav_type] ne "n_recent" } {
 				# Copy the data from all_recent loaded at the beginning
 				set recent_number [::plugins::DYE::favorites::recent_number $data(fav_number)]
-msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', recent_number=$recent_number"	
+				#msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', recent_number=$recent_number"	
 				if { [llength $all_recent([lindex [array names all_recent] 0])] >= $recent_number } {
 					foreach field_name [array names all_recent] {
 						lappend fav_values $field_name $all_recent($field_name)
 					}
-msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_values"
+`				#msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_values"
 				}				
 			}
 
