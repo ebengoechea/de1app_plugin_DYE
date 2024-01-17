@@ -982,7 +982,11 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			} else {
 				set settings(last_shot_header) [translate {LAST SHOT: }]	
 			}
-			append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) {no}]] [translate {workflow}]"
+			set workflow [value_or_default last_shot(workflow)]
+			if { $workflow eq {} } {
+				set workflow [value_or_default last_shot(DSx2_workflow) "no"]
+			}
+			append settings(last_shot_header) ", [translate $workflow] [translate {workflow}]"
 		}
 		
 		
