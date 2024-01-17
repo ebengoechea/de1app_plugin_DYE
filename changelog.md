@@ -2,6 +2,22 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.33] - 2024-01-17
+
+### New
+ - New type of DYE Favorite: Fixed. 
+ - Improved input validation in Favorite Edit page.
+ - When loading a recent-type favorite, show the source shot in the home graph & 
+ description (instead of last shot, and only if the user option is enabled).
+
+### Changed
+ - Rename "Beans weight" and "Drink weight" to "Dose (g)" and "Yield (g)" in DYE main page.
+ This gives more space for the new text on the right showing the ratio and (if not on 
+ Next shot) the extraction time. Sugggested by Rhys Evans.
+ - Fix bug that was not showing the extraction time and workflow on DSx2 "last shot" 
+ description after the shot was edited in DYE. Reported by Rhys Evans. 
+ - Change the button "Calc EY from TDS" in DYE main page by a toggle control.
+ 
 ## [2.32] - 2024-01-14
 
 ### Changed
