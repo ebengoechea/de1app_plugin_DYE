@@ -1,3 +1,4 @@
+package require struct::list
 
 proc ::plugins::DYE::setup_ui_DSx2 {} {
 	variable settings
@@ -26,7 +27,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::DSx2_press_graph_hook}
 	
 	blt::vector create src_elapsed src_pressure src_pressure_goal src_flow src_flow_goal \
-		src_flow_weight src_weight src_temperature_basket src_temperature_mix src_temperature_goal src_state_change
+		src_flow_weight src_weight src_temperature src_temperature_goal src_resistance src_steps
 	
 	if { [ifexists ::settings(espresso_clock) 0] > 0 && \
 			$settings(next_src_clock) != $::settings(espresso_clock) && \
@@ -797,18 +798,30 @@ proc ::plugins::DYE::DSx2_load_home_graph_from { {src_clock {}} {src_array_name 
 	src_elapsed length 0
 	src_elapsed set $src_shot(graph_espresso_elapsed)
 	
-	# resistance  ?
-	foreach lg {pressure_goal flow_goal pressure flow weight temperature_basket state_change} {
-		src_$lg length 0
+	set src_shot(graph_espresso_temperature_basket) [::struct::list mapfor x \
+			$src_shot(graph_espresso_temperature_basket) {skin_temperature_units $x}]
+	set src_shot(graph_espresso_temperature_goal) [::struct::list mapfor x \
+			$src_shot(graph_espresso_temperature_goal) {skin_temperature_units $x}]
+	
+	foreach lg {pressure_goal flow_goal temperature_goal pressure flow temperature_basket weight resistance state_change} {
+		if { $lg eq "temperature_basket" } {
+			set src_name temperature
+		} elseif { $lg eq "state_change" } {
+			set src_name steps
+		} else {
+			set src_name $lg
+		}
+		
+		src_$src_name length 0
 		if {[info exists src_shot(graph_espresso_$lg)]} {
-			src_$lg set $src_shot(graph_espresso_$lg)
-			if { $lg eq "temperature_basket" } {
-				$::home_espresso_graph element configure home_temperature -xdata src_elapsed -ydata src_$lg
-			} elseif { $lg eq "state_change" } {
-				$::home_espresso_graph element configure home_steps -xdata src_elapsed -ydata src_$lg
-			} else {
-				$::home_espresso_graph element configure home_$lg -xdata src_elapsed -ydata src_$lg
-			}
+#			if { $lg eq "temperature_basket" || $lg eq "temperature_goal" } {
+#				set scaled_temp [::struct::list mapfor x $src_shot(graph_espresso_$lg) {skin_temperature_units $x}]
+#				src_$src_name append $scaled_temp
+				#src_$src_name append [skin_temperature_units $src_shot(graph_espresso_$lg)]
+#			} else {
+				src_$src_name append $src_shot(graph_espresso_$lg)
+#			}
+			$::home_espresso_graph element configure home_$src_name -xdata src_elapsed -ydata src_$src_name	
 		} else {
 			msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: series '$lg' not found on shot file with clock '$src_clock"
 		}
