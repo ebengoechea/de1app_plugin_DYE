@@ -2158,7 +2158,7 @@ namespace eval ::plugins::DYE::favorites {
 					foreach f $all_recent_names {
 						set fav_values($f) [lindex $all_recent($f) $nshot]
 					}
-					set fav_title [define_recent_title fav_values [expr {$nshot+1}] $max_title_chars]															
+					set fav_title [define_recent_title fav_values [expr {$nshot+1}] $max_title_chars]
 				} else {
 					set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no data yet}]>" [expr $max_title_chars*2]]
 				}

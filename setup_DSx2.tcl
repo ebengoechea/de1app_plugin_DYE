@@ -1323,85 +1323,81 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		dui add dtext $page [expr {$x+320}] [expr {$y+5}] -tags fav_what_copy_msg -width 650 \
 			-text [translate "(applies to ALL recent favorites)"] -font_size -3
 		dui add dtext $page $x_data $y -tags {fav_data_lbl fav_editing} -width 800 \
-			-text [translate "Data to copy (from Next Shot definition)"] -font_family notosansuibold 
+			-text [translate "Data to copy (from Next Shot)"] -font_family notosansuibold 
 
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_workflow fav_editing} \
-			-variable fav_copy_workflow -command validate_all 
+			-variable fav_copy_workflow -command change_copy_workflow 
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_workflow_lbl fav_editing} -width 400 \
 			-text [translate "Workflow"] 
-		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_workflow_settings fav_editing} \
-			-variable fav_copy_workflow_settings -command validate_all 
-		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_workflow_settings_lbl fav_editing} -width 400 \
+		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw \
+			-tags {fav_copy_workflow_settings fav_editing} \
+			-variable fav_copy_workflow_settings -command change_copy_workflow 
+		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y \
+			-tags {fav_copy_workflow_settings_lbl fav_editing} -width 400 \
 			-text [translate "Workflow settings"] 
-		dui add variable $page $x_data $y -tags {fav_workflow fav_editing} -width 800 -textvariable fav_workflow \
+		dui add dtext $page $x_data $y -tags {fav_workflow_desc fav_editing} -width 800 \
 			-anchor nw -justify left -font_size -2 
 		
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_profile_title fav_editing} \
-			-variable fav_copy_profile_title -command validate_all
+			-variable fav_copy_profile_title -command change_copy_profile_title
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_profile_title_lbl fav_editing} -width 800 \
-			-text [translate "Profile"] 
+			-text [translate "Disk profile"] 
 		
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_full_profile fav_editing} \
-			-variable fav_copy_full_profile -command validate_all
+			-variable fav_copy_full_profile -command change_copy_full_profile
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_full_profile_lbl fav_editing} \
 			-width 800 -text [translate "Shot profile"] 		
-		dui add variable $page $x_data $y -tags {fav_full_profile fav_editing} -width 800 -textvariable fav_profile_title \
+		dui add dtext $page $x_data $y -tags {fav_profile_desc fav_editing} -width 800 \
 			-anchor nw -justify left -font_size -2 
 		
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_beans fav_editing} -variable fav_copy_beans \
-			-command validate_all
+			-command change_copy_beans
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_beans_lbl fav_editing} -width 800 \
 			-text [translate "Beans"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_roast_date fav_editing} \
-			-variable fav_copy_roast_date -command validate_all
+			-variable fav_copy_roast_date -command change_copy_beans
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_roast_date_lbl fav_editing} -width 800 \
 			-text [translate "Roast date"] 		
-		dui add variable $page $x_data $y -tags {fav_beans fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
-			-textvariable {$%NS::data(fav_bean_brand) $%NS::data(fav_bean_type) $%NS::data(fav_roast_date)}
+		dui add dtext $page $x_data $y -tags {fav_beans_desc fav_editing} -width 800 -anchor nw -justify left -font_size -2 
 		
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder_model fav_editing} \
-			-variable fav_copy_grinder_model -command validate_all  
-			
+			-variable fav_copy_grinder_model -command change_copy_grind			
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_model_lbl fav_editing} -width 800 \
 			-text [translate "Grinder"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_grinder_setting fav_editing} \
-			-variable fav_copy_grinder_setting -command validate_all
+			-variable fav_copy_grinder_setting -command change_copy_grind
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_setting_lbl fav_editing} -width 800 \
 			-text [translate "Grinder setting"] 
-		dui add variable $page $x_data $y -tags {fav_grinder fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
-			-textvariable {$%NS::data(fav_grinder_model) @ $%NS::data(fav_grinder_setting)}
+		dui add dtext $page $x_data $y -tags {fav_grind_desc fav_editing} -width 800 -anchor nw -justify left -font_size -2
 		
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_grinder_dose_weight fav_editing} \
-			-variable fav_copy_grinder_dose_weight -command validate_all
+			-variable fav_copy_grinder_dose_weight -command change_copy_ratio
 		dui add dtext $page [expr $x+$x_toggle_lbl_dist] $y -tags {fav_copy_grinder_dose_weight_lbl fav_editing} -width 800 \
 			-text [translate "Dose"] 
 		
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_drink_weight fav_editing} \
-			-variable fav_copy_drink_weight -command validate_all
+			-variable fav_copy_drink_weight -command change_copy_ratio
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_drink_weight_lbl fav_editing} -width 800 \
-			-text [translate "Drink weight"]
+			-text [translate "Yield"]
 		
-		dui add variable $page $x_data $y -tags {fav_ratio fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
-			-textvariable {$%NS::data(fav_grinder_dose_weight)g : $%NS::data(fav_drink_weight)g} 
+		dui add dtext $page $x_data $y -tags {fav_ratio_desc fav_editing} -width 800 -anchor nw -justify left -font_size -2 
 			 
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_espresso_notes fav_editing} \
-			-variable fav_copy_espresso_notes -command validate_all
+			-variable fav_copy_espresso_notes -command change_copy_espresso_notes
 		dui add dtext $page [expr $x+150] $y -tags {fav_copy_espresso_notes_lbl fav_editing} -width 800 \
 			-text [translate "Espresso note"]  
-		dui add variable $page $x_data $y -tags {fav_espresso_note fav_editing} -width 800 -textvariable fav_espresso_notes \
+		dui add dtext $page $x_data $y -tags {fav_espresso_notes_desc fav_editing} -width 800 \
 			-anchor nw -justify left -font_size -2 
 		
 		dui add dtoggle $page $x [incr y 100] -anchor nw -tags {fav_copy_my_name fav_editing} -variable fav_copy_my_name \
-			-command validate_all
-			
+			-command change_copy_people			
 		dui add dtext $page [expr $x+150] $y -tags {fav_copy_my_name_lbl fav_editing} -width 800 \
 			-text [translate "Barista"] 
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_drinker_name fav_editing} \
-			-variable fav_copy_drinker_name -command validate_all 
+			-variable fav_copy_drinker_name -command change_copy_people 
 		dui add dtext $page [expr $x+$x_2nd_what_offset+150] $y -tags {fav_copy_drinker_name_lbl fav_editing} -width 800 \
 			-text [translate "Drinker"] 		
-		dui add variable $page $x_data $y -tags {fav_people fav_editing} -width 800 -anchor nw -justify left -font_size -2 \
-			-textvariable {$%NS::data(fav_my_name) / $%NS::data(fav_drinker_name)}
+		dui add variable $page $x_data $y -tags {fav_people_desc fav_editing} -width 800 -anchor nw -justify left -font_size -2
 			 
 		dui add dtext $page $x [incr y 100] -tags what_to_copy_validate_msg -style "error" -width 1800 \
 			-text [translate {At least one element to be copied must be selected}] -font_size -1 -initial_state hidden
@@ -1453,6 +1449,14 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		# The call to change_fav_type on the loade proc doesn't disable fav_title when opening the page, 
 		# as the page is not shown yet at that moment.
 		dui item enable_or_disable [expr {$data(fav_type) eq "fixed"}] $page_to_show fav_title
+		
+		change_copy_workflow no
+		change_copy_profile_title no
+		change_copy_beans no
+		change_copy_grind no
+		change_copy_ratio no
+		change_copy_espresso_notes no
+		change_copy_people no
 		validate_all
 	}
 
@@ -1471,13 +1475,12 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			set data(fav_$field_name) {}
 		}
 		
-msg -INFO "DYE CHANGE_FAV_TYPE: fav_type=$data(fav_type), symbol=[::plugins::DYE::favorites::fav_icon_symbol $data(fav_type)], icon=[::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $data(fav_type)]]"		
 		dui item config $page dye_fav_icon_$data(fav_number) -text \
 			[::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $data(fav_type)]]
 		
 		if {$data(fav_type) eq "n_recent"} {
 			dui item config $page fav_what_copy_msg -text [translate "(applies to ALL recent favorites)"]
-			dui item config $page fav_data_lbl -text [translate "Example data (from recent shot)"]
+			dui item config $page fav_data_lbl -text [translate "Example data (recent shot)"]
 			dui item disable $page fav_title -initial yes -current yes
 			dui item enable $page {fav_copy_full_profile_lbl fav_copy_full_profile} -initial yes -current yes 
 			
@@ -1517,7 +1520,7 @@ msg -INFO "DYE CHANGE_FAV_TYPE: fav_type=$data(fav_type), symbol=[::plugins::DYE
 			
 		} elseif {$data(fav_type) eq "fixed"} {
 			dui item config $page fav_what_copy_msg -text [translate "(applies only to THIS favorite)"]
-			dui item config $page fav_data_lbl -text [translate "Data to copy (from Next Shot definition)"]
+			dui item config $page fav_data_lbl -text [translate "Data to copy (from Next Shot)"]
 			dui item enable $page fav_title -initial yes -current yes
 			set data(fav_copy_full_profile) 0
 			dui item disable $page {fav_copy_full_profile_lbl fav_copy_full_profile} -initial yes -current yes
@@ -1556,6 +1559,13 @@ msg -INFO "DYE CHANGE_FAV_TYPE: fav_type=$data(fav_type), symbol=[::plugins::DYE
 			if { [::plugins::DYE::is_DSx2] } {
 				set data(fav_workflow) [value_or_default ::skin(workflow) "none"]
 			}
+		}
+		
+		# Incompatible options
+		if { $data(fav_copy_profile_title) } {
+			set data(fav_copy_full_profile) 0
+		} elseif { $data(fav_copy_full_profile) } {
+			set data(fav_copy_profile_title) 0
 		}
 	}
 
@@ -1639,6 +1649,209 @@ msg -INFO "DYE validate what_to_copy=[get_what_to_copy]"
 	proc current_fav_values {} {
 		variable data
 		return [::plugins::DYE::favorites::fav_values $data(fav_number)]
+	}
+	
+	proc change_copy_workflow { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		if { $data(fav_workflow) eq "" } {
+			set workflow [translate "none"]
+		} else {
+			set workflow [translate $data(fav_workflow)]
+		}
+		
+		if { $data(fav_copy_workflow_settings)  } {
+			set data(fav_copy_workflow) 1
+			dui item disable $page fav_copy_workflow* 
+			
+			set desc "${workflow}: "
+			if { $workflow eq "none" } {
+				append desc [translate {Steam and hot water settings}]
+			} elseif { $workflow eq "latte" } {
+				append desc [translate {Steam settings}]
+			} elseif { $workflow eq "espresso" } {
+				append desc [translate {Steam on/off}]
+			} else {
+				append desc [translate {Hot water settings & steam on/off}]
+			}
+		} else {
+			dui item enable $page fav_copy_workflow*
+			
+			if { $data(fav_copy_workflow)  } {
+				set desc "$workflow"
+			} else {
+				set desc ""
+			}
+		}
+		dui item config $page fav_workflow_desc -text [maxstring $desc 40]
+		
+		if {[string is true $validate_all]} {
+			validate_all
+		}
+	}
+	
+	proc change_copy_profile_title { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { $data(fav_copy_profile_title) } {
+			set data(fav_copy_full_profile) 0
+			dui item disable $page fav_copy_full_profile* 
+		} else {
+			dui item enable $page fav_copy_full_profile*
+		}		
+		change_copy_profile $validate_all
+	}
+
+	proc change_copy_full_profile { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { $data(fav_copy_full_profile) } {
+			set data(fav_copy_profile_title) 0
+			dui item disable $page fav_copy_profile_title* 
+		} else {
+			dui item enable $page fav_copy_profile_title*
+		}
+		change_copy_profile $validate_all
+	}
+	
+	proc change_copy_profile { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { $data(fav_copy_full_profile)  } {
+			set desc "[translate {Recent shot version of }] [translate $data(fav_profile_title)]"
+		} elseif { $data(fav_copy_profile_title)  } {
+			set data(fav_copy_full_profile) 0
+			set desc "[translate {Disk version of }] [translate $data(fav_profile_title)]"
+		} else {
+			set desc ""
+		}
+		dui item config $page fav_profile_desc -text [maxstring $desc 40]
+		
+		if {[string is true $validate_all]} {
+			validate_all
+		}
+	}
+	
+	proc change_copy_beans { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		set desc ""
+		
+		if { $data(fav_copy_beans)  } {
+			append desc "$data(fav_bean_brand) $data(fav_bean_type)" 
+		} 
+		if { $data(fav_copy_roast_date) } {
+			append desc " $data(fav_roast_date)"
+		}
+		set desc [string trim $desc]
+		if { ($data(fav_copy_beans) || $data(fav_copy_roast_date)) && 
+				$desc eq {} } {
+			set desc "<[translate {Blank}]>"
+		}
+		
+		dui item config $page fav_beans_desc -text [maxstring $desc 40]
+		
+		if {[string is true $validate_all]} {
+			validate_all
+		}
+	}
+	
+	proc change_copy_grind { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		set desc ""
+		
+		if { $data(fav_copy_grinder_model) } {
+			append desc "$data(fav_grinder_model)" 
+		} 
+		if { $data(fav_copy_grinder_setting) && $data(fav_grinder_setting) ne {} } {
+			append desc " @ $data(fav_grinder_setting)"
+		}
+		set desc [string trim $desc]
+		if { ($data(fav_copy_grinder_model) || $data(fav_copy_grinder_setting)) && 
+				$desc eq {} } {
+			set desc "<[translate {Blank}]>"
+		}
+		
+		dui item config $page fav_grind_desc -text [maxstring $desc 40]
+		
+		if {[string is true $validate_all]} {
+			validate_all
+		}		
+	}
+	
+	proc change_copy_ratio { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		set desc ""
+		
+		if { $data(fav_copy_grinder_dose_weight) && $data(fav_copy_drink_weight) } {
+			set desc "$data(fav_grinder_dose_weight)g : $data(fav_drink_weight)g"
+		} elseif { $data(fav_copy_grinder_dose_weight) } {
+			set desc "$data(fav_grinder_dose_weight)g : "
+		} elseif { $data(fav_copy_drink_weight) } {
+			set desc " : $data(fav_drink_weight)g"
+		} else {
+			set desc ""
+		}
+		set desc_len [string length [string trim $desc]]
+		if { $desc_len > 0 && $desc_len < 6 } {
+			set desc "<[translate {Blank}]>"
+		}
+		dui item config $page fav_ratio_desc -text [maxstring $desc 40]
+		
+		if {[string is true $validate_all]} {
+			validate_all
+		}
+	}	
+
+	proc change_copy_espresso_notes { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		set desc ""
+		
+		if { $data(fav_copy_espresso_notes) } {
+			if { [string trim $data(fav_espresso_notes)] eq {} } {
+				set desc "<[translate {Blank}]>"
+			} else {
+				set desc "$data(fav_espresso_notes)"
+			}
+		} else {
+			set desc ""
+		}
+		dui item config $page fav_espresso_notes_desc -text [maxstring $desc 40]
+		
+		if {[string is true $validate_all]} {
+			validate_all
+		}		
+	}
+	
+	proc change_copy_people { {validate_all 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		set desc ""
+		
+		if { $data(fav_copy_my_name) && $data(fav_copy_drinker_name) } {
+			set desc "$data(fav_my_name) / $data(fav_drinker_name)"
+		} elseif { $data(fav_copy_my_name) } {
+			set desc "$data(fav_my_name) / "
+		} elseif { $data(fav_copy_drinker_name) } {
+			set desc " / $data(fav_drinker_name)"
+		} else {
+			set desc ""
+		}
+		set desc_len [string length [string trim $desc]]
+		if { $desc_len > 0 && $desc_len < 3 } {
+			set desc "<[translate {Blank}]>"
+		}
+		dui item config $page fav_people_desc -text [maxstring $desc 40]
+		
+		if {[string is true $validate_all]} {
+			validate_all
+		}
 	}
 	
 	proc save_fav_edits {} {
