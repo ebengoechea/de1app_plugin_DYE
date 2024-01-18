@@ -693,10 +693,14 @@ proc ::plugins::DYE::DSx2_home_page_on_load { args } {
 }
 
 proc ::plugins::DYE::DSx2_home_page_on_show { args } {
+	set main_home_page [lindex $::skin_home_pages 0]
 	# This call doesn't work on the page load event, so we need to put it here,
 	# but it produces a slight flickering effect as all DSx2 favs are first shown,
 	# then hidden
-	if { ![string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
+	if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
+		dui item config $main_home_page {l_favs_number b_favs_number* bb_favs_number*} \
+			-state hidden
+	} else {
 		::rest_fav_buttons
 	}
 	
@@ -705,7 +709,7 @@ proc ::plugins::DYE::DSx2_home_page_on_show { args } {
 		# captured elsewhere e.g. if entering a DYE favs page from a GHC settings "page"
 		# and coming back.
 		if { [[dui canvas] itemcget main_graph -state ] eq "hidden"} {
-			dui item config $::skin_home_pages {launch_dye_last* launch_dye_next*} -state hidden
+			dui item config $main_home_page {launch_dye_last* launch_dye_next*} -state hidden
 		}
 	}
 }
