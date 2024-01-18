@@ -2009,6 +2009,26 @@ namespace eval ::plugins::DYE::favorites {
 		}
 	}	
 
+	proc fav_icon_symbol { fav_or_fav_type } {
+		if { ![string is double $fav_or_fav_type] && [llength $fav_or_fav_type] == 1 } {
+			set fav_type [string tolower $fav_or_fav_type]
+		} else {
+			set fav_type [fav_type $fav_or_fav_type]
+		}
+		
+		if { $fav_type eq "n_recent" } {
+			# timeline-arrow also good fit
+			return "repeat"
+		} elseif { $fav_type eq "fixed" } {
+			return "bookmark"
+		} elseif { $fav_type eq "pinned" } {
+			return "thumbtack"
+		} else {
+			msg -ERROR [namespace current] "fav_icon_symbol: fav_type '$fav_type' not recognized"
+			return
+		}
+	}
+	
 	proc define_recent_title { fav_values_name {recent_number 0} {max_title_chars 28} } {
 		#array set fav_values $fav_values_list
 		upvar $fav_values_name fav_values

@@ -674,6 +674,7 @@ proc ::plugins::DYE::DSx2_home_page_on_load { args } {
 		}
 		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < 5} {incr i 1} {
 			dui item config $main_home_page dye_fav_$i -initial_state hidden
+			dui item config $main_home_page dye_fav_icon_$i -initial_state hidden
 		}
 		
 		dui item config $main_home_page {l_favs_number b_favs_number* bb_favs_number* } \
@@ -929,7 +930,11 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 				-tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
 				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_font_size 11 -label_width 450 \
 				-initial_state hidden
-			
+			 
+			dui add symbol $target_pages [expr $::skin(button_x_fav)-50+460+20] [expr {$y+50}] \
+				-symbol [::plugins::DYE::favorites::fav_icon_symbol $i] -anchor w -font_size 11 \
+				-tags [list dye_fav_icon_$i dye_favs_icons] -initial_state hidden
+
 			dui add dbutton $page [expr $::skin(button_x_fav)-150] $y -bwidth 100 -bheight 100 -shape "" \
 				-fill $::skin_background_colour -tags [list dye_fav_edit_$i dye_fav_edits] \
 				-command [list ::dui::page::load dsx2_dye_edit_fav $i] \
@@ -977,7 +982,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 	}
 	
 	proc show { page_to_hide page_to_show } {
-		dui item config $page_to_show dye_favs -state normal
+		dui item config $page_to_show {dye_favs dye_favs_icons} -state normal
 	}
 
 #	proc hide { page_to_hide page_to_show } {
@@ -1072,13 +1077,16 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 
 		# Show or hide DYE favorites
 		for {set i 0} {$i < $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {incr i 1} {
-			dui item config $main_home_page dye_fav_$i* -initial_state $dye_favs_state 
+			dui item config $main_home_page dye_fav_$i* -initial_state $dye_favs_state
+			dui item config $main_home_page dye_fav_icon_$i -initial_state $dye_favs_state
 			if { $are_favs_visible } {
 				dui item config $main_home_page dye_fav_$i* -state $dye_favs_state
+				dui item config $main_home_page dye_fav_icon_$i -state $dye_favs_state
 			}
 		}
 		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_dsx2_home_visible_favs)} {incr i 1} {
 			dui item config $main_home_page dye_fav_$i* -initial_state hidden -state hidden
+			dui item config $main_home_page dye_fav_icon_$i -initial_state hidden -state hidden
 		}
 		
 		dui item config $main_home_page dye_fav_more* -initial_state $dye_favs_state
@@ -1428,8 +1436,9 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable data
 		
 		# Show only the fav button for the favorite being edited
-		dui item hide $page_to_show dye_favs
+		dui item hide $page_to_show {dye_favs dye_favs_icons}
 		dui item show $page_to_show dye_fav_$data(fav_number)* 
+		dui item show $page_to_show dye_fav_icon_$data(fav_number)
 		
 		# Move the bracket "index triangle" to point at the fav being edited
 		# BEWARE that dui::item::moveto doesn't work with polygons atm as it's restricted to 4 coordinates
@@ -1462,8 +1471,12 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			set data(fav_$field_name) {}
 		}
 		
+msg -INFO "DYE CHANGE_FAV_TYPE: fav_type=$data(fav_type), symbol=[::plugins::DYE::favorites::fav_icon_symbol $data(fav_type)], icon=[::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $data(fav_type)]]"		
+		dui item config $page dye_fav_icon_$data(fav_number) -text \
+			[::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $data(fav_type)]]
+		
 		if {$data(fav_type) eq "n_recent"} {
-			dui item config $page fav_what_copy_msg -text [translate "(applies to ALL recent favorites)"]			
+			dui item config $page fav_what_copy_msg -text [translate "(applies to ALL recent favorites)"]
 			dui item config $page fav_data_lbl -text [translate "Example data (from recent shot)"]
 			dui item disable $page fav_title -initial yes -current yes
 			dui item enable $page {fav_copy_full_profile_lbl fav_copy_full_profile} -initial yes -current yes 
@@ -1527,7 +1540,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 					if { $field_name ne "full_profile" } {
 						set data(fav_copy_$field_name) 1
 					}
-				}					
+				}
 			}
 			
 			# Copy actual data from the current settings (data for Next Shot)
