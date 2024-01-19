@@ -13,7 +13,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	dui page add dsx2_dye_favs -namespace true -type fpdialog
 	dui page add dsx2_dye_edit_fav -namespace true -type fpdialog
 	
-	# Modify DSx2 home pages to adapt to DYE UI widgets and workflow
+	# Modify DSx2 home page(s) to adapt to DYE UI widgets and workflow
 	::dui::pages::dsx2_dye_home::setup
 }
 
@@ -610,59 +610,11 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	}]	
 }
 
-#proc ::plugins::DYE::DSx2_home_page_on_load { args } {
-#	set main_home_page [lindex $::skin_home_pages 0]
-#	if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
-#		for {set i 0} {$i < $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {incr i 1} {
-#			dui item config $main_home_page dye_fav_$i -initial_state normal
-#		}
-#		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < 5} {incr i 1} {
-#			dui item config $main_home_page dye_fav_$i -initial_state hidden
-#			dui item config $main_home_page dye_fav_icon_$i -initial_state hidden
-#		}
-#		
-#		dui item config $main_home_page {l_favs_number b_favs_number* bb_favs_number* } \
-#			-initial_state hidden
-#	}
-#	
-#	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-#		$::home_espresso_graph configure -height $::plugins::DYE::DSx2_main_graph_height
-#		dui item config $::skin_home_pages live_graph_data -initial_state hidden
-#		
-#		# Updates e.g. the profile title in the next shot desc if coming from a profile switch
-#		::plugins::DYE::define_next_shot_desc
-#	}
-#	
-#	return 1
-#}
-#
-#proc ::plugins::DYE::DSx2_home_page_on_show { args } {
-#	set main_home_page [lindex $::skin_home_pages 0]
-#	# This call doesn't work on the page load event, so we need to put it here,
-#	# but it produces a slight flickering effect as all DSx2 favs are first shown,
-#	# then hidden
-#	if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
-#		dui item config $main_home_page {l_favs_number b_favs_number* bb_favs_number*} \
-#			-state hidden
-#	} else {
-#		::rest_fav_buttons
-#	}
-#	
-#	if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-#		# If the graph is hidden, hide the shot desc texts too (this happens and is not
-#		# captured elsewhere e.g. if entering a DYE favs page from a GHC settings "page"
-#		# and coming back.
-#		if { [[dui canvas] itemcget main_graph -state ] eq "hidden"} {
-#			dui item config $main_home_page {launch_dye_last* launch_dye_next*} -state hidden
-#		}
-#	}
-#}
-
 
 # Note that we use this workspace to modify the existing DSx2 home page, but this
 # doesn't match a DUI page workspace.
 namespace eval ::dui::pages::dsx2_dye_home {
-	variable main_graph_height 0
+	variable main_graph_height
 	set main_graph_height [rescale_y_skin 840]
 	
 	proc setup {} {
@@ -690,7 +642,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 				[string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)] && \
 				[string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
 			# Called proc already defines the source shot desc
-			::plugins::DYE::DSx2_load_home_graph_from $settings(next_src_clock) 
+			load_home_graph_from $::plugins::DYE::settings(next_src_clock) 
 		} else {
 			::plugins::DYE::define_last_shot_desc
 		}
@@ -726,12 +678,17 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se] \
 			-initial_state $istate
 	
-		::plugins::DYE::DSx2_toggle_show_shot_desc_on_home
+		toggle_show_shot_desc
 
 		# Add extra DYE inputs to the espresso settings page
-#		set ::wf_dose_x 160
-#		dui add dtext off [expr 840 + $::wf_dose_x] 580 -tags wf_heading_bean_weight -text [translate "Bean weight"] -font [skin_font font_bold 18] -fill $::skin_text_colour -anchor center
-#		add_colour_button wf_dose_minus off [expr 730 + $::wf_dose_x] 620 100 100 {\Uf106} {adjust dose 1}; set_button wf_dose_minus font [skin_font awesome_light [fixed_size 34]]
+		#set ::wf_dose_x 160
+		# orig y 580
+		set y 1100	
+		dui add dtext $page [expr {840 + $::wf_dose_x}] $y -tags wf_heading_grinder_setting \
+			-text [translate "Grinder setting"] -font [skin_font font_bold 18] -fill $::skin_text_colour -anchor center
+		add_colour_button wf_grinder_setting_minus off [expr {730 + $::wf_dose_x}] [expr {$y+40}] 100 100 {\Uf106} \
+			[list [namespace current]::adjust grinder_setting 1]
+		set_button wf_grinder_setting_minus font [skin_font awesome_light [fixed_size 34]]
 #		add_colour_button wf_dose_plus off [expr 730 + $::wf_dose_x] 820 100 100 {\Uf107} {adjust dose -1}; set_button wf_dose_plus font [skin_font awesome_light [fixed_size 34]]
 #		add_colour_button wf_dose_minus_10 off [expr 850 + $::wf_dose_x] 620 100 100 {\Uf106} {adjust dose 0.1}; set_button wf_dose_minus_10 font [skin_font awesome_light [fixed_size 34]]
 #		add_colour_button wf_dose_plus_10 off [expr 850 + $::wf_dose_x] 820 100 100 {\Uf107} {adjust dose -0.1}; set_button wf_dose_plus_10 font [skin_font awesome_light [fixed_size 34]]
@@ -741,6 +698,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 #		add_colour_button wf_bean_cup_button off [expr 730 - $::wf_dose_x] 620 220 100 {$::skin(bean_cup_g)g} {set_bean_cup_weight}
 #		add_icon_button wf_info_button off [expr 630 - $::wf_dose_x] 620 100 100 {$::skin(icon_info)} {show_wf_espresso_info}
 		
+		trace add execution ::show_espresso_settings leave ${ns}::show_espresso_settings_hook		
 
 	}
 	
@@ -834,6 +792,13 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		}
 	}
 	
+	proc show_espresso_settings_hook { args } {
+#		dui item show [lindex $::skin_home_pages 0] \
+#			{wf_heading_grinder_setting} -initial 1 -current 1
+msg -INFO "DYE SHOWING wf_heading_grinder_setting"		
+		dui item config off wf_heading_grinder_setting -initial_state normal -state normal
+	}
+	
 	proc toggle_show_shot_desc { } {
 		variable main_graph_height
 		set main_home_page [lindex $::skin_home_pages 0]
@@ -863,6 +828,19 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	
 	proc adjust_hook { args } {
 		::plugins::DYE::define_next_shot_desc	
+	}
+	
+	proc adjust { var change } {
+		if { $var eq "grinder_setting" } {
+			if { $::settings(grinder_setting) eq {} } {
+				set $::settings(grinder_setting) 0
+			}
+			if { [string is double $::settings(grinder_setting)] } {
+				set ::settings(grinder_setting) [round_to_two_digits \
+					[expr {$::settings(grinder_setting) + $change}]]
+				::plugins::DYE::define_next_shot_desc
+			}
+		}
 	}
 	
 	proc set_scale_weight_to_dose_hook { args } {
@@ -1268,7 +1246,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 					! [string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)] } {
 				if { $data(dsx2_disable_dye_favs) == 0 && \
 						$::plugins::DYE::settings(next_src_clock) != [ifexists ::settings(espresso_clock) 0]} {
-					::plugins::DYE::DSx2_load_home_graph_from $::plugins::DYE::settings(next_src_clock)
+					::dui::pages::dsx2_dye_home::load_home_graph_from $::plugins::DYE::settings(next_src_clock)
 				}
 				set ::plugins::DYE::settings(dsx2_update_chart_on_copy) 1
 				set favs_changed 1
@@ -1276,7 +1254,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 						[string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)] } {
 				if { $data(dsx2_disable_dye_favs) == 0 && \
 						$::plugins::DYE::settings(next_src_clock) != [ifexists ::settings(espresso_clock) 0]} {
-					::plugins::DYE::DSx2_load_home_graph_from $::settings(espresso_clock)
+					::dui::pages::dsx2_dye_home::load_home_graph_from $::settings(espresso_clock)
 				}
 				set ::plugins::DYE::settings(dsx2_update_chart_on_copy) 0
 				set favs_changed 1
