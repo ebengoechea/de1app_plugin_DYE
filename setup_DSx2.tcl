@@ -808,11 +808,13 @@ proc ::plugins::DYE::DSx2_load_home_graph_from { {src_clock {}} {src_array_name 
 	set src_shot(graph_espresso_temperature_goal) [::struct::list mapfor x \
 			$src_shot(graph_espresso_temperature_goal) {skin_temperature_units $x}]
 	
-	foreach lg {pressure_goal flow_goal temperature_goal pressure flow temperature_basket weight resistance state_change} {
+	foreach lg {pressure_goal flow_goal temperature_goal pressure flow temperature_basket flow_weight resistance state_change} {
 		if { $lg eq "temperature_basket" } {
 			set src_name temperature
 		} elseif { $lg eq "state_change" } {
 			set src_name steps
+		} elseif { $lg eq "flow_weight" } {
+			set src_name weight
 		} else {
 			set src_name $lg
 		}
