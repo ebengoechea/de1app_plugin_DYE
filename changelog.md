@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.35] - 2024-01-19
+
+### Changed
+ - Fix several possible runtime errors when loading favorites or changing their fav type, on edge cases.
+ Reported by Matt Bower.
+ - Source shot graph on DSx2 was showing "weight" instead of "flow_weight" series. Fixed.
+ - Source shot graph on DSx2 was not being reset when starting a new espresso shot. Fixed.
+
 ## [2.34] - 2024-01-19
 
 ### New
