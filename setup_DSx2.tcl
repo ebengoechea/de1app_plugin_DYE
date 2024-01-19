@@ -1879,20 +1879,6 @@ msg -INFO "DYE validate what_to_copy=[get_what_to_copy]"
 		if { $data(fav_type) eq "n_recent" } {
 			# Save changes to what to copy. These apply to all recent-type favs, so are stored in the settings.
 			set ::plugins::DYE::settings(favs_n_recent_what_to_copy) $what_to_copy
-			
-			# If the current favorite is already a recent type, no need to do anything.
-			if { [current_fav_type] ne "n_recent" } {
-				# Copy the data from all_recent loaded at the beginning
-				set recent_number [::plugins::DYE::favorites::recent_number $data(fav_number)]
-				#msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', recent_number=$recent_number"	
-				if { [llength $all_recent([lindex [array names all_recent] 0])] >= $recent_number } {
-					foreach field_name [array names all_recent] {
-						lappend fav_values $field_name $all_recent($field_name)
-					}
-`				#msg -INFO "DYE save_fav_edits 'n_recent' coming from 'fixed', fav_values=$fav_values"
-				}				
-			}
-
 		} else {
 			lappend fav_values "what_to_copy" $what_to_copy
 
@@ -1922,11 +1908,11 @@ msg -INFO "DYE validate what_to_copy=[get_what_to_copy]"
 					msg -WARNING [namespace current] "save_fav_edits: field $what_copy not found"
 				}
 			}
-			#msg -INFO "DYE save_fav_edits 'fixed', fav_values=$fav_values"
 		}
 
 		::plugins::DYE::favorites::set_fav $data(fav_number) $data(fav_type) "$data(fav_title)" $fav_values 0
-		::plugins::save_settings DYE
+		# Updating recent favs already saves DYE settings, no need to call it here too
+		::plugins::DYE::favorites::update_recent
 		
 		dui page close_dialog
 	}
