@@ -667,8 +667,24 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 #	}
 
 	#define_last_shot_desc
-	set settings(last_shot_desc) "\[ [translate {Ongoing shot, please wait until saved}] \]"
+	set settings(last_shot_header) [translate {ONGOING SHOT:}]
+	set settings(last_shot_desc) "\[ [translate {Please wait until saved}] \]"
 	define_next_shot_desc
+	
+	# If on DSx2 with a source shot showing on the main graph, we need to point it again
+	# to last shot series
+	if { [is_DSx2] && [string is true $settings(dsx2_update_chart_on_copy)] && \
+			$settings(next_src_clock) > 0 } {
+		$::home_espresso_graph element configure home_pressure_goal -xdata espresso_elapsed -ydata espresso_pressure_goal
+		$::home_espresso_graph element configure home_flow_goal  -xdata espresso_elapsed -ydata espresso_flow_goal
+		$::home_espresso_graph element configure home_temperature_goal -xdata espresso_elapsed -ydata skin_espresso_temperature_goal
+		$::home_espresso_graph element configure home_pressure -xdata espresso_elapsed -ydata espresso_pressure
+		$::home_espresso_graph element configure home_flow  -xdata espresso_elapsed -ydata espresso_flow
+		$::home_espresso_graph element configure home_weight  -xdata espresso_elapsed -ydata espresso_flow_weight
+		$::home_espresso_graph element configure home_temperature -xdata espresso_elapsed -ydata skin_espresso_temperature_basket
+		$::home_espresso_graph element configure home_resistance  -xdata espresso_elapsed -ydata espresso_resistance
+		$::home_espresso_graph element configure home_steps -xdata espresso_elapsed -ydata espresso_state_change	
+	}
 	
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
 	::save_settings
