@@ -2,6 +2,28 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.34] - 2024-01-19
+
+### New
+ - Favorite buttons now show a small icon on their right side to indicate the
+ type of favorite.
+ - Improve favorite example data descriptions:
+    - Don't show the data that is not to be copied.
+    - Show "&lt;blank&gt;" when it is to be copied but it is actually empty.
+    - Better descriptors for Workflow & Profile.
+- Improved validation of favorites:
+    - "Title" is required for fixed favorites, and can't be duplicated within
+   fixed favorites.
+    - "What to copy?" section requires at least one item enabled.
+    - Copy Workflow Settings disables Copy Workflow (and sets it to true)
+    - Copy Profile renamed to "Disk Profile" and "Full Profile" renamed to "Shot Profile",
+   and they are mutually exclusive.
+
+### Changed
+ - Fix bug that was showing brackets in recent-type favorites auto-title in the
+ Edit Favorite page.
+ - Fix runtime error when saving a fav changed from fixed to recent. Reported by Matt Bower.
+ 
 ## [2.33] - 2024-01-17
 
 ### New
