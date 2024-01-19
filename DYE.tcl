@@ -1859,9 +1859,11 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		}
 		
 		foreach field $::plugins::DYE::workflow_settings_vars($workflow) {
-			if { $::settings($field) != $src_shot($field) } {
-				set ::settings($field) $src_shot($field)
-				set settings_changed 1
+			if { [info exists src_shot($field)] } {
+				if { [value_or_default ::settings($field)] != $src_shot($field) } {
+					set ::settings($field) $src_shot($field)
+					set settings_changed 1
+				}
 			}
 		}
 	}
@@ -2180,7 +2182,7 @@ namespace eval ::plugins::DYE::favorites {
 		if { ![is_valid_n_fav $n_fav] } { return -1 }
 		
 		set recent_fav_number 0
-		for { set i 0 } { $i < $n_fav } { incr i 1 } {
+		for { set i 0 } { $i <= $n_fav } { incr i 1 } {
 			if {[fav_type $i] eq "n_recent"} {
 				incr recent_fav_number 1
 			}

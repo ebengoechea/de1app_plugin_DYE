@@ -1492,34 +1492,40 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			dui item enable $page {fav_copy_full_profile_lbl fav_copy_full_profile} -initial yes -current yes 
 			
 			# Load all recents up to the one we need
-			set recent_number [::plugins::DYE::favorites::recent_number $data(fav_number)]
-			if { [current_fav_type] eq "n_recent" } {
-				incr recent_number 1
+			set recent_idx [expr [::plugins::DYE::favorites::recent_number $data(fav_number)]-1]
+			if { $recent_idx < 0 } {
+				set recent_idx 0
+			}			
+			if { [current_fav_type] ne "n_recent" } {
+				incr recent_idx 1
 			}
 			if { [array size all_recent] == 0 } {
-				array set all_recent [::plugins::DYE::favorites::get_all_recent_descs_from_db $recent_number]
+				array set all_recent [::plugins::DYE::favorites::get_all_recent_descs_from_db \
+					[expr {$recent_idx+1}]]
 			}
-			if { [array size all_recent] == 0 } {
-				return {}
-			} elseif { [llength $all_recent([lindex [array names all_recent] 0])] <= $recent_number } {
-				set recent_number [llength $all_recent([lindex [array names all_recent] 0])]
-			}
-						
-			if { [info exists all_recent(last_clock)] } {
-				array set example_shot [::plugins::SDB::shots "*" 1 \
-					"clock=[lindex $all_recent(last_clock) [expr {$recent_number-1}]]" 1 {}]
-			} else {
-				msg -ERROR "change_fav_type: all_recent doesn't include last_clock"
-			}
-			foreach field_name $fav_fields {
-				if { [info exists example_shot($field_name)] } {
-					set data(fav_$field_name) [lindex $example_shot($field_name) 0]
-					set example_shot($field_name) [lindex $example_shot($field_name) 0]
+			if { [array size all_recent] > 0 } {
+				if { [llength $all_recent([lindex [array names all_recent] 0])] <= $recent_idx } {
+					set recent_idx [expr [llength $all_recent([lindex [array names all_recent] 0])]-1]
 				}
+				
+				if { [value_or_default all_recent(last_clock) 0] > 0 } {
+					array set example_shot [::plugins::SDB::shots "*" 1 \
+						"clock=[lindex $all_recent(last_clock) $recent_idx]" 1 {}]
+				} else {
+					msg -ERROR "change_fav_type: all_recent doesn't include last_clock"
+				}
+
+				foreach field_name $fav_fields {
+					if { [info exists example_shot($field_name)] } {
+						set data(fav_$field_name) [lindex $example_shot($field_name) 0]
+						set example_shot($field_name) [lindex $example_shot($field_name) 0]
+					}
+				}
+				
+				set data(fav_title) [::plugins::DYE::favorites::define_recent_title \
+					example_shot [expr {$recent_idx+1}]]
 			}
-			
-			set data(fav_title) [::plugins::DYE::favorites::define_recent_title example_shot $recent_number]
-			
+		
 			# Initialize the "What to copy" toggle booleans from the DYE settings
 			# (changes here apply for equal to ALL recent-type favorites)
 			foreach field_name $::plugins::DYE::settings(favs_n_recent_what_to_copy) {
@@ -1728,11 +1734,16 @@ msg -INFO "DYE validate what_to_copy=[get_what_to_copy]"
 		variable data
 		set page [namespace tail [namespace current]]
 		
+		if { $data(fav_profile_title) eq {} } {
+			set profile_title "<[translate {Blank}]>"
+		} else {
+			set profile_title [translate $data(fav_profile_title)]"
+		}
 		if { $data(fav_copy_full_profile)  } {
-			set desc "[translate {Recent shot version of }] [translate $data(fav_profile_title)]"
+			set desc "[translate {Recent shot version of }] $profile_title"
 		} elseif { $data(fav_copy_profile_title)  } {
 			set data(fav_copy_full_profile) 0
-			set desc "[translate {Disk version of }] [translate $data(fav_profile_title)]"
+			set desc "[translate {Disk version of }] $profile_title"
 		} else {
 			set desc ""
 		}
