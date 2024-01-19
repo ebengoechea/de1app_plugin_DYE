@@ -1259,6 +1259,9 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		fav_copy_drinker_name 0
 	}
 
+	# all_recent keeps an "updated" 12th recent favs from the DB, so they
+	# can be used as example data (e.g. if the data edited changes fav type).
+	# It's updated only once per page load, on the change_fav_type() proc. 
 	variable all_recent 
 	array set all_recent {}
 	
@@ -1422,7 +1425,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable all_recent
 		
 		set data(fav_number) $n_fav
-		set data(page_title) "[translate {Edit DYE Favorite}] #[expr $n_fav+1]"
+		set data(page_title) "[translate {Edit DYE Favorite}] #[expr $n_fav+1]"		
 		array set all_recent {} 
 		
 		# Load the current favorite data
@@ -1511,6 +1514,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			foreach field_name $fav_fields {
 				if { [info exists example_shot($field_name)] } {
 					set data(fav_$field_name) [lindex $example_shot($field_name) 0]
+					set example_shot($field_name) [lindex $example_shot($field_name) 0]
 				}
 			}
 			
