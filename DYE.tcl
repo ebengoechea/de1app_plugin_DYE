@@ -580,6 +580,7 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	variable settings
 	set skin $::settings(skin)
+	set isDSx2 [is_DSx2]
 	
 	# If the target dose or yield have been defined in the skin, ensure they are synchronized to next shot dose
 	if { $skin eq "DSx" } {
@@ -608,6 +609,22 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 		}
 		if { [return_zero_if_blank $::settings(grinder_setting)] > 0 && $settings(next_grinder_setting) ne $::settings(grinder_setting) } {
 			set settings(next_grinder_setting) $::settings(grinder_setting)
+		}
+	} elseif { $isDSx2 } {
+		if { [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 && $settings(next_grinder_dose_weight) != $::settings(grinder_dose_weight) } {
+			set settings(next_grinder_dose_weight) [round_to_one_digits $::settings(grinder_dose_weight)]
+		}
+		
+		if {$::settings(settings_profile_type) eq "settings_2c"} {
+			if { [return_zero_if_blank $::settings(final_desired_shot_weight_advanced)] > 0  && 
+					$settings(next_drink_weight) != $::settings(final_desired_shot_weight_advanced) } {
+				set settings(next_drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight_advanced)]
+			}
+		} else {
+			if { [return_zero_if_blank $::settings(final_desired_shot_weight)] > 0 && \
+					$settings(next_drink_weight) != $::settings(final_desired_shot_weight) } {
+				set settings(next_drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
+			}
 		}
 	}
 
@@ -676,7 +693,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	
 	# If on DSx2 with a source shot showing on the main graph, we need to point it again
 	# to last shot series
-	if { [is_DSx2] && [string is true $settings(dsx2_update_chart_on_copy)] && \
+	if { $isDSx2 && [string is true $settings(dsx2_update_chart_on_copy)] && \
 			$settings(next_src_clock) > 0 } {
 		$::home_espresso_graph element configure home_pressure_goal -xdata espresso_elapsed -ydata espresso_pressure_goal
 		$::home_espresso_graph element configure home_flow_goal  -xdata espresso_elapsed -ydata espresso_flow_goal
@@ -688,7 +705,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 		$::home_espresso_graph element configure home_resistance  -xdata espresso_elapsed -ydata espresso_resistance
 		$::home_espresso_graph element configure home_steps -xdata espresso_elapsed -ydata espresso_state_change	
 	}
-	
+
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
 	::save_settings
 	plugins save_settings DYE
@@ -698,11 +715,9 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 # TBD: NO LONGER NEEDED? define_last_shot_desc ALREADY DONE in reset_gui_starting_espresso_leave_hook,
 #	only useful if this is invoked from Insight's original Godshots/Describe Espresso pages.
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
-	msg -INFO [namespace current] save_espresso_to_history_hook
 	::plugins::DYE::define_last_shot_desc {} yes
+	# Updating recent favorites saves DYE settings
 	::plugins::DYE::favorites::update_recent
-	# Updating recent favorites already saves DYE settings
-	#plugins save_settings DYE
 }
 
 proc ::plugins::DYE::saver_page_onshow { args } {
@@ -1163,7 +1178,7 @@ proc ::plugins::DYE::load_next_shot { } {
 	}
 	
 	# Empty variables that should be undefined on next shot
-	foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds} {
+	foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds target_drink_weight} {
 		set shot_data($field_name) 0
 	}
 	
@@ -1879,6 +1894,8 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		}
 		::workflow $workflow
 	}
+	# On a NEXT shot, the drink_weight IS the target_drink_weight (SAW)
+	set src_shot(target_drink_weight) 0.0
 	
 	if { $isDSx2 && $load_workflow_settings } {
 		if { $::settings(steam_disabled) != $src_shot(steam_disabled) } {
@@ -2303,6 +2320,7 @@ namespace eval ::dui::pages::DYE {
 		profile_title {}
 		workflow {}
 		extraction_time 0
+		target_drink_weight 0
 		visualizer_status_label {}
 		warning_msg {}
 		apply_action_to {beans equipment ratio people}
@@ -2473,6 +2491,8 @@ proc ::dui::pages::DYE::setup {} {
 		-label [translate "Yield (g)"] -label_pos [list [expr {$x_right_field+$offset-20}] $y] -label_anchor ne -label_justify right \
 		-data_type numeric -editor_page yes -editor_page_title [translate "Edit final drink weight (g)"] \
 		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc
+	dui add variable $page [expr {$x_right_field+$offset+65}] [expr {$y+85}] -tags target_drink_weight \
+		-textvariable {SAW $%NS::data(target_drink_weight)g} -anchor center -justify center -font_size -4
 	
 	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
 	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ratio_and_time_label"
@@ -2481,7 +2501,7 @@ proc ::dui::pages::DYE::setup {} {
 		
 	# Total Dissolved Solids
 	set x_hclicker_field 2050
-	incr y 100	
+	incr y 125	
 	lassign [::plugins::SDB::field_lookup drink_tds {n_decimals min_value max_value default_value small_increment big_increment}] \
 		n_decimals min max default smallinc biginc
 	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Total Dissolved Solids (TDS)"] -tags {drink_tds_label drink_tds*}
@@ -2682,6 +2702,8 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 		
 		dui item enable_or_disable $is_not_next $page_to_show $cond_fields
 	}
+	
+	dui item show_or_hide $is_not_next $page_to_show target_drink_weight
 	
 	if { $is_not_next } {
 		set previous_shot [::plugins::SDB::previous_shot $data(clock)]
@@ -3165,7 +3187,7 @@ proc ::dui::pages::DYE::load_description {} {
 		array set shot [::plugins::SDB::load_shot $data(clock) 0 1 1]
 	}
 
-	set copy_fields [concat profile_title profile_filename extraction_time \
+	set copy_fields [concat profile_title profile_filename extraction_time target_drink_weight \
 			[metadata fields -domain shot -category description]]
 	
 	if { [array size shot] == 0 } {
@@ -3793,7 +3815,7 @@ proc ::dui::pages::DYE::calc_ratio_and_time_label {} {
 	
 	set data(ratio_and_time_label) ""
 	if { $data(grinder_dose_weight) > 0 && $data(drink_weight) > 0 } {
-		append data(ratio_and_time_label) "1 : [round_to_one_digits [expr {$data(drink_weight)/$data(grinder_dose_weight)}]]"
+		append data(ratio_and_time_label) "1:[round_to_one_digits [expr {$data(drink_weight)/$data(grinder_dose_weight)}]]"
 	}
 	if { $data(describe_which_shot) ne "next" && $data(extraction_time) > 0 } {
 		append data(ratio_and_time_label) " in [round_to_integer $data(extraction_time)] sec"
@@ -8256,7 +8278,7 @@ proc ::dui::pages::DYE_v3::setup_manage_page {  } {
 	setup_right_side_title $page "Manage shot"
 
 	dui add dbutton $page $x_label $y -tags archive_shot -style dyev3_action_half -label [translate "Archive"] \
-		-symbol archive
+		-symbol box-archive
 	
 	dui add dbutton $page [expr {$x_label+$btn_width+$btn_spacing}] $y -tags delete_shot -style dyev3_action_half \
 		-label [translate "Delete"] -symbol trash
