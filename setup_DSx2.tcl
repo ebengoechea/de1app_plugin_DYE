@@ -695,26 +695,34 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	
 		toggle_show_shot_desc
 
-#		# Add extra DYE inputs to the espresso settings page
-#		#set ::wf_dose_x 160
-#		# orig y 580
-#		set y 1100	
-#		dui add dtext $page [expr {840 + $::wf_dose_x}] $y -tags wf_heading_grinder_setting \
-#			-text [translate "Grinder setting"] -font [skin_font font_bold 18] -fill $::skin_text_colour -anchor center
-#		add_colour_button wf_grinder_setting_minus off [expr {730 + $::wf_dose_x}] [expr {$y+40}] 100 100 {\Uf106} \
-#			[list [namespace current]::adjust grinder_setting 1]
-#		set_button wf_grinder_setting_minus font [skin_font awesome_light [fixed_size 34]]
-##		add_colour_button wf_dose_plus off [expr 730 + $::wf_dose_x] 820 100 100 {\Uf107} {adjust dose -1}; set_button wf_dose_plus font [skin_font awesome_light [fixed_size 34]]
-##		add_colour_button wf_dose_minus_10 off [expr 850 + $::wf_dose_x] 620 100 100 {\Uf106} {adjust dose 0.1}; set_button wf_dose_minus_10 font [skin_font awesome_light [fixed_size 34]]
-##		add_colour_button wf_dose_plus_10 off [expr 850 + $::wf_dose_x] 820 100 100 {\Uf107} {adjust dose -0.1}; set_button wf_dose_plus_10 font [skin_font awesome_light [fixed_size 34]]
-##		dui add variable off [expr 840 + $::wf_dose_x] 770 -fill $::skin_text_colour  -font [skin_font font_bold 24] -tags wf_beans -anchor center -textvariable {[round_to_one_digits $::settings(grinder_dose_weight)]g}
-##		
-##		dui add dtext off [expr 840 - $::wf_dose_x] 580 -tags wf_heading_bean_cup -text [translate "Dose cup"] -font [skin_font font_bold 18] -fill $::skin_text_colour -anchor center
-##		add_colour_button wf_bean_cup_button off [expr 730 - $::wf_dose_x] 620 220 100 {$::skin(bean_cup_g)g} {set_bean_cup_weight}
-##		add_icon_button wf_info_button off [expr 630 - $::wf_dose_x] 620 100 100 {$::skin(icon_info)} {show_wf_espresso_info}
+		# Add extra DYE inputs to the espresso settings page
+		#set ::wf_dose_x 160
+		# orig y 580
+		set x $::wf_dose_x
+		set y 1050
+		dui add dtext $page [expr {$x+840}] $y -tags wf_heading_grinder_setting \
+			-text [translate "Grinder setting"] -font [skin_font font_bold 18] \
+			-fill $::skin_text_colour -anchor center -initial_state hidden
+		add_colour_button wf_grinder_setting_minus $page [expr {$x+730}] [expr {$y+40}] 100 100 {\Uf106} \
+			[list [namespace current]::adjust grinder_setting 1]
+		set_button wf_grinder_setting_minus font [skin_font awesome_light [fixed_size 34]]
+		add_colour_button wf_grinder_setting_plus $page [expr {$x+730}] [expr {$y+240}] 100 100 {\Uf107} \
+			[list [namespace current]::adjust grinder_setting 1]
+		set_button wf_grinder_setting_plus font [skin_font awesome_light [fixed_size 34]]
+		add_colour_button wf_grinder_setting_minus_10 $page [expr {$x+850}] [expr {$y+40}] 100 100 {\Uf106} \
+			[list [namespace current]::adjust grinder_setting 0.1] 
+		set_button wf_grinder_setting_minus_10 font [skin_font awesome_light [fixed_size 34]]
+		add_colour_button wf_grinder_setting_plus_10 $page [expr 850 + $::wf_dose_x] [expr {$y+240}] 100 100 {\Uf107} \
+			[list [namespace current]::adjust grinder_setting -0.1]
+		set_button wf_grinder_setting_plus_10 font [skin_font awesome_light [fixed_size 34]]
+		dui add variable $page [expr {$x+840}] [expr {$y+190}] -fill $::skin_text_colour \
+			-font [skin_font font_bold 24] -tags wf_grinder_setting -anchor center \
+			-textvariable {$::plugins::DYE::settings(next_grinder_setting)}
+#		
 		
-#		trace add execution ::show_espresso_settings leave ${ns}::show_espresso_settings_hook		
-
+		trace add execution ::show_espresso_settings leave ${ns}::show_espresso_settings_hook
+		trace add execution ::hide_espresso_settings leave ${ns}::hide_espresso_settings_hook
+		hide_espresso_settings_hook
 	}
 	
 	proc load { args } {
@@ -807,12 +815,32 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		}
 	}
 	
-#	proc show_espresso_settings_hook { args } {
-##		dui item show [lindex $::skin_home_pages 0] \
-##			{wf_heading_grinder_setting} -initial 1 -current 1
-#		#msg -INFO "DYE SHOWING wf_heading_grinder_setting"		
-#		dui item config off wf_heading_grinder_setting -initial_state normal -state normal
-#	}
+	proc show_espresso_settings_hook { args } {
+		set page [lindex $::skin_home_pages 0]
+		dui item show $page {wf_heading_grinder_setting wf_grinder_setting \
+			b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
+			b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
+			b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
+			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10} \
+			-initial yes -current yes
+		if { $::settings(grinder_setting) ne {} && ![string is double $::settings(grinder_setting)] } {
+			dui item disable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* \
+				b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
+				b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
+				b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
+				b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10} 
+		}
+	}
+
+	proc hide_espresso_settings_hook { args } {
+		set page [lindex $::skin_home_pages 0]
+		dui item hide $page {wf_heading_grinder_setting wf_grinder_setting \
+			b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
+			b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
+			b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
+			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10} \
+			-initial yes -current yes
+	}
 	
 	proc toggle_show_shot_desc { } {
 		variable main_graph_height
@@ -847,15 +875,16 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	
 	proc adjust { var change } {
 		if { $var eq "grinder_setting" } {
-			if { $::settings(grinder_setting) eq {} } {
-				set ::settings(grinder_setting) 0
+			if { $::plugins::DYE::settings(next_grinder_setting) eq {} } {
+				set ::plugins::DYE::settings(next_grinder_setting) 0
 			}
-			if { [string is double $::settings(grinder_setting)] } {
-				set ::settings(grinder_setting) [round_to_two_digits \
-					[expr {$::settings(grinder_setting) + $change}]]
-				::plugins::DYE::define_next_shot_desc
+			if { [string is double $::plugins::DYE::settings(next_grinder_setting)] } {
+				set ::plugins::DYE::settings(next_grinder_setting) [round_to_two_digits \
+					[expr {$::plugins::DYE::settings(next_grinder_setting) + $change}]]
 			}
 		}
+		
+		plugins save_settings DYE 
 	}
 	
 	proc set_scale_weight_to_dose_hook { args } {
