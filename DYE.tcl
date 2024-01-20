@@ -165,6 +165,9 @@ proc ::plugins::DYE::main {} {
 		trace add execution ::plugins::SDB::save_espresso_to_history_hook leave ::plugins::DYE::save_espresso_to_history_hook
 	}
 
+	# Screensaver icon
+	dui page add_action saver show ::plugins::DYE::saver_page_onshow
+	
 	# Initialize favorites
 	favorites::update_recent
 	
@@ -702,6 +705,15 @@ proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 	#plugins save_settings DYE
 }
 
+proc ::plugins::DYE::saver_page_onshow { args } {
+	# Shows or hides the DYE button on the sleep screen.
+	# Note that -initial_state doesn't work correctly on the saver page,
+	#	that's why we need to add this page action.
+	if { [dui page has_item saver saver_to_dye] } {
+		dui item show_or_hide [string is true $::plugins::DYE::settings(describe_from_sleep)] \
+			saver saver_to_dye*  
+	}	
+}
 
 # Formats shot descriptions into multiple-line strings.
 # 'lines_spec' is a list of parts to include, with each list element being a line of what to include in that line,
@@ -7549,19 +7561,9 @@ proc ::dui::pages::DYE_settings::reset_next_plan_change {} {
 }
 
 proc ::dui::pages::DYE_settings::describe_from_sleep_change {} {
-	if { [info exists ::plugins::DYE::widgets(describe_from_sleep_symbol)] } {
-		if { $::plugins::DYE::settings(describe_from_sleep) == 1 } {
-			.can itemconfig $::plugins::DYE::widgets(describe_from_sleep_symbol) \
-				-text $::plugins::DYE::settings(describe_icon)
-			.can coords $::plugins::DYE::widgets(describe_from_sleep_button) [rescale_x_skin 230] [rescale_y_skin 0] \
-				[rescale_x_skin 460] [rescale_y_skin 230]
-		} else {
-			.can itemconfig $::plugins::DYE::widgets(describe_from_sleep_symbol) -text ""
-			.can coords $::plugins::DYE::widgets(describe_from_sleep_button) 0 0 0 0
-		}
-	}
 	plugins save_settings DYE
 }
+
 	
 proc ::dui::pages::DYE_settings::backup_modified_shot_files_change {} {	
 	plugins save_settings DYE

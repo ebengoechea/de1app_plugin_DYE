@@ -2,6 +2,8 @@ package require struct::list
 
 proc ::plugins::DYE::setup_ui_DSx2 {} {
 	variable settings
+	variable widgets
+	
 	DSx2_setup_dui_theme
 	
 	# DSx2 HOME PAGES UI INTEGRATION
@@ -10,12 +12,24 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		return
 	}
 
-	# Add new pages
+	# NEW PAGES
 	dui page add dsx2_dye_favs -namespace true -type fpdialog
 	dui page add dsx2_dye_edit_fav -namespace true -type fpdialog
 	
 	# Modify DSx2 home page(s) to adapt to DYE UI widgets and workflow
 	::dui::pages::dsx2_dye_home::setup
+	
+	# SCREENSAVER 
+	# Makes the left side of the app screensaver clickable so that you can describe your 
+	# last shot without waking up the DE1.
+	set sleep_describe_button_coords [value_or_default \
+		settings(DSx2_sleep_describe_button_coords) {240 40 380 180}]
+
+	dui add dbutton saver {*}$sleep_describe_button_coords -tags saver_to_dye -shape round \
+		-radius 30 -fill #333 -symbol $settings(describe_icon) -symbol_pos {0.52 0.4} \
+		-symbol_anchor center -symbol_justify center -symbol_fill #666 -symbol_font_size 32 \
+		-label [translate "DYE"] -label_pos {0.46 0.8} -label_anchor center -label_justify center \
+		-label_fill #666 -label_font_size 14 -command {::plugins::DYE::open -which_shot last}
 }
 
 proc ::plugins::DYE::DSx2_setup_dui_theme { } {
