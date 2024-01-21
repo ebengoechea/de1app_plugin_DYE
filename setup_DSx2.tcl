@@ -632,7 +632,13 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	variable main_graph_height
 	set main_graph_height [rescale_y_skin 840]
 	
+	variable data
+	array set data {
+		days_offroast_msg {}
+	}
+	
 	proc setup {} {
+		variable data
 		variable main_graph_height 
 		
 		set page [lindex $::skin_home_pages 0]
@@ -696,29 +702,62 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		toggle_show_shot_desc
 
 		# Add extra DYE inputs to the espresso settings page
-		#set ::wf_dose_x 160
-		# orig y 580
-		set x $::wf_dose_x
-		set y 1050
-		dui add dtext $page [expr {$x+840}] $y -tags wf_heading_grinder_setting \
+		set y 1080
+				
+		set x 200
+		dui add dtext $page [expr {$x+580/2}] $y -tags wf_heading_beans \
+			-text [translate "Beans"] -font [skin_font font_bold 18] \
+			-fill $::skin_text_colour -anchor center -initial_state hidden
+		dui add dbutton $page $x [expr {$y+40}] -bwidth 580 -bheight 100 -tags wf_dye_beans \
+			-shape round_outline -fill $::skin_text_colour -outline $::skin_forground_colour \
+			-labelvariable {[maxstring "$::plugins::DYE::settings(next_bean_brand) $::plugins::DYE::settings(next_bean_type)" 30]} \
+			-label_font [skin_font font 16] -command [namespace current]::select_beans \
+			-initial_state hidden
+
+		# Grinder model
+		dui add dtext $page [expr {$x+580/2}] [expr {$y+200}] -tags wf_heading_grinder \
+			-text [translate "Grinder"] -font [skin_font font_bold 18] \
+			-fill $::skin_text_colour -anchor center -initial_state hidden
+		dui add dbutton $page $x [expr {$y+240}] -bwidth 580 -bheight 100 -tags wf_grinder \
+			-shape round_outline -fill $::skin_text_colour -outline $::skin_forground_colour \
+			-labelvariable {[maxstring "$::plugins::DYE::settings(next_grinder_model)" 30]} \
+			-label_font [skin_font font 16] -command [namespace current]::select_grinder \
+			-initial_state hidden
+
+		# Roast date
+		set x 1000 
+		dui add dtext $page $x $y -tags wf_heading_roast_date \
+			-text [translate "Roast date"] -font [skin_font font_bold 18] \
+			-fill $::skin_text_colour -anchor center -justify center -initial_state hidden
+		set w [dui add entry $page [expr {$x-115}] [expr {$y+55}] -tags wf_roast_date -width 10 \
+			-justify center -textvariable ::plugins::DYE::settings(next_roast_date)]
+		bind $w <Leave> [list + [namespace current]::compute_days_offroast]
+		
+		dui add variable $page $x [expr {$y+140}] -tags wf_days_offroast -width 250 \
+			-textvariable {$::dui::pages::dsx2_dye_home::data(days_offroast_msg)} -font [skin_font font 16] \
+			-fill $::skin_text_colour -anchor n -justify center -initial_state hidden
+		
+		# Grinder setting
+		set x 1340
+		dui add dtext $page $x $y -tags wf_heading_grinder_setting \
 			-text [translate "Grinder setting"] -font [skin_font font_bold 18] \
 			-fill $::skin_text_colour -anchor center -initial_state hidden
-		add_colour_button wf_grinder_setting_minus $page [expr {$x+730}] [expr {$y+40}] 100 100 {\Uf106} \
-			[list [namespace current]::adjust grinder_setting 1]
+		add_colour_button wf_grinder_setting_minus $page [expr {$x-110}] [expr {$y+40}] 100 100 {\Uf106} \
+			[list [namespace current]::adjust grinder_setting -0.10]
 		set_button wf_grinder_setting_minus font [skin_font awesome_light [fixed_size 34]]
-		add_colour_button wf_grinder_setting_plus $page [expr {$x+730}] [expr {$y+240}] 100 100 {\Uf107} \
-			[list [namespace current]::adjust grinder_setting 1]
+		add_colour_button wf_grinder_setting_plus $page [expr {$x-110}] [expr {$y+240}] 100 100 {\Uf107} \
+			[list [namespace current]::adjust grinder_setting 0.10]
 		set_button wf_grinder_setting_plus font [skin_font awesome_light [fixed_size 34]]
-		add_colour_button wf_grinder_setting_minus_10 $page [expr {$x+850}] [expr {$y+40}] 100 100 {\Uf106} \
-			[list [namespace current]::adjust grinder_setting 0.1] 
+		add_colour_button wf_grinder_setting_minus_10 $page [expr {$x+10}] [expr {$y+40}] 100 100 {\Uf106} \
+			[list [namespace current]::adjust grinder_setting 0.05] 
 		set_button wf_grinder_setting_minus_10 font [skin_font awesome_light [fixed_size 34]]
-		add_colour_button wf_grinder_setting_plus_10 $page [expr 850 + $::wf_dose_x] [expr {$y+240}] 100 100 {\Uf107} \
-			[list [namespace current]::adjust grinder_setting -0.1]
+		add_colour_button wf_grinder_setting_plus_10 $page [expr {$x+10}] [expr {$y+240}] 100 100 {\Uf107} \
+			[list [namespace current]::adjust grinder_setting -0.05]
 		set_button wf_grinder_setting_plus_10 font [skin_font awesome_light [fixed_size 34]]
-		dui add variable $page [expr {$x+840}] [expr {$y+190}] -fill $::skin_text_colour \
+		dui add variable $page $x [expr {$y+190}] -fill $::skin_text_colour \
 			-font [skin_font font_bold 24] -tags wf_grinder_setting -anchor center \
 			-textvariable {$::plugins::DYE::settings(next_grinder_setting)}
-#		
+
 		
 		trace add execution ::show_espresso_settings leave ${ns}::show_espresso_settings_hook
 		trace add execution ::hide_espresso_settings leave ${ns}::hide_espresso_settings_hook
@@ -749,6 +788,8 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			# Updates e.g. the profile title in the next shot desc if coming from a profile switch
 			::plugins::DYE::define_next_shot_desc
 		}
+		
+		::dui::pages::dsx2_dye_home::compute_days_offroast
 		
 		return 1
 	}
@@ -817,12 +858,15 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	
 	proc show_espresso_settings_hook { args } {
 		set page [lindex $::skin_home_pages 0]
-		dui item show $page {wf_heading_grinder_setting wf_grinder_setting \
+		dui item show $page {wf_heading_beans wf_dye_beans* wf_heading_roast_date wf_roast_date* \
+			wf_days_offroast wf_heading_grinder wf_grinder* \
+			wf_heading_grinder_setting wf_grinder_setting \
 			b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
 			b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
 			b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
-			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10} \
+			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10 } \
 			-initial yes -current yes
+		 
 		if { $::settings(grinder_setting) ne {} && ![string is double $::settings(grinder_setting)] } {
 			dui item disable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* \
 				b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
@@ -830,16 +874,29 @@ namespace eval ::dui::pages::dsx2_dye_home {
 				b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
 				b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10} 
 		}
+		
+		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
+			dui item show $page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg launch_dye*} \
+				-initial yes -current yes
+		}
+		::dui::pages::dsx2_dye_home::compute_days_offroast
 	}
 
 	proc hide_espresso_settings_hook { args } {
 		set page [lindex $::skin_home_pages 0]
-		dui item hide $page {wf_heading_grinder_setting wf_grinder_setting \
+		dui item hide $page {wf_heading_beans wf_dye_beans* wf_heading_roast_date wf_roast_date* \
+			wf_days_offroast wf_heading_grinder wf_grinder* \
+			wf_heading_grinder_setting wf_grinder_setting \
 			b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
 			b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
 			b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
-			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10} \
+			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10 } \
 			-initial yes -current yes
+		
+		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
+			dui item hide $page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg launch_dye*} \
+				-initial yes -current yes
+		}
 	}
 	
 	proc toggle_show_shot_desc { } {
@@ -874,17 +931,190 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	}
 	
 	proc adjust { var change } {
+		variable ::plugins::DYE::settings
 		if { $var eq "grinder_setting" } {
-			if { $::plugins::DYE::settings(next_grinder_setting) eq {} } {
+			if { $settings(next_grinder_setting) eq {} } {
 				set ::plugins::DYE::settings(next_grinder_setting) 0
 			}
-			if { [string is double $::plugins::DYE::settings(next_grinder_setting)] } {
+			if { [string is double $settings(next_grinder_setting)] } {
 				set ::plugins::DYE::settings(next_grinder_setting) [round_to_two_digits \
-					[expr {$::plugins::DYE::settings(next_grinder_setting) + $change}]]
+					[expr {$settings(next_grinder_setting) + $change}]]
 			}
 		}
 		
 		plugins save_settings DYE 
+	}
+	
+	proc select_beans {} {
+		variable ::plugins::DYE::settings
+		say "" $::settings(sound_button_in)
+		
+		set selected [string trim "$settings(next_bean_brand) $settings(next_bean_type) $settings(next_roast_date)"]
+		regsub -all " +" $selected " " selected
+	
+		dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
+			-theme [dui theme get] -page_title "Select the beans batch" -selected $selected \
+			-return_callback [namespace current]::select_beans_callback \
+			-listbox_width 1700
+	}
+	
+	proc select_beans_callback { clock bean_desc item_type } {
+		variable ::plugins::DYE::settings
+		dui page show [lindex $::skin_home_pages 0]
+			
+		if { $bean_desc ne "" } {
+			set db ::plugins::SDB::get_db
+			db eval {SELECT bean_brand,bean_type,roast_date,roast_level,bean_notes FROM V_shot \
+					WHERE clock=(SELECT MAX(clock) FROM V_shot WHERE bean_desc=$bean_desc)} {
+				set settings(next_bean_brand) $bean_brand
+				set settings(next_bean_type) $bean_type
+				set settings(next_roast_date) $roast_date
+				set settings(next_roast_level) $roast_level
+				set settings(next_bean_notes) $bean_notes
+			}			
+			plugins::save_settings DYE
+		}
+		::dui::pages::dsx2_dye_home::compute_days_offroast
+	}	
+	
+	# TODO: Refactor this calculation into its own general proc in ::plugins::DYE
+	proc compute_days_offroast { {reformat 1} } {
+		variable ::plugins::DYE::settings
+		variable data
+		
+		set roast_date [string trim $settings(next_roast_date)]		
+		if { $roast_date eq "" } {
+			set data(days_offroast_msg) ""
+			return
+		} 
+			
+		set fmt $settings(date_input_format)
+		if { $fmt ni {MDY DMY YMD} } {
+			set fmt "MDY"
+		}
+		
+		set roast_date [regsub -all {[^0-9[:alpha:]]} $roast_date -]
+		set roast_date [regsub -all {\-+} $roast_date -]
+		set roast_date_parts [list_remove_element [split $roast_date -] ""]
+		
+		if { [llength $roast_date_parts] == 1 } {
+			set day [lindex $roast_date_parts 0]
+			set month {}
+			set year {}
+		} elseif { [llength $roast_date_parts] == 2 } {
+			if { $fmt eq "DMY" } {
+				set day [lindex $roast_date_parts 0]
+				set month [lindex $roast_date_parts 1]
+				set year {}
+			} else {
+				set day [lindex $roast_date_parts 1]
+				set month [lindex $roast_date_parts 0]
+				set year {}	
+			}
+		} else {
+			if { $fmt eq "DMY" } {
+				set day [lindex $roast_date_parts 0]
+				set month [lindex $roast_date_parts 1]
+				set year [lindex $roast_date_parts 2]
+			} elseif { $fmt eq "YMD" } {
+				set day [lindex $roast_date_parts 2]
+				set month [lindex $roast_date_parts 1]
+				set year [lindex $roast_date_parts 0]
+			} else {
+				set day [lindex $roast_date_parts 1]
+				set month [lindex $roast_date_parts 0]
+				set year [lindex $roast_date_parts 2]
+			}
+		}
+		
+		if { $month ne "" && ![string is integer [scan $month %d]] } {
+			set month [lsearch -nocase {jan feb mar apr may jun jul aug sep oct nov dec} [string range $month 0 2]]
+			if { $month == -1 } {
+				set month {}
+			} else {
+				incr month
+			}
+		}
+		
+		set ref_date [clock seconds]
+		
+		if { $month eq "" } {
+			if { $day <= [clock format $ref_date -format %d] } {
+				set month [clock format $ref_date -format %N]
+				set year [clock format $ref_date -format %Y]
+			} elseif { [clock format $ref_date -format %N] == 1 } {
+				set month 12
+				set year [expr {[clock format $ref_date -format %Y]-1}]
+			} else {
+				set month [expr {[clock format $ref_date -format %N]-1}]
+				set year [clock format $ref_date -format %Y]
+			}
+		} elseif { $year eq "" } {
+			set daymonth_thisyear ""
+			catch {
+				set daymonth_thisyear [clock scan "${day}.${month}.[clock format $ref_date -format %Y]" -format "%d.%m.%Y"]
+			}
+			if { $daymonth_thisyear ne "" && $daymonth_thisyear > $ref_date } {
+				set year [expr {[clock format $ref_date -format %Y]-1}]
+			} else {
+				set year [clock format $ref_date -format %Y]
+			}
+		}
+	
+		if { $year > 1900 } {
+			set year_fmt "%Y"
+		} else {
+			set year_fmt "%y"
+		}
+		
+		set roast_clock ""
+		set data(days_offroast_msg) ""
+		try {
+			set roast_clock [clock scan "${day}.${month}.${year}" -format "%d.%m.${year_fmt}"]
+		} on error err {
+			msg -NOTICE [namespace current] compute_days_offroast: "can't parse roast date '$roast_date' as '${day}.${month}.${year}': $err"
+		}
+		
+		if { $roast_clock ne "" } {
+			if { [string is true $reformat] } {
+				set reformatted_date [clock format $roast_clock -format [::plugins::DYE::roast_date_format]]
+				set reformatted_date [regsub -all {[[:space:]]+} [string trim $reformatted_date] " "]
+				if { [llength $roast_date_parts] > 3 } {
+					append reformatted_date " [join [lrange $roast_date_parts 3 end] { }]"
+				}
+				set settings(next_roast_date) $reformatted_date
+			}
+			
+			set days [expr {int(($ref_date-$roast_clock)/(24.0*60.0*60.0))}]
+			if { $days >= 0 } {
+				set data(days_offroast_msg) [::plugins::DYE::singular_or_plural $days {day off-roast} {days off-roast}]
+			} else {
+				set data(days_offroast_msg) [translate {Date in the future!}]
+			}
+		}
+	}
+	
+	proc select_grinder { } {
+		variable ::plugins::DYE::settings
+		say "" $::settings(sound_button_in)
+		
+		dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories grinder_model] \
+			-theme [dui theme get] -page_title "Select the grinder model" \
+			-selected [string trim $settings(next_grinder_model)] \
+			-return_callback [namespace current]::select_grinder_callback \
+			-listbox_width 1200		
+	}
+	
+	proc select_grinder_callback { value id type } {
+		variable ::plugins::DYE::settings
+		variable data
+		dui page show [lindex $::skin_home_pages 0]
+		
+		if { $value ne "" && $settings(next_grinder_model) ne $value} {
+			set settings(next_grinder_model) $value
+			plugins::save_settings DYE
+			#grinder_model_change
+		}
 	}
 	
 	proc set_scale_weight_to_dose_hook { args } {

@@ -3010,6 +3010,8 @@ proc ::dui::pages::DYE::compute_days_offroast { {reformat 1} } {
 		set days [expr {int(($ref_date-$roast_clock)/(24.0*60.0*60.0))}]
 		if { $days >= 0 } {
 			set data(days_offroast_msg) [::plugins::DYE::singular_or_plural $days {day off-roast} {days off-roast}]
+		} else {
+			set data(days_offroast_msg) [translate {Date in the future!}]
 		}
 	}
 }
