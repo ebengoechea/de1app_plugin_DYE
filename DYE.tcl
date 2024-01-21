@@ -402,6 +402,10 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 	ifexists settings(dsx2_n_visible_dye_favs) 4
 	ifexists settings(dsx2_update_chart_on_copy) 1
 	ifexists settings(next_src_clock) 0
+	
+	if { ![info exists settings(grinders_spec)] } {
+		set settings(grinders_spec) [infer_grinder_spec]
+	}
 }
 
 proc ::plugins::DYE::upgrade { previous_version } {
@@ -1447,6 +1451,104 @@ proc ::plugins::DYE::roast_date_format {} {
 	} else {
 		return "%m.%d.%Y"
 	}
+}
+
+proc ::plugins::DYE::infer_grinder_spec { {grinder_model {}} } {
+	if { $grinder_model eq {} } {
+		array set result {}
+		set grinders [::plugins::SDB::available_categories grinder_model 1 {} 0 "grinder_model"]
+		foreach g $grinders {
+			set result($g) [infer_grinder_spec $g]
+		}
+		return [array get result]
+	}
+	
+	set grinder_settings [::plugins::SDB::available_categories grinder_setting 1 \
+		" grinder_model=[::plugins::SDB::string2sql $grinder_model]" 0 "grinder_setting"]
+	
+	if { [llength $grinder_settings] > 0 } {
+		set max_setting [lindex $grinder_settings 0]
+		set min_setting [lindex $grinder_settings 0]
+		set is_num 1
+		set n_dec 0
+		set max_dec 0
+		set min_step 100000.0
+		
+		for { set i 0 } { $i < [llength $grinder_settings] } { incr i 1 } {
+			set setting [string trim [lindex $grinder_settings $i]]
+			set is_num [expr {$is_num && [string is double $setting]}]
+						
+			if { $is_num } {
+				if { $setting > $max_setting } {
+					set max_setting $setting
+				} elseif { $setting < $min_setting } {
+					set min_setting $setting
+				}
+				
+				if { $i > 0 } {
+					set step [expr {abs([lindex $grinder_settings [expr {$i-1}]]-$setting)}]
+					if { $step < $min_step } {
+						set min_step $step
+					}
+				}
+				set dot_idx [string first "." $setting]
+				if { $dot_idx > -1 } {
+					set n_dec [expr {[string length $setting]-$dot_idx}]
+					if { $n_dec > $max_dec } {
+						set max_dec $n_dec
+					}
+				}
+			}
+		}
+		
+		if { $is_num } {
+			if { $min_step >= 100000 || $min_step <= 0.0 } {
+				set min_step 0.1
+			}
+	
+			if { $min_step < 1.0 } {
+				set big_step 1
+			} elseif { $min_step < 10.0 } {
+				set big_step 10
+			} else {
+				set big_step 100
+			}
+
+			if { $max_dec == 0 } {
+				set min_step [round_to_integer $min_step]
+				set big_step [round_to_integer $big_step]
+				set min_setting [round_to_integer $min_setting]
+				set max_setting [round_to_integer $max_setting]
+			} elseif { $max_dec == 1 } {
+				set min_step [round_to_one_digits $min_step]
+				set big_step [round_to_one_digits $big_step]
+				set min_setting [round_to_one_digits $min_setting]
+				set max_setting [round_to_one_digits $max_setting]
+			} else {
+				set min_step [round_to_two_digits $min_step]
+				set big_step [round_to_two_digits $big_step]
+				set min_setting [round_to_two_digits $min_setting]
+				set max_setting [round_to_two_digits $max_setting]
+			}
+			
+			set grinder_settings [lsort -real -increasing $grinder_settings]
+			if { $min_setting == 0.0 && [llength $grinder_settings] > 1 && \
+					[lindex $grinder_settings 1] > [expr {$min_step * 4.0}] } {
+				set min_setting [lindex $grinder_settings 1]
+			}
+			
+			# INCLUDE values ONLY while debugging
+			set result [list is_numeric 1 min $min_setting max $max_setting \
+				n_dec $n_dec small_step $min_step big_step $big_step values $grinder_settings]
+		} else {
+			set result [list is_numeric 0 values [lsort -dictionary -increasing $grinder_settings]]
+		}
+		
+		return $result
+	} else {
+		return [list]
+	}
+	
 }
 
 proc ::plugins::DYE::setup_tk_text_profile_tags { widget {compact 0} } {
