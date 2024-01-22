@@ -702,7 +702,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		toggle_show_shot_desc
 
 		# Add extra DYE inputs to the espresso settings page
-		set y 1080
+		set y 1110
 				
 		set x 200
 		dui add dtext $page [expr {$x+580/2}] $y -tags wf_heading_beans \
@@ -743,21 +743,20 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			-text [translate "Grinder setting"] -font [skin_font font_bold 18] \
 			-fill $::skin_text_colour -anchor center -initial_state hidden
 		add_colour_button wf_grinder_setting_minus $page [expr {$x-110}] [expr {$y+40}] 100 100 {\Uf106} \
-			[list [namespace current]::adjust grinder_setting -0.10]
+			[list [namespace current]::change_grinder_setting plus_big]
 		set_button wf_grinder_setting_minus font [skin_font awesome_light [fixed_size 34]]
 		add_colour_button wf_grinder_setting_plus $page [expr {$x-110}] [expr {$y+240}] 100 100 {\Uf107} \
-			[list [namespace current]::adjust grinder_setting 0.10]
+			[list [namespace current]::change_grinder_setting minus_big]
 		set_button wf_grinder_setting_plus font [skin_font awesome_light [fixed_size 34]]
 		add_colour_button wf_grinder_setting_minus_10 $page [expr {$x+10}] [expr {$y+40}] 100 100 {\Uf106} \
-			[list [namespace current]::adjust grinder_setting 0.05] 
+			[list [namespace current]::change_grinder_setting plus_small] 
 		set_button wf_grinder_setting_minus_10 font [skin_font awesome_light [fixed_size 34]]
 		add_colour_button wf_grinder_setting_plus_10 $page [expr {$x+10}] [expr {$y+240}] 100 100 {\Uf107} \
-			[list [namespace current]::adjust grinder_setting -0.05]
+			[list [namespace current]::change_grinder_setting minus_small]
 		set_button wf_grinder_setting_plus_10 font [skin_font awesome_light [fixed_size 34]]
 		dui add variable $page $x [expr {$y+190}] -fill $::skin_text_colour \
 			-font [skin_font font_bold 24] -tags wf_grinder_setting -anchor center \
 			-textvariable {$::plugins::DYE::settings(next_grinder_setting)}
-
 		
 		trace add execution ::show_espresso_settings leave ${ns}::show_espresso_settings_hook
 		trace add execution ::hide_espresso_settings leave ${ns}::hide_espresso_settings_hook
@@ -815,6 +814,8 @@ namespace eval ::dui::pages::dsx2_dye_home {
 				dui item config $main_home_page {launch_dye_last* launch_dye_next*} -state hidden
 			}
 		}
+		
+		ensure_valid_grinder_spec 
 	}
 	
 	proc show_graph_hook { args } {
@@ -930,20 +931,89 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		::plugins::DYE::define_next_shot_desc	
 	}
 	
-	proc adjust { var change } {
-		variable ::plugins::DYE::settings
-		if { $var eq "grinder_setting" } {
-			if { $settings(next_grinder_setting) eq {} } {
-				set ::plugins::DYE::settings(next_grinder_setting) 0
+	# change needs to be one of plus_small, plus_big, minus_small or minus_big.
+	proc change_grinder_setting { change } {
+		set page [lindex $::skin_home_pages 0]
+		array set spec [::plugins::DYE::grinders::get_spec]
+		if { [array size spec] == 0 } {
+			# Shouldn't happen if ensure_valid_grinder_spec has been used
+			return
+		}
+		
+		dui item enable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
+			b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
+			b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
+			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10}
+		
+		set setting $::plugins::DYE::settings(next_grinder_setting)
+		if { $setting eq {} } {
+			set setting [value_or_default spec(default) 1.5]
+		}
+		
+		if { [string is true [value_or_default spec(is_numeric) 1]] } {
+			switch $change \
+				plus_big {
+					set setting [expr {$setting + [ifexists spec(big_step) 1]}]
+				} plus_small {
+					set setting [expr {$setting + [ifexists spec(small_step) 0.1]}]
+				} minus_big {
+					set setting [expr {$setting - [ifexists spec(big_step) 1]}]
+				} minus_small {
+					set setting [expr {$setting - [ifexists spec(small_step) 0.1]}]
+				}
+			
+			if { $setting < [ifexists spec(min) 0.0] } {
+				set setting $spec(min)
+				dui item disable $page {b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
+					b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10}
+			} elseif { $setting > [ifexists spec(max) 50.0] } {	
+				set setting $spec(max)
+				dui item disable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
+					b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10}
 			}
-			if { [string is double $settings(next_grinder_setting)] } {
-				set ::plugins::DYE::settings(next_grinder_setting) [round_to_two_digits \
-					[expr {$settings(next_grinder_setting) + $change}]]
+			
+			set max_dec [value_or_default spec(max_dec) 2]
+			if { $max_dec == 0 } {
+				set setting [round_to_integer $setting]
+			} elseif { $max_dec == 1 } {
+				set setting [round_to_one_digits $setting]
+			} else {
+				set setting [round_to_two_digits $setting]
+			}
+		} else {
+			set values [value_or_default spec(values) {}]
+			if { [llength $values] > 0 } {
+				set setting_idx [lsearch $values $setting]
+				if { $setting_idx > -1 } {
+					switch $change \
+						plus_big {
+							incr setting_idx 2
+						} plus_small {
+							incr setting_idx 1
+						} minus_big {
+							incr setting_idx -2
+						} minus_small {
+							incr setting_idx -1
+						}
+					if { $setting_idx < 0 } {
+						set setting_idx 0
+						dui item disable $page {b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
+								b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10}						
+					} elseif { $setting_idx >= [llength $values] } {
+						set setting_idx [expr {[llength $values]-1}]
+						dui item disable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
+							b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10}
+					} 
+					set setting [lindex $values $setting_idx]
+				} else {
+					set setting [value_or_default spec(default) [lindex $values 0]]
+				}
 			}
 		}
 		
-		plugins save_settings DYE 
-	}
+		set ::plugins::DYE::settings(next_grinder_setting) $setting
+		plugins save_settings DYE
+	}	
 	
 	proc select_beans {} {
 		variable ::plugins::DYE::settings
@@ -1112,9 +1182,36 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		
 		if { $value ne "" && $settings(next_grinder_model) ne $value} {
 			set settings(next_grinder_model) $value
+			
+			ensure_valid_grinder_spec 
+			array set spec [::plugins::DYE::grinders::get_spec $value]
+			if { [info exists spec(default)] } {
+				set settings(next_grinder_setting) $spec(default)
+			}
+
 			plugins::save_settings DYE
 			#grinder_model_change
 		}
+	}
+	
+	proc ensure_valid_grinder_spec {} {
+		set page [lindex $::skin_home_pages 0]
+		set grinder $::plugins::DYE::settings(next_grinder_model)
+		array set spec [::plugins::DYE::grinders::get_spec $grinder]
+		if { [array size spec] == 0 } {
+			dui item disable $page {wf_heading_grinder_setting wf_grinder_setting \
+				b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
+				b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
+				b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
+				b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10 }
+			msg -NOTICE [namespace current] "::select_grinder_callback: no spec for next grinder model '$grinder'"
+		} else {
+			dui item enable $page {wf_heading_grinder_setting wf_grinder_setting \
+				b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
+				b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
+				b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
+				b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10 }
+		}	
 	}
 	
 	proc set_scale_weight_to_dose_hook { args } {

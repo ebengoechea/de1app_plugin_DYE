@@ -2059,26 +2059,34 @@ namespace eval ::plugins::DYE::grinders {
 		set fn [specs_file]
 		if { [file exists $fn] } {
 			set grinders_file_contents [encoding convertfrom utf-8 [read_binary_file $fn]]
-			if {[string length $grinders_file_contents] != 0} {
+			if {[string length $grinders_file_contents] > 0} {
 				catch {
-					array set specs $settings_file_contents
+					array set specs $grinders_file_contents
+				}
+				if { [array size specs] == 0 } {
+					msg -NOTICE[namespace current] "::load_specs: can't load grinders specs"
+					return 0
+				} else {
 					return 1
 				}
-				return 0
-				
 			}
 		}
-		msg -INFO [namespace current] "Grinders specs file '$fn' not found"
+		msg -NOTICE [namespace current] "::load_specs: grinders specs file '$fn' not found or empty"
 		return 0
 	}
 	
 	proc get_spec { {grinder_model {}} } {
 		variable specs
 		if { $grinder_model eq {} } {
-			set grinder_spec $::plugins::DYE::settings(next_grinder_model)
+			set grinder_model $::plugins::DYE::settings(next_grinder_model)
 		}
 		
-		return $specs($grinder_model)
+		if { [info exists specs($grinder_model)] } {
+			return $specs($grinder_model)
+		} else {
+			msg -NOTICE [namespace current] "::get_spec: grinder model '$grinder_model' not found"
+			return {}
+		}
 	}
 }
 
