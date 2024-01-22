@@ -2,6 +2,39 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.36] - 2024-01-22
+
+### New
+ - New shot field **target_drink_weight** stores the SAW value 
+ for each shot, in addition to the cup yield (``drink_weight``).
+ - Add DYE icon button on **DSx2 app sleep screensaver**.
+ It is also now shown for past shots in the DYE page, below the yield.
+ - **"DYE next shot metadata" widgets added to DSx2 espresso settings page**:
+    - Beans
+    - Roast date
+    - Grinder model
+    - Grinder setting
+ - Show the DYE button on DSx2 top GHC functions row when entering
+ the espresso settings page if it's not visible because the shot
+ descriptions are shown below the graph.
+ - New settings file ``grinders.tdb`` stores the specification of each
+ user grinder. It is initialized using data from the database. 
+ The spec is used for the grinder setting widget in DSx2 espresso setting page.
+ A new namespace ``::plugins::DYE::grinders`` created to 
+ group all grinder-related code.
+ 
+### Changed
+ - Change how DYE icon on sleep screensavers is shown/hidden.
+ - Users can redefine where the DYE icon on screensavers is placed
+ on each skin, in case it conflicts with other buttons. Just define
+ "<skin>_sleep_describe_button_coords" (a 4-coordinates list) in the 
+ DYE settings file.
+ - Propagation mechanism for ``drink_weight`` modified as
+ ``target_drink_weight`` is available. Last shot  _target_  is 
+ what is now propagated into next shot drink.
+- Change series names from ``skin_espresso_temperature_basket`` to ``espresso_temperature_basket10th`` and ``skin_espresso_temperature_goal`` to ``espresso_temperature_goal10th`` in DSx2 graph resetting, 
+as the new ones have been added by John and the older ones will no longer be supported by DSx2.
+
 ## [2.35] - 2024-01-19
 
 ### Changed
@@ -168,6 +201,7 @@ Thanks to Dennis Schuber.
 - Profiles imported from Visualizer whose title already include a folder ("&lt;folder&gt;/&lt;profile_name&gt;") now get the correct title ("Visualizer/&lt;profile_name&gt;"). Reported by Ricco Rosini.
 - New more user-friendly roast date parser, using the new date settings. Allows entering partial dates (only day or day+month), using any field separator (spaces, hyphens, dashes...), month numbers or 3-letter abbreviations, full or abbreviated years ("21" or "2021"), and adding extra text after the date (e.g. "21/12/2021 Roast 2") while still correctly parsing the date for computing days off-roast.
 - Update DYE page calculated/derived fields (days off-roast, enable/disable grinder setting, TDS) when data is cleared or imported.
+
 
 ## [2.21] - 2021-12-05
 
