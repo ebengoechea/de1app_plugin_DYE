@@ -403,8 +403,11 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 	ifexists settings(dsx2_update_chart_on_copy) 1
 	ifexists settings(next_src_clock) 0
 	
-	if { ![info exists settings(grinders_spec)] } {
-		set settings(grinders_spec) [infer_grinder_spec]
+	if { [file exists [::plugins::DYE::grinders::specs_file]] } {
+		::plugins::DYE::grinders::load_specs
+	} else {
+		::plugins::DYE::grinders::infer_spec
+		::plugins::DYE::grinders::save_specs
 	}
 }
 
@@ -1453,104 +1456,6 @@ proc ::plugins::DYE::roast_date_format {} {
 	}
 }
 
-proc ::plugins::DYE::infer_grinder_spec { {grinder_model {}} } {
-	if { $grinder_model eq {} } {
-		array set result {}
-		set grinders [::plugins::SDB::available_categories grinder_model 1 {} 0 "grinder_model"]
-		foreach g $grinders {
-			set result($g) [infer_grinder_spec $g]
-		}
-		return [array get result]
-	}
-	
-	set grinder_settings [::plugins::SDB::available_categories grinder_setting 1 \
-		" grinder_model=[::plugins::SDB::string2sql $grinder_model]" 0 "grinder_setting"]
-	
-	if { [llength $grinder_settings] > 0 } {
-		set max_setting [lindex $grinder_settings 0]
-		set min_setting [lindex $grinder_settings 0]
-		set is_num 1
-		set n_dec 0
-		set max_dec 0
-		set min_step 100000.0
-		
-		for { set i 0 } { $i < [llength $grinder_settings] } { incr i 1 } {
-			set setting [string trim [lindex $grinder_settings $i]]
-			set is_num [expr {$is_num && [string is double $setting]}]
-						
-			if { $is_num } {
-				if { $setting > $max_setting } {
-					set max_setting $setting
-				} elseif { $setting < $min_setting } {
-					set min_setting $setting
-				}
-				
-				if { $i > 0 } {
-					set step [expr {abs([lindex $grinder_settings [expr {$i-1}]]-$setting)}]
-					if { $step < $min_step } {
-						set min_step $step
-					}
-				}
-				set dot_idx [string first "." $setting]
-				if { $dot_idx > -1 } {
-					set n_dec [expr {[string length $setting]-$dot_idx}]
-					if { $n_dec > $max_dec } {
-						set max_dec $n_dec
-					}
-				}
-			}
-		}
-		
-		if { $is_num } {
-			if { $min_step >= 100000 || $min_step <= 0.0 } {
-				set min_step 0.1
-			}
-	
-			if { $min_step < 1.0 } {
-				set big_step 1
-			} elseif { $min_step < 10.0 } {
-				set big_step 10
-			} else {
-				set big_step 100
-			}
-
-			if { $max_dec == 0 } {
-				set min_step [round_to_integer $min_step]
-				set big_step [round_to_integer $big_step]
-				set min_setting [round_to_integer $min_setting]
-				set max_setting [round_to_integer $max_setting]
-			} elseif { $max_dec == 1 } {
-				set min_step [round_to_one_digits $min_step]
-				set big_step [round_to_one_digits $big_step]
-				set min_setting [round_to_one_digits $min_setting]
-				set max_setting [round_to_one_digits $max_setting]
-			} else {
-				set min_step [round_to_two_digits $min_step]
-				set big_step [round_to_two_digits $big_step]
-				set min_setting [round_to_two_digits $min_setting]
-				set max_setting [round_to_two_digits $max_setting]
-			}
-			
-			set grinder_settings [lsort -real -increasing $grinder_settings]
-			if { $min_setting == 0.0 && [llength $grinder_settings] > 1 && \
-					[lindex $grinder_settings 1] > [expr {$min_step * 4.0}] } {
-				set min_setting [lindex $grinder_settings 1]
-			}
-			
-			# INCLUDE values ONLY while debugging
-			set result [list is_numeric 1 min $min_setting max $max_setting \
-				n_dec $n_dec small_step $min_step big_step $big_step values $grinder_settings]
-		} else {
-			set result [list is_numeric 0 values [lsort -dictionary -increasing $grinder_settings]]
-		}
-		
-		return $result
-	} else {
-		return [list]
-	}
-	
-}
-
 proc ::plugins::DYE::setup_tk_text_profile_tags { widget {compact 0} } {
 	if { [string is true $compact] } {
 		$widget tag configure profile_title -font [dui font get notosansuibold 16] -spacing1 [dui::platform::rescale_y 15]
@@ -2028,6 +1933,154 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	return 1
 }
 
+namespace eval ::plugins::DYE::grinders {
+	variable specs
+	array set specs {}
+		
+	# Reads existing grinder settings data for a grinder model (or all of them if $grinder_model is blank)
+	# and creates a base spec for the grinder. 
+	proc infer_spec { {grinder_model {}} } {
+		variable specs
+		
+		if { $grinder_model eq {} } {
+			array set result {}
+			set grinders [::plugins::SDB::available_categories grinder_model 1 {} 0 "grinder_model"]
+			foreach g $grinders {
+				infer_spec $g
+			}
+			return 
+		}
+		
+		set grinder_settings [::plugins::SDB::available_categories grinder_setting 1 \
+			" grinder_model=[::plugins::SDB::string2sql $grinder_model]" 0 "grinder_setting"]
+		
+		if { [llength $grinder_settings] > 0 } {
+			set max_setting [lindex $grinder_settings 0]
+			set min_setting [lindex $grinder_settings 0]
+			set is_num 1
+			set n_dec 0
+			set max_dec 0
+			set min_step 100000.0
+			
+			for { set i 0 } { $i < [llength $grinder_settings] } { incr i 1 } {
+				set setting [string trim [lindex $grinder_settings $i]]
+				set is_num [expr {$is_num && [string is double $setting]}]
+							
+				if { $is_num } {
+					if { $setting > $max_setting } {
+						set max_setting $setting
+					} elseif { $setting < $min_setting } {
+						set min_setting $setting
+					}
+					
+					if { $i > 0 } {
+						set step [expr {abs([lindex $grinder_settings [expr {$i-1}]]-$setting)}]
+						if { $step < $min_step } {
+							set min_step $step
+						}
+					}
+					set dot_idx [string first "." $setting]
+					if { $dot_idx > -1 } {
+						set n_dec [expr {[string length $setting]-$dot_idx}]
+						if { $n_dec > $max_dec } {
+							set max_dec $n_dec
+						}
+					}
+				}
+			}
+			
+			if { $is_num } {
+				if { $min_step >= 100000 || $min_step <= 0.0 } {
+					set min_step 0.1
+				}
+		
+				if { $min_step < 1.0 } {
+					set big_step 1
+				} elseif { $min_step < 10.0 } {
+					set big_step 10
+				} else {
+					set big_step 100
+				}
+	
+				if { $max_dec == 0 } {
+					set min_step [round_to_integer $min_step]
+					set big_step [round_to_integer $big_step]
+					set min_setting [round_to_integer $min_setting]
+					set max_setting [round_to_integer $max_setting]
+				} elseif { $max_dec == 1 } {
+					set min_step [round_to_one_digits $min_step]
+					set big_step [round_to_one_digits $big_step]
+					set min_setting [round_to_one_digits $min_setting]
+					set max_setting [round_to_one_digits $max_setting]
+				} else {
+					set min_step [round_to_two_digits $min_step]
+					set big_step [round_to_two_digits $big_step]
+					set min_setting [round_to_two_digits $min_setting]
+					set max_setting [round_to_two_digits $max_setting]
+				}
+				
+				set grinder_settings [lsort -real -increasing $grinder_settings]
+				if { $min_setting == 0.0 && [llength $grinder_settings] > 1 && \
+						[lindex $grinder_settings 1] > [expr {$min_step * 4.0}] } {
+					set min_setting [lindex $grinder_settings 1]
+				}
+				
+				# INCLUDE values ONLY while debugging
+				set result [list is_numeric 1 min $min_setting max $max_setting \
+					n_dec $n_dec small_step $min_step big_step $big_step values $grinder_settings]
+			} else {
+				set result [list is_numeric 0 values [lsort -dictionary -increasing $grinder_settings]]
+			}
+			
+			set specs($grinder_model) $result
+		} else {
+			set specs($grinder_model) {}
+		}
+	}
+	
+	proc models {} {
+		variable specs
+		return [array names specs]
+	}
+
+	proc specs_file {} {
+		return "[::homedir]/[::plugin_directory]/DYE/grinders.tdb"
+	}
+	
+	proc save_specs {} {
+		variable specs
+		::save_array_to_file specs [specs_file]
+	}
+	
+	proc load_specs {} {
+		variable specs
+		
+		msg -NOTICE [namespace current] "loading DYE grinders specs"
+		set fn [specs_file]
+		if { [file exists $fn] } {
+			set grinders_file_contents [encoding convertfrom utf-8 [read_binary_file $fn]]
+			if {[string length $grinders_file_contents] != 0} {
+				catch {
+					array set specs $settings_file_contents
+					return 1
+				}
+				return 0
+				
+			}
+		}
+		msg -INFO [namespace current] "Grinders specs file '$fn' not found"
+		return 0
+	}
+	
+	proc get_spec { {grinder_model {}} } {
+		variable specs
+		if { $grinder_model eq {} } {
+			set grinder_spec $::plugins::DYE::settings(next_grinder_model)
+		}
+		
+		return $specs($grinder_model)
+	}
+}
 
 namespace eval ::plugins::DYE::favorites {
 	# Keeps the last max_number-recent shot groups data, so they don't need to
