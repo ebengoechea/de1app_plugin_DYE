@@ -704,11 +704,13 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 			$settings(next_src_clock) > 0 } {
 		$::home_espresso_graph element configure home_pressure_goal -xdata espresso_elapsed -ydata espresso_pressure_goal
 		$::home_espresso_graph element configure home_flow_goal  -xdata espresso_elapsed -ydata espresso_flow_goal
-		$::home_espresso_graph element configure home_temperature_goal -xdata espresso_elapsed -ydata skin_espresso_temperature_goal
+		$::home_espresso_graph element configure home_temperature_goal -xdata espresso_elapsed -ydata espresso_temperature_goal10th 
+				#skin_espresso_temperature_goal
 		$::home_espresso_graph element configure home_pressure -xdata espresso_elapsed -ydata espresso_pressure
 		$::home_espresso_graph element configure home_flow  -xdata espresso_elapsed -ydata espresso_flow
 		$::home_espresso_graph element configure home_weight  -xdata espresso_elapsed -ydata espresso_flow_weight
-		$::home_espresso_graph element configure home_temperature -xdata espresso_elapsed -ydata skin_espresso_temperature_basket
+		$::home_espresso_graph element configure home_temperature -xdata espresso_elapsed -ydata espresso_temperature_basket10th
+				#skin_espresso_temperature_basket
 		$::home_espresso_graph element configure home_resistance  -xdata espresso_elapsed -ydata espresso_resistance
 		$::home_espresso_graph element configure home_steps -xdata espresso_elapsed -ydata espresso_state_change	
 	}
