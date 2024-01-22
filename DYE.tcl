@@ -705,12 +705,10 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 		$::home_espresso_graph element configure home_pressure_goal -xdata espresso_elapsed -ydata espresso_pressure_goal
 		$::home_espresso_graph element configure home_flow_goal  -xdata espresso_elapsed -ydata espresso_flow_goal
 		$::home_espresso_graph element configure home_temperature_goal -xdata espresso_elapsed -ydata espresso_temperature_goal10th 
-				#skin_espresso_temperature_goal
 		$::home_espresso_graph element configure home_pressure -xdata espresso_elapsed -ydata espresso_pressure
 		$::home_espresso_graph element configure home_flow  -xdata espresso_elapsed -ydata espresso_flow
 		$::home_espresso_graph element configure home_weight  -xdata espresso_elapsed -ydata espresso_flow_weight
 		$::home_espresso_graph element configure home_temperature -xdata espresso_elapsed -ydata espresso_temperature_basket10th
-				#skin_espresso_temperature_basket
 		$::home_espresso_graph element configure home_resistance  -xdata espresso_elapsed -ydata espresso_resistance
 		$::home_espresso_graph element configure home_steps -xdata espresso_elapsed -ydata espresso_state_change	
 	}
@@ -1954,11 +1952,18 @@ namespace eval ::plugins::DYE::grinders {
 		}
 		
 		set grinder_settings [::plugins::SDB::available_categories grinder_setting 1 \
-			" grinder_model=[::plugins::SDB::string2sql $grinder_model]" 0 "grinder_setting"]
+			" grinder_model=[::plugins::SDB::string2sql $grinder_model]" 0 "grinder_setting ASC"]
+		set db ::plugins::SDB::get_db
+		db eval {SELECT grinder_setting FROM shot WHERE grinder_model=$grinder_model \
+				GROUP BY grinder_setting ORDER BY COUNT(*) LIMIT 1} {
+			set default $grinder_setting
+		}
+		
+msg -INFO "DEFAULT FOR GRINDER $grinder_model IS $default"
 		
 		if { [llength $grinder_settings] > 0 } {
 			set max_setting [lindex $grinder_settings 0]
-			set min_setting [lindex $grinder_settings 0]
+			set min_setting $max_setting
 			set is_num 1
 			set n_dec 0
 			set max_dec 0
@@ -2027,11 +2032,10 @@ namespace eval ::plugins::DYE::grinders {
 					set min_setting [lindex $grinder_settings 1]
 				}
 				
-				# INCLUDE values ONLY while debugging
 				set result [list is_numeric 1 min $min_setting max $max_setting \
-					n_dec $n_dec small_step $min_step big_step $big_step values $grinder_settings]
+					n_dec $n_dec small_step $min_step big_step $big_step default $default]
 			} else {
-				set result [list is_numeric 0 values [lsort -dictionary -increasing $grinder_settings]]
+				set result [list is_numeric 0 default $default values [lsort -dictionary -increasing $grinder_settings]]
 			}
 			
 			set specs($grinder_model) $result
