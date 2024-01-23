@@ -643,8 +643,6 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		dbutton.outline.dsx2 $::skin_forground_colour
 		dbutton.disabledoutline.dsx2 $unselected_c
 		
-		dbutton.activefill.dsx2 red
-		
 		dbutton_label.pos.dsx2 {0.5 0.5}
 		dbutton_label.font_size.dsx2 [expr {$default_font_size+1}]
 		dbutton_label.anchor.dsx2 center	

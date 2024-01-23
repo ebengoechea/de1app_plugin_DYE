@@ -2,6 +2,12 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.37] - 2024-01-23
+
+### Changed
+ - Restyle the DYE widgets on the DSx2 espresso settings page, as they were not aligned with the theme. Now they use DUI styles. Also restyle DUI dselector widgets in the DSx2 theme.
+ - Change default value of ``settings(dsx2_use_dy_favs)`` to 0 so that DSx2 Favorites are the default in new DYE installs 
+ 
 ## [2.36] - 2024-01-22
 
 ### New
