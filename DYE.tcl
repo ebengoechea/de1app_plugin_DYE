@@ -398,7 +398,7 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 	ifexists settings(favs_n_recent_what_to_copy) {workflow profile_title beans roast_date grinder grinder_dose_weight drink_weight}
 	
 	ifexists settings(dsx2_show_shot_desc_on_home) 1
-	ifexists settings(dsx2_use_dye_favs) 1
+	ifexists settings(dsx2_use_dye_favs) 0
 	ifexists settings(dsx2_n_visible_dye_favs) 4
 	ifexists settings(dsx2_update_chart_on_copy) 1
 	ifexists settings(next_src_clock) 0
