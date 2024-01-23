@@ -1,5 +1,13 @@
 package require struct::list
 
+#dselector.radius 40
+#dselector.fill $button_bg_c
+#dselector.selectedfill $foreground_c
+#dselector.outline $foreground_c
+#dselector.selectedoutline $foreground_c
+#dselector.label_fill $button_label_c
+#dselector.label_selectedfill $selected_c
+
 proc ::plugins::DYE::setup_ui_DSx2 {} {
 	variable settings
 	variable widgets
@@ -267,11 +275,11 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		text.wrap word
 		
 		dselector.radius 40
-		dselector.fill $button_bg_c
+		dselector.fill $background_c
 		dselector.selectedfill $foreground_c
 		dselector.outline $foreground_c
 		dselector.selectedoutline $foreground_c
-		dselector.label_fill $button_label_c
+		dselector.label_fill $text_c
 		dselector.label_selectedfill $selected_c
 
 		dtoggle.width 120
@@ -623,6 +631,66 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		text_tag.font.dyev3_field_nonhighlighted "[dui font get $font 15]"
 		text_tag.background.dyev3_field_nonhighlighted {}	
 	}]	
+	
+	
+	# New DSx2-specific styles
+	# dbutton.width.dsx2 0
+	dui aspect set -theme DSx2 [subst {
+		dbutton.shape.dsx2 round_outline
+		dbutton.bheight.dsx2 100
+		dbutton.fill.dsx2 $button_bg_c
+		dbutton.disabledfill.dsx2 $unselected_c
+		dbutton.outline.dsx2 $::skin_forground_colour
+		dbutton.disabledoutline.dsx2 $unselected_c
+		
+		dbutton.activefill.dsx2 red
+		
+		dbutton_label.pos.dsx2 {0.5 0.5}
+		dbutton_label.font_size.dsx2 [expr {$default_font_size+1}]
+		dbutton_label.anchor.dsx2 center	
+		dbutton_label.justify.dsx2 center
+		dbutton_label.fill.dsx2 $button_label_c
+		dbutton_label.disabledfill.dsx2 $disabled_c
+		
+		dbutton_label1.pos.dsx2 {0.5 0.8}
+		dbutton_label1.font_size.dsx2 [expr {$default_font_size-1}]
+		dbutton_label1.anchor.dsx2 center
+		dbutton_label1.justify.dsx2 center
+		dbutton_label1.fill.dsx2 $button_label_c
+		dbutton_label1.activefill.dsx2 $fill_and_insert_c
+		dbutton_label1.disabledfill.dsx2 $disabled_c
+		
+		dbutton_symbol.pos.dsx2 {0.2 0.5}
+		dbutton_symbol.font_size.dx2 28
+		dbutton_symbol.anchor.dsx2 center
+		dbutton_symbol.justify.dsx2 center
+		dbutton_symbol.fill.dsx2 $button_label_c
+		dbutton_symbol.disabledfill.dsx2 $disabled_c
+		
+		dbutton.shape.dsx2_pm round_outline
+		dbutton.bheight.dsx2_pm 100
+		dbutton.bwidth.dsx2_pm 100
+		dbutton.fill.dsx2_pm $button_bg_c
+		dbutton.disabledfill.dsx2_pm $unselected_c
+		dbutton.outline.dsx2_pm $::skin_forground_colour
+		dbutton.disabledoutline.dsx2_pm $unselected_c
+
+		dbutton_label.pos.dsx2_pm {0.5 0.5}
+		dbutton_label.font_family.dsx2_pm "$::skin(font_awesome_light)"
+		dbutton_label.font_size.dsx2_pm [fixed_size 34]
+		dbutton_label.anchor.dsx2_pm center	
+		dbutton_label.justify.dsx2_pm center
+		dbutton_label.fill.dsx2_pm $button_label_c
+		dbutton_label.disabledfill.dsx2_pm $disabled_c
+
+		dtext.font_family.dsx2_setting_heading "$boldfont"
+		dtext.font_size.dsx2_setting_heading 16
+		dtext.fill.dsx2_setting_heading $text_c 
+		dtext.disabledfill.dsx2_setting_heading $disabled_c
+		dtext.anchor.dsx2_setting_heading center
+		dtext.justify.dsx2_setting_heading center
+	}]
+	
 }
 
 
@@ -705,32 +773,27 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		set y 1110
 				
 		set x 200
-		dui add dtext $page [expr {$x+580/2}] $y -tags wf_heading_beans \
-			-text [translate "Beans"] -font [skin_font font_bold 18] \
-			-fill $::skin_text_colour -anchor center -initial_state hidden
-		dui add dbutton $page $x [expr {$y+40}] -bwidth 580 -bheight 100 -tags wf_dye_beans \
-			-shape round_outline -fill $::skin_text_colour -outline $::skin_forground_colour \
+		dui add dtext $page [expr {$x+580/2}] $y -tags wf_heading_beans -style dsx2_setting_heading \
+			-text [translate "Beans"] -initial_state hidden
+		dui add dbutton $page $x [expr {$y+40}] -style dsx2 -bwidth 580 -tags wf_dye_beans \
 			-labelvariable {[maxstring "$::plugins::DYE::settings(next_bean_brand) $::plugins::DYE::settings(next_bean_type)" 30]} \
-			-label_font [skin_font font 16] -command [namespace current]::select_beans \
-			-initial_state hidden
-
+			-label_font [skin_font font 16] -initial_state hidden \
+			-command [namespace current]::select_beans
+			
 		# Grinder model
 		dui add dtext $page [expr {$x+580/2}] [expr {$y+200}] -tags wf_heading_grinder \
-			-text [translate "Grinder"] -font [skin_font font_bold 18] \
-			-fill $::skin_text_colour -anchor center -initial_state hidden
-		dui add dbutton $page $x [expr {$y+240}] -bwidth 580 -bheight 100 -tags wf_grinder \
-			-shape round_outline -fill $::skin_text_colour -outline $::skin_forground_colour \
+			-style dsx2_setting_heading -text [translate "Grinder"] -initial_state hidden
+		dui add dbutton $page $x [expr {$y+240}] -style dsx2 -bwidth 580 -tags wf_grinder \
 			-labelvariable {[maxstring "$::plugins::DYE::settings(next_grinder_model)" 30]} \
-			-label_font [skin_font font 16] -command [namespace current]::select_grinder \
-			-initial_state hidden
+			-label_font [skin_font font 16] -initial_state hidden \
+			-command [namespace current]::select_grinder
 
 		# Roast date
 		set x 1000 
-		dui add dtext $page $x $y -tags wf_heading_roast_date \
-			-text [translate "Roast date"] -font [skin_font font_bold 18] \
-			-fill $::skin_text_colour -anchor center -justify center -initial_state hidden
+		dui add dtext $page $x $y -tags wf_heading_roast_date -style dsx2_setting_heading \
+			-text [translate "Roast date"] -initial_state hidden
 		set w [dui add entry $page [expr {$x-115}] [expr {$y+55}] -tags wf_roast_date -width 10 \
-			-justify center -textvariable ::plugins::DYE::settings(next_roast_date)]
+			-justify center -textvariable ::plugins::DYE::settings(next_roast_date) -initial_state hidden]
 		bind $w <Leave> [list + [namespace current]::compute_days_offroast]
 		
 		dui add variable $page $x [expr {$y+140}] -tags wf_days_offroast -width 250 \
@@ -739,24 +802,28 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		
 		# Grinder setting
 		set x 1340
-		dui add dtext $page $x $y -tags wf_heading_grinder_setting \
-			-text [translate "Grinder setting"] -font [skin_font font_bold 18] \
-			-fill $::skin_text_colour -anchor center -initial_state hidden
-		add_colour_button wf_grinder_setting_minus $page [expr {$x-110}] [expr {$y+40}] 100 100 {\Uf106} \
-			[list [namespace current]::change_grinder_setting plus_big]
-		set_button wf_grinder_setting_minus font [skin_font awesome_light [fixed_size 34]]
-		add_colour_button wf_grinder_setting_plus $page [expr {$x-110}] [expr {$y+240}] 100 100 {\Uf107} \
-			[list [namespace current]::change_grinder_setting minus_big]
-		set_button wf_grinder_setting_plus font [skin_font awesome_light [fixed_size 34]]
-		add_colour_button wf_grinder_setting_minus_10 $page [expr {$x+10}] [expr {$y+40}] 100 100 {\Uf106} \
-			[list [namespace current]::change_grinder_setting plus_small] 
-		set_button wf_grinder_setting_minus_10 font [skin_font awesome_light [fixed_size 34]]
-		add_colour_button wf_grinder_setting_plus_10 $page [expr {$x+10}] [expr {$y+240}] 100 100 {\Uf107} \
-			[list [namespace current]::change_grinder_setting minus_small]
-		set_button wf_grinder_setting_plus_10 font [skin_font awesome_light [fixed_size 34]]
-		dui add variable $page $x [expr {$y+190}] -fill $::skin_text_colour \
-			-font [skin_font font_bold 24] -tags wf_grinder_setting -anchor center \
-			-textvariable {$::plugins::DYE::settings(next_grinder_setting)}
+		dui add dtext $page $x $y -tags wf_heading_grinder_setting -style dsx2_setting_heading \
+			-text [translate "Grinder setting"] -initial_state hidden
+		dui add dbutton $page [expr {$x-110}] [expr {$y+40}] -style dsx2_pm \
+			-tags {wf_grinder_setting_plus_big wf_grinder_setting*} -label \Uf106 \
+			-command [list [namespace current]::change_grinder_setting plus_big] \
+			-initial_state hidden
+		dui add dbutton $page [expr {$x-110}] [expr {$y+240}] -style dsx2_pm \
+			-tags {wf_grinder_setting_minus_big wf_grinder_setting*} -label \Uf107 \
+			-command [list [namespace current]::change_grinder_setting minus_big] \
+			-initial_state hidden
+		dui add dbutton $page [expr {$x+10}] [expr {$y+40}] -style dsx2_pm \
+			-tags {wf_grinder_setting_plus_small wf_grinder_setting*} -label \Uf106 \
+			-command [list [namespace current]::change_grinder_setting plus_small] \
+			-initial_state hidden
+		dui add dbutton $page [expr {$x+10}] [expr {$y+240}] -style dsx2_pm  \
+			-tags {wf_grinder_setting_minus_small wf_grinder_setting*} -label \Uf107 \
+			-command [list [namespace current]::change_grinder_setting minus_small] \
+			-initial_state hidden
+		dui add variable $page $x [expr {$y+190}] \
+			-font [skin_font font_bold 24] -tags {wf_grinder_setting wf_grinder_setting*} -anchor center \
+			-textvariable {$::plugins::DYE::settings(next_grinder_setting)} \
+			-initial_state hidden
 		
 		trace add execution ::show_espresso_settings leave ${ns}::show_espresso_settings_hook
 		trace add execution ::hide_espresso_settings leave ${ns}::hide_espresso_settings_hook
@@ -861,19 +928,10 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		set page [lindex $::skin_home_pages 0]
 		dui item show $page {wf_heading_beans wf_dye_beans* wf_heading_roast_date wf_roast_date* \
 			wf_days_offroast wf_heading_grinder wf_grinder* \
-			wf_heading_grinder_setting wf_grinder_setting \
-			b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
-			b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
-			b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
-			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10 } \
-			-initial yes -current yes
+			wf_heading_grinder_setting wf_grinder_setting*} -initial yes -current yes
 		 
 		if { $::settings(grinder_setting) ne {} && ![string is double $::settings(grinder_setting)] } {
-			dui item disable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* \
-				b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
-				b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
-				b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
-				b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10} 
+			dui item disable $page wf_grinder_setting*
 		}
 		
 		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
@@ -887,11 +945,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		set page [lindex $::skin_home_pages 0]
 		dui item hide $page {wf_heading_beans wf_dye_beans* wf_heading_roast_date wf_roast_date* \
 			wf_days_offroast wf_heading_grinder wf_grinder* \
-			wf_heading_grinder_setting wf_grinder_setting \
-			b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
-			b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
-			b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
-			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10 } \
+			wf_heading_grinder_setting wf_grinder_setting*} \
 			-initial yes -current yes
 		
 		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
@@ -940,10 +994,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			return
 		}
 		
-		dui item enable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
-			b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
-			b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
-			b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10}
+		dui item enable $page wf_grinder_setting*
 		
 		set setting $::plugins::DYE::settings(next_grinder_setting)
 		if { $setting eq {} } {
@@ -964,12 +1015,10 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			
 			if { $setting < [ifexists spec(min) 0.0] } {
 				set setting $spec(min)
-				dui item disable $page {b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
-					b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10}
+				dui item disable $page {wf_grinder_setting_minus_small* wf_grinder_setting_minus_big*}
 			} elseif { $setting > [ifexists spec(max) 50.0] } {	
 				set setting $spec(max)
-				dui item disable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
-					b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10}
+				dui item disable $page {wf_grinder_setting_plus_small* wf_grinder_setting_plus_big*}
 			}
 			
 			set max_dec [value_or_default spec(max_dec) 2]
@@ -997,12 +1046,10 @@ namespace eval ::dui::pages::dsx2_dye_home {
 						}
 					if { $setting_idx < 0 } {
 						set setting_idx 0
-						dui item disable $page {b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
-								b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10}						
+						dui item disable $page {wf_grinder_setting_minus_small* wf_grinder_setting_minus_big*}
 					} elseif { $setting_idx >= [llength $values] } {
 						set setting_idx [expr {[llength $values]-1}]
-						dui item disable $page {b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
-							b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10}
+						dui item disable $page {wf_grinder_setting_plus_small* wf_grinder_setting_plus_big*}
 					} 
 					set setting [lindex $values $setting_idx]
 				} else {
@@ -1199,18 +1246,10 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		set grinder $::plugins::DYE::settings(next_grinder_model)
 		array set spec [::plugins::DYE::grinders::get_spec $grinder]
 		if { [array size spec] == 0 } {
-			dui item disable $page {wf_heading_grinder_setting wf_grinder_setting \
-				b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
-				b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
-				b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
-				b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10 }
+			dui item disable $page {wf_heading_grinder_setting wf_grinder_setting*}
 			msg -NOTICE [namespace current] "::select_grinder_callback: no spec for next grinder model '$grinder'"
 		} else {
-			dui item enable $page {wf_heading_grinder_setting wf_grinder_setting \
-				b_wf_grinder_setting_minus* bb_wf_grinder_setting_minus* l_wf_grinder_setting_minus \
-				b_wf_grinder_setting_plus* bb_wf_grinder_setting_plus* l_wf_grinder_setting_plus \
-				b_wf_grinder_setting_minus_10* bb_wf_grinder_setting_minus_10* l_wf_grinder_setting_minus_10 \
-				b_wf_grinder_setting_plus_10* bb_wf_grinder_setting_plus_10* l_wf_grinder_setting_plus_10 }
+			dui item enable $page {wf_heading_grinder_setting wf_grinder_setting*}
 		}	
 	}
 	
@@ -1367,10 +1406,15 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			}
 			
 			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
-				-shape round_outline -bheight 100 -fill $::skin_forground_colour -outline $::skin_forground_colour \
-				-tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
+				-style dsx2 -tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
 				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_font_size 11 -label_width 450 \
 				-initial_state hidden
+			
+#			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
+#				-shape round_outline -bheight 100 -fill $::skin_forground_colour -outline $::skin_forground_colour \
+#				-tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
+#				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_font_size 11 -label_width 450 \
+#				-initial_state hidden
 			 
 			dui add symbol $target_pages [expr $::skin(button_x_fav)-50+460+20] [expr {$y+50}] \
 				-symbol [::plugins::DYE::favorites::fav_icon_symbol $i] -anchor w -font_size 11 \
@@ -1380,7 +1424,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 				-fill $::skin_background_colour -tags [list dye_fav_edit_$i dye_fav_edits] \
 				-command [list ::dui::page::load dsx2_dye_edit_fav $i] \
 				-symbol pen -symbol_pos {0.5 0.5} -symbol_anchor center -symbol_justify center -symbol_font_size 20 \
-				-symbol_fill $::skin_text_colour 
+				-symbol_fill $::skin_text_colour
 		}
 				
 		dui add dbutton $::skin_home_pages [expr $::skin(button_x_fav)-50] \
@@ -2046,7 +2090,6 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable data
 		set page [namespace tail [namespace current]]
 		
-msg -INFO "DYE validate what_to_copy=[get_what_to_copy]"
 		if { [llength [get_what_to_copy]] == 0 } {
 			dui item show $page what_to_copy_validate_msg
 			#after 2000 [list dui::item::hide $page what_to_copy_validate_msg]
