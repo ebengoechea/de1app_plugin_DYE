@@ -1904,7 +1904,9 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable all_recent
 		
 		set data(fav_number) $n_fav
-		set data(page_title) "[translate {Edit DYE Favorite}] #[expr $n_fav+1]"		
+		set data(page_title) "[translate {Edit DYE Favorite}] #[expr $n_fav+1]"
+		# all_recent loaded from the DB on each page load, but only the first time
+		# it's actually needed, on proc change_fav_type
 		array set all_recent {} 
 		
 		# Load the current favorite data
@@ -1970,7 +1972,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			dui item disable $page fav_title -initial yes -current yes
 			dui item enable $page {fav_copy_full_profile_lbl fav_copy_full_profile} -initial yes -current yes 
 			
-			# Load all recents up to the one we need
+			# Load all recents up to the one we need			
 			set recent_idx [expr [::plugins::DYE::favorites::recent_number $data(fav_number)]-1]
 			if { $recent_idx < 0 } {
 				set recent_idx 0
@@ -1979,8 +1981,8 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 				incr recent_idx 1
 			}
 			if { [array size all_recent] == 0 } {
-				array set all_recent [::plugins::DYE::favorites::get_all_recent_descs_from_db \
-					[expr {$recent_idx+1}]]
+				# First time load, only updated once per page load, so need to load all 12
+				array set all_recent [::plugins::DYE::favorites::get_all_recent_descs_from_db]
 			}
 			if { [array size all_recent] > 0 } {
 				if { [llength $all_recent([lindex [array names all_recent] 0])] <= $recent_idx } {
