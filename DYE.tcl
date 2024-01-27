@@ -10,7 +10,7 @@
 #set ::skindebug 1
 #plugins enable SDB
 #plugins enable DYE
-#fconfigure $::logging::_log_fh -buffering line
+fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
 package require http
@@ -1772,36 +1772,63 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	set load_full_profile 0
 	
 	###### PROCESS WHAT TO COPY
+	set desc_fields [concat [metadata fields -domain shot -category description -propagate 1] target_drink_weight espresso_notes]
 	if { $what_to_copy eq {} } {
 		# BEWARE: UNTESTED CASE
 		msg -WARNING [namespace current] "load_next_from: BEWARE 'what_to_copy' is empty, this is a NON-TESTED scenari"
-		set what_to_copy [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
+		set what_to_copy $desc_fields
 	} else {
-		set beans_idx [lsearch $what_to_copy "beans"]
-		if { $beans_idx > -1 } {
-			set what_to_copy [lreplace $what_to_copy $beans_idx $beans_idx]
-			set what_to_copy [linsert $what_to_copy $beans_idx bean_type bean_brand roast_level bean_notes]
-		}
-		
-		set workflow_idx [lsearch $what_to_copy "workflow"]
-		if { $workflow_idx > -1 } {
-			set what_to_copy [lreplace $what_to_copy $workflow_idx $workflow_idx "DSx2_workflow"]
-		}
-		
-		set workflow_settings_idx [lsearch $what_to_copy "workflow_settings"]
-		if { $workflow_settings_idx > -1 } {
-			set what_to_copy [lreplace $what_to_copy $workflow_settings_idx $workflow_settings_idx]
-			if { [is_DSx2] } {
-				set load_workflow_settings 1
+		#msg "DYE LOAD_NEXT_FROM initial what_to_copy=$what_to_copy"
+		set expanded [list]
+		foreach field $what_to_copy {
+			set matched 0 
+			if { $field in $desc_fields} {
+				lappend expanded $field
+				set matched 1
+			} elseif { $field in {workflow DSx2_workflow} } {
+				lappend expanded DSx2_workflow
+				set matched 1
+			} elseif { $field eq "workflow_settings" } {
+				if { [is_DSx2] } {
+					set load_workflow_settings 1
+				} else {
+					msg -INFO [namespace current] "load_next_from: workflow_settings not loaded if skin is not DSx2"
+				}
+				set matched 1
+			} elseif { $field in {full_profile shot_profile} } {
+				set load_full_profile 1
+				set matched 1
+			} elseif { $field in {profile profile_title disk_profile} } {
+				lappend expanded profile
+				set matched 1
+			} elseif { $field eq "ratio" } {
+				lappend expanded grinder_dose_weight target_drink_weight
+				set matched 1
+			} elseif { $field eq "note" } {
+				lappend expanded espresso_notes
+				set matched 1
+			} else {
+				set section_fields [metadata fields -domain shot -section $field]
+				if { $section_fields ne {} } {
+					lappend expanded {*}$section_fields
+					set matched 1 
+				} else {
+					set section_fields [metadata fields -domain shot -subsection $field]
+					if { $section_fields ne {} } {
+						lappend expanded {*}$section_fields
+						set matched 1
+					}
+				}
+			}
+			
+			if { !$matched } {
+				msg -NOTICE [namespace current] "load_next_from: what_to_copy field $field not recognized"
 			}
 		}
 		
-		set full_profile_idx [lsearch $what_to_copy "full_profile"]
-		if { $full_profile_idx > -1 } {
-			set what_to_copy [lreplace $what_to_copy $full_profile_idx $full_profile_idx]
-			set load_full_profile 1
-		}
+		set what_to_copy [lsort -unique $expanded]
 	}
+	#msg "DYE LOAD_NEXT_FROM final what_to_copy=$what_to_copy"
 	
 	### GET THE SOURCE DATA
 	if { $src_clock ne {} } {
@@ -1814,6 +1841,9 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		}
 	} elseif { $src_array_name ne {} } {
 		upvar $src_array_name src_shot
+		if { [value_or_default src_shot(clock) 0] > 0 } {
+			set ::plugins::DYE::settings(next_src_clock) $src_shot(clock)
+		}
 	} else {
 		msg -ERROR [namespace current] "load_next_from: Either 'src_clock' or 'src_array_name' have to be provided"
 		return 0
@@ -1843,6 +1873,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	
 	foreach field $what_to_copy {
 		if { [info exists ::plugins::DYE::settings(next_$field)] } {
+			#msg "DYE LOAD_NEXT_FROM Copying next_$field='$src_shot($field)'"
 			set ::plugins::DYE::settings(next_$field) $src_shot($field)
 			
 			if { $field eq "drink_weight" } {
@@ -1902,9 +1933,9 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		::workflow $workflow
 	}
 	# On a NEXT shot, the drink_weight IS the target_drink_weight (SAW)
-	set src_shot(target_drink_weight) 0.0
+	#set src_shot(target_drink_weight) 0.0
 	
-	if { $isDSx2 && $load_workflow_settings } {
+	if { $load_workflow_settings } {
 		if { $::settings(steam_disabled) != $src_shot(steam_disabled) } {
 			::toggle_steam_heater
 			set settings_changed 1
@@ -3218,7 +3249,7 @@ proc ::dui::pages::DYE::field_in_apply_to { field apply_to } {
 	set section [metadata get $field section]
 	return [expr { $apply_to eq {} || $section in $apply_to || ($field eq "espresso_notes" && "note" in $apply_to) ||
 		($section eq "beans_batch" && "beans" in $apply_to) || 
-		("ratio" in $apply_to && $field in {grinder_dose_weight drink_weight})}]
+		("ratio" in $apply_to && $field in {grinder_dose_weight drink_weight target_drink_weight})}]
 }
 
 proc ::dui::pages::DYE::clear_shot_data { {apply_to {}} } {
@@ -3296,6 +3327,7 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 
 proc ::dui::pages::DYE::select_read_from_shot_callback { {shot_clock {}} {shot_filename {}} {shot_desc {}} args } {
 	variable data
+	variable ::plugins::DYE::settings
 	dui page show [namespace tail [namespace current]]
 	
 	if { $shot_clock ne "" } {
@@ -3307,9 +3339,19 @@ proc ::dui::pages::DYE::select_read_from_shot_callback { {shot_clock {}} {shot_f
 			}
 		}
 		
-		if { $data(describe_which_shot) eq "next" && "profile" in $data(apply_action_to) } {
-			::plugins::DYE::import_profile_from_shot $shot_clock
-			load_next_profile
+		if { $data(describe_which_shot) eq "next" } {
+			if { "beans" in $data(apply_action_to) } {
+				set ::plugins::DYE::settings(next_src_clock) $shot_clock
+				if { [::plugins::DYE::is_DSx2] && [string is true $settings(dsx2_update_chart_on_copy)] &&
+						[string is true $settings(dsx2_show_shot_desc_on_home)] } {
+					::dui::pages::dsx2_dye_home::load_home_graph_from $shot_clock 
+				}
+			}
+			
+			if {"profile" in $data(apply_action_to) } {
+				::plugins::DYE::import_profile_from_shot $shot_clock
+				load_next_profile
+			}
 		}
 		
 		grinder_model_change
@@ -3880,23 +3922,15 @@ proc  ::dui::pages::DYE::copy_to_next { } {
 		return
 	}
 	
-	foreach f [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes] {
-		if { [field_in_apply_to $f $data(apply_action_to)] } {
-			set ::plugins::DYE::settings(next_$f) $data($f)
-			
-#			if { [metadata get $f data_type] eq "number" && $data($f) eq "" } {
-#				set ::plugins::DYE::settings(next_$f) 0
-#			} else {
-#				set ::plugins::DYE::settings(next_$f) $data($f)
-#			}
-		}
+	if { [needs_saving] == 1 } {
+#		dui page open_dialog dui_confirm_dialog -coords {0.5 0.5} -anchor center -size {1300 450} \
+#			-return_callback ::dui::pages::DYE::confirm_save -theme [dui theme get] \
+#			"You have unsaved changes to the shot description. Do you want to save your changes first?" \
+#			{"Save changes" "Cancel copy"} -buttons_y 0.8
+		save_description
 	}
+	::plugins::DYE::load_next_from $data(clock) {} $data(apply_action_to)
 	
-	if { "profile" in $data(apply_action_to) } {
-		::plugins::DYE::import_profile_from_shot $data(clock)
-	}
-	
-	plugins::save_settings DYE
 	dui say [translate "Data copied to next shot plan"]
 }
 
