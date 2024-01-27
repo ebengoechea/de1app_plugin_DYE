@@ -709,6 +709,11 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		
 		set page [lindex $::skin_home_pages 0]
 		
+		# TEMPORAL, DEBUGGING TEST!
+dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_y_scale) - 130}] \
+	-bwidth 250 -bheight 70 -style dsx2 -label "Test" -command [namespace current]::select_grinder 
+		#[list dui::page::open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) {"P100 SPP Burrs and an arbitrary name for this excellent grinder in all my life " "Niche Zero" "Comandante C40"} ] 
+		
 		# Define hooks for Damian's pages and procs
 		set ns [namespace current]
 		dui page add_action $page load ${ns}::load
@@ -778,7 +783,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			-label_font [skin_font font 16] -initial_state hidden \
 			-command [namespace current]::select_beans
 			
-		# Grinder model
+		# Grinder model 200+580/2
 		dui add dtext $page [expr {$x+580/2}] [expr {$y+200}] -tags wf_heading_grinder \
 			-style dsx2_setting_heading -text [translate "Grinder"] -initial_state hidden
 		dui add dbutton $page $x [expr {$y+240}] -style dsx2 -bwidth 580 -tags wf_grinder \
@@ -1217,15 +1222,18 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	proc select_grinder { } {
 		variable ::plugins::DYE::settings
 		say "" $::settings(sound_button_in)
-		
-		dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories grinder_model] \
-			-theme [dui theme get] -page_title "Select the grinder model" \
+
+		dui page open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) \
+			[::plugins::SDB::available_categories grinder_model] \
+			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the grinder model" \
+			-allow_add 1 -add_label "Add new grinder" \
+			-option1 1 -option1_label "Load last grinder setting" \
+			-empty_items_msg "No grinders to show" \
 			-selected [string trim $settings(next_grinder_model)] \
-			-return_callback [namespace current]::select_grinder_callback \
-			-listbox_width 1200		
+			-return_callback [namespace current]::select_grinder_callback
 	}
 	
-	proc select_grinder_callback { value id type } {
+	proc select_grinder_callback { {value {}} {id {}} {type {}} args } {
 		variable ::plugins::DYE::settings
 		variable data
 		dui page show [lindex $::skin_home_pages 0]

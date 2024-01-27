@@ -146,6 +146,7 @@ proc ::plugins::DYE::main {} {
 	dui page add dye_profile_viewer_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_profile_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_shot_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
+	dui page add dye_item_select_dlg -namespace true -type dialog -bbox {0 0 800 1200}
 
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
@@ -6879,6 +6880,423 @@ FROM V_shot WHERE removed=0 "
 	}
 }
 
+### ITEM SELECTOR DIALOG PAGE #########################################################################################
+
+namespace eval ::dui::pages::dye_item_select_dlg {
+	variable widgets
+	array set widgets {}
+		
+	variable data
+	array set data {
+		variable {}
+		filter_string {}
+		selected {}
+		selected_idx -1
+		item_values {}
+		item_ids {}
+		item_type {}
+		allow_add 1
+		allow_option1 1
+		allow_option2 0
+		option1 0
+		option2 0
+		empty_items_msg {}
+		filter_string {}
+		filter_indexes {}
+		shown_indexes {}
+		new_item_value {}
+	}
+
+	proc setup {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		set page_width [dui page width $page 0]
+		set page_height [dui page height $page 0]
+		set splits [dui page split_space 0 $page_height 200 0.99 100 200]
+		
+		set i 0		
+		set y0 [lindex $splits $i]
+		set y1 [lindex $splits [incr i]]
+				
+		dui add dbutton $page [expr {$page_width-120}] $y0 $page_width [expr {$y0+120}] \
+			-tags close_dialog -style menu_dlg_close -command page_cancel
+		
+		dui add dtext $page 0.48 [expr {$y0+55}] -tags page_title -style menu_dlg_title \
+			-text [translate {Select an item}]
+		
+		dui add symbol $page 20 [expr {$y1-50}] -symbol magnifying-glass -font_size 20 -anchor w
+		set fs [dui add entry $page 90 [expr {$y1-50}] -canvas_width [expr {$page_width-190}] \
+			-tags filter_string -canvas_anchor w]
+		bind $fs <KeyRelease> [namespace current]::apply_string_filter
+		
+		dui add dbutton $page $page_width [expr {$y1-50}] -bwidth 100 -bheight 100 -shape "" \
+			-tags clear_search_text -anchor e -fill $::skin_background_colour \
+			-symbol square-xmark -symbol_font_size 25 -symbol_pos {0.5 0.5} -symbol_fill $::skin_forground_colour \
+			-command clear_string_filter
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+
+		set tw [dui add text $page 20 $y0 -tags items -canvas_width [expr {$page_width-40}] \
+			-canvas_height [expr {$y1-$y0-4}] -canvas_anchor nw -yscrollbar 0 -font_size 16 \
+			-highlightthickness 0 -initial_state disabled \-foreground $::skin_forground_colour \
+			-exportselection 0]	
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+
+		dui add canvas_item line $page 0.01 $y0 0.99 $y0 -style menu_dlg_sepline
+		
+		dui add dbutton $page 0.0 $y0 1.0 $y1 -tags add_new -style menu_dlg_btn -label "[translate {Add new}]..." \
+			-label_pos {165 0.5} -label_anchor w -symbol plus -symbol_pos {50 0.5} -symbol_anchor w -command {do_nothing} 
+		
+		set yb [expr {$y0+($y1-$y0)/2}]
+		dui add entry $page 165 $yb -canvas_anchor w -canvas_width [expr {$page_width-355}] \
+			-tags new_item_value 
+		dui add dbutton $page [expr {$page_width-190}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
+			-symbol check -symbol_pos {0.5 0.5} -symbol_font_size 30 -symbol_fill $::skin_green \
+			-command add_new_ok
+		dui add dbutton $page [expr {$page_width-100}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
+			-symbol xmark -symbol_pos {0.5 0.5} -symbol_font_size 30 -symbol_fill $::skin_red \
+			-command add_new_cancel
+		
+		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
+
+		set y0 $y1
+		set y1 [lindex $splits [incr i]]
+
+		dui add dtoggle $page 20 [expr {$y0+50}] -tags option1 -anchor w
+		dui add dtext $page 165 [expr {$y0+50}] -tags option1_lbl -anchor w -text [translate {Option 1}]
+		
+		# ----------------------------------------------------------------------------------------------
+		# Define Tk Text tag styles
+		$tw tag configure item -lmargin1 [dui::platform::rescale_x 70]  \
+			-lmargin2 [dui::platform::rescale_x 80] -rmargin [dui::platform::rescale_x 70] \
+			-spacing1 [dui::platform::rescale_y 15] -spacing3 [dui::platform::rescale_y 15]
+		$tw tag configure itemsep -spacing1 [dui::platform::rescale_y 20]
+		$tw tag configure details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
+			-font [dui font get notosansuiregular 13]
+		$tw tag configure symbol -font [dui font get $::dui::symbol::font_filename 20]
+		
+		$tw tag configure nav_title -foreground brown -spacing1 [dui::platform::rescale_y 20]
+		$tw tag configure nav_details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
+			-font [dui font get notosansuiregular 13]
+		
+		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
+		# when use_finger_down_for_tap=0. 
+		$tw tag bind item <ButtonPress-1> [list + [namespace current]::click_item_text %W %x %y %X %Y]
+		$tw tag bind item <Double-Button-1> [namespace current]::page_done
+
+		#$tw tag bind nav_cat <ButtonPress-1> [list + [namespace current]::click_nav_cat_text %W %x %y %X %Y]
+		##$tw tag bind <Double-Button-1> [namespace current]::page_done
+		
+	}
+	
+	proc load { page_to_hide page_to_show variable values args } {
+		variable data
+		variable widgets
+
+#		if { [info exists opts(-theme)] } {
+#			dui page retheme $page_to_show $opts(-theme)
+#		}
+		
+		dui item config $page_to_show page_title -text \
+			[translate [::dui::args::get_option -page_title "Select an item"]]
+
+		set data(allow_add) [string is true [::dui::args::get_option -allow_add 1]] 
+		dui item config $page_to_show add_new-lbl -text \
+			"[translate [::dui::args::get_option -add_label {Add new item}]]..."
+
+		if { [::dui::args::has_option -option1] } {
+			set data(allow_option1) 1
+			set data(option1) [string is true [::dui::args::get_option -option1]]
+		} else {
+			set data(allow_option1) 0
+			set data(option1) 0
+		}
+		dui item config $page_to_show option1_lbl -text \
+			[translate [::dui::args::get_option -option1_label {Option 1}]]
+		
+		# If no selected is given, but variable is given and it has a current value, use it as selected.
+		set data(variable) $variable
+		set data(item_values) [subst $values]
+		set data(item_ids) [::dui::args::get_option -values_ids {}]
+		# TBD: What to do if values & ids have different lengths
+		# TBD: Add the current/selected value if not included in the list of available items
+		
+#		if { $data(selected_idx) > -1 } {
+#			# Remove selection from last loading of this form
+#			$widgets(items) tag configure item_$data(selected_idx) -background {} -foreground {}
+#			set data(selected_idx) -1
+#		}		
+		set data(selected) [::dui::args::get_option -selected {}]
+		if { $variable ne "" && $data(selected) eq "" && [subst "\$$variable"] ne "" } {
+			set data(selected) [subst "\$$data(variable)"]
+		}
+		if { $data(selected) ne {} && $data(selected) ni $data(item_values) } {
+			set data(item_values) [list $data(selected) {*}$data(item_values)]
+			if { $data(item_ids) ne {} } {
+				msg -WARNING [namespace current] "load: no item_id for initial selection that is not included within values."
+				set data(item_values) [list "<SEL>" {*}$data(item_ids)]
+			}
+		}
+		set data(item_type) [::dui::args::get_option -category_name {}]
+		set data(empty_items_msg) [translate [::dui::args::get_option -empty_items_msg "No items to show"]]
+		set data(filter_string) {}
+		set data(filter_indexes) {} 
+		set data(shown_indexes) {}
+		set data(new_item_value) {}
+		
+		fill_items
+		return 1
+	}
+	
+	proc show { page_to_hide page_to_show args } {
+		variable data
+		
+		if { ! $data(allow_add) } {
+			dui item disable $page_to_show add_new*  
+		}
+		if { ! $data(allow_option1) } {
+			dui item disable $page_to_show {option1* option1_lbl}
+		}
+		
+		if { $data(item_ids) eq {} && $data(selected) ne {} } {
+			item_select [lsearch $data(item_values) $data(selected)]
+		}		
+	}
+
+	# Trick for drawing a horizontal divider line in a Tk Text widget
+	proc add_divider_line_to_text {} {
+		variable widgets
+		set tw $widgets(items)
+
+		$tw insert insert "\n"			 
+		$tw tag add line insert-1lines insert
+		$tw tag configure line -font "Arial 1" -background \
+			[dui::aspect::get line fill -style menu_dlg_sepline -default "light grey"] 		
+	}
+	
+	proc show_no_items_found {} {
+		variable widgets
+
+		set tw $widgets(items)
+		$tw configure -state normal
+		$tw delete 1.0 end
+
+		# TBD Format this message to be centered and leave some space above
+		$tw insert insert [translate "No items found"]
+	}
+	
+	proc fill_items {} {
+		variable widgets
+		variable data
+		#set page [namespace tail [namespace current]]
+		
+		set tw $widgets(items)
+		$tw configure -state normal
+		$tw delete 1.0 end
+		
+		#$tw configure -tabs [list [dui::platform::rescale_y 40]p left [dui::platform::rescale_y 600]p right]
+		add_divider_line_to_text 
+
+		if { $data(shown_indexes) eq {} } {
+			set n [llength $data(item_values)]
+		} else {
+			set n [llength $data(shown_indexes)]
+		}
+		for { set i 0 } { $i < $n } { incr i } {
+			if { $data(shown_indexes) eq {} } {
+				set idx $i
+			} else {
+				#set idx [lindex $data(shown_indexes) $i]
+				set idx [lindex $data(shown_indexes) $i]
+			}
+			
+			if { $data(item_ids) eq {} } {
+				set item_id $idx
+			} else {
+				set item_id [lindex $data(item_ids) $idx]
+			}
+#			if { $data(item_values) eq "" } {
+#				msg -WARNING [namespace current] fill_itms: "empty clock"
+#				continue
+#			}
+			
+			set tags [list item item_$item_id]
+#			set dtags [list item item_$item_id details]
+			#if { $i == 0 } {
+				$tw insert insert "[lindex $data(item_values) $idx]\n" [concat $tags itemval]
+#			} else {
+#				$tw insert insert "\t[lindex $data(item_values) $idx]" [concat $tags itemval itemsep]
+#			}
+						
+			add_divider_line_to_text 
+		}
+
+		$tw configure -state disabled
+	}
+	
+	proc click_item_text { widget x y X Y } {
+		set clicked_tags [$widget tag names @$x,$y]
+		
+		if { [llength $clicked_tags] > 1 } {
+			set item_idx [lsearch $clicked_tags "item_*"]
+			if { $item_idx > -1 } {
+				set item_tag [lindex $clicked_tags $item_idx]
+				item_select [string range $item_tag 5 end]
+				page_done
+			}
+		}
+	}
+	
+	# At the moment assume no -item_ids have been provided, so the id is just the position
+	proc item_select { id } {
+		variable data
+		variable widgets
+
+		set tw $widgets(items)
+		if { [string is integer $id] && $id >= 0 && $id < [llength $data(item_values)] } {
+			set value [lindex $data(item_values) $id]
+		} else {
+			msg -ERROR [namespace current] "item_select: id '$id' not valid"
+			return
+		}
+
+		if { $value eq "" } {
+			if { $data(selected_idx) > -1 } {
+				$tw tag configure item_$data(selected_idx) -background {} -foreground {}
+				set data(selected) ""
+				set data(selected_idx) -1
+			}
+			
+			return
+		} elseif { $data(selected_idx) eq $id } {
+			return
+		}
+		
+		if { $data(selected_idx) > -1 } {
+			# Deselect previously selected item
+			$tw tag configure item_$data(selected_idx) -background {} -foreground {}
+		}
+		
+		set data(selected) $value
+		set data(selected_idx) $id
+		
+		$tw tag configure item_$id -background [dui::aspect::get dbutton fill] \
+			-foreground [dui::aspect::get dbutton_label fill]
+		#{*}[dui aspect list -type text_tag -style dyev3_field_highlighted -as_options yes]
+		
+		# if the tag can't be found in the tw, this fails, so embedded in catch
+		catch {
+			$tw see item_${id}.last
+			$tw see item_${id}.first
+		}
+		
+	}
+	
+	proc clear_string_filter {} {
+		variable data
+		
+		set data(filter_string) {}
+		apply_string_filter
+	}
+	
+	proc apply_string_filter {} {
+		variable data
+		
+		set data(show_indexes) {}
+		
+		if { [llength data(item_values)] == 0 } {
+			# First install, no shots available yet
+			show_no_items_found 
+			return
+		} 
+		
+		if { [string length $data(filter_string)] > 0 } {
+			set filter "*[regsub -all {[[:space:]]} $data(filter_string) *]*"
+			set data(shown_indexes) [lsearch -all -nocase $data(item_values) $filter]
+			if { [llength $data(shown_indexes)] == 0 } {
+				show_no_items_found 
+				return
+			}
+		} else {
+			set data(shown_indexes) [lsequence 0 [expr {[llength $data(item_values)]-1}]]
+		}
+		
+		fill_items
+	}
+		
+	proc add_new_ok {} {
+		variable data
+		set data(selected) $data(new_item_value)
+		set data(selected_idx) -1
+		page_done
+	}
+	
+	proc add_new_cancel {} {
+		variable data 
+		set data(new_item_value) {}
+		page_cancel
+	}
+	
+	proc page_cancel {} {
+		variable data
+		say [translate {cancel}] $::settings(sound_button_in)
+		dui page close_dialog {} {} $data(item_type)
+	}
+		
+	proc page_done {} {
+		variable data
+		say [translate {done}] $::settings(sound_button_in)
+		
+#	variable widgets		
+#		set items_widget $widgets(items)
+#		set item_values [list]
+#		set item_ids [list]
+#		
+#		if {[$items_widget curselection] ne ""} {
+#			set sel_idx [$items_widget curselection]
+#			
+#			foreach i $sel_idx {
+#				lappend item_values [$items_widget get $i]
+#			}
+#						
+#			if { [llength $data(item_ids)] == 0 } {
+#				set item_ids $item_values
+#			} else {
+#				if { [llength $data(filter_indexes)] > 0 } {
+#					set new_sel_idx {}
+#					foreach i $sel_idx { 
+#						lappend new_sel_idx [lindex $data(filter_indexes) $i]
+#					}
+#					set sel_idx $new_sel_idx
+#				}
+#				foreach i $sel_idx {
+#					lappend item_ids [lindex $data(item_ids) $i]
+#				}
+#			}
+#		}
+#
+#		if { [$items_widget cget -selectmode] in {single browse} } {
+#			set item_values [lindex $item_values 0]
+#			set item_ids [lindex $item_ids 0]
+#		}
+#
+#		if { $data(variable) ne "" } {
+#			set $data(variable) $item_values
+#		}
+				
+		
+		#dui page close_dialog $data(item_values) $data(item_ids) $data(item_type)
+		
+		if { $data(variable) ne {} } {
+			set $data(variable) $data(selected)
+		}		
+		dui page close_dialog $data(selected) $data(selected_idx) $data(item_type)
+	}	
+}
 ### "FILTER SHOT HISTORY" PAGE #########################################################################################
 
 namespace eval ::dui::pages::DYE_fsh {
