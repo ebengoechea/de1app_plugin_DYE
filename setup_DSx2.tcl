@@ -2062,6 +2062,14 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		} elseif { $data(fav_copy_full_profile) } {
 			set data(fav_copy_profile_title) 0
 		}
+		
+		change_copy_workflow 0
+		change_copy_profile 0
+		change_copy_beans 0
+		change_copy_grind 0
+		change_copy_ratio 0
+		change_copy_espresso_notes 0
+		change_copy_people 0
 	}
 
 	proc validate_title { } {
