@@ -3366,6 +3366,7 @@ proc ::dui::pages::DYE::select_read_from_shot_callback { {shot_clock {}} {shot_f
 	if { $shot_clock ne "" } {
 		if { $data(describe_which_shot) eq "next" } {
 			::plugins::DYE::load_next_from $shot_clock {} $data(apply_action_to)
+			load_description
 		} else {
 			set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
 			array set shot [::plugins::SDB::shots "$read_fields" 1 "clock=$shot_clock" 1]
@@ -3374,11 +3375,11 @@ proc ::dui::pages::DYE::select_read_from_shot_callback { {shot_clock {}} {shot_f
 					set data($f) [lindex $shot($f) 0]
 				}
 			}
-		}
-		
-		grinder_model_change
-		calc_ey_from_tds
-		compute_days_offroast 0
+			
+			grinder_model_change
+			calc_ey_from_tds
+			compute_days_offroast 0
+		}		
 	}
 }
 
