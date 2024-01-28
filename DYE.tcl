@@ -3997,18 +3997,28 @@ proc ::dui::pages::DYE::needs_saving { } {
 	variable data
 	variable src_data
 		
-	if { $data(close_action) ne {} } {
-		return 0		
-	}
+#	if { $data(close_action) ne {} } {
+#		return 0		
+#	}
 	
 	foreach fn $::plugins::DYE::desc_text_fields {
-		if { $data($fn) ne $src_data($fn) } {
-			return 1
+		if { [info exists src_data($fn)] } {
+			if { $data($fn) ne $src_data($fn) } {
+				msg -INFO [namespace current] "needs_saving: changed field $fn"
+				return 1
+			}
+		} else {
+			msg -NOTICE [namespace current] "needs_saving: field '$fn' not found in src_data"
 		}
 	}	
 	foreach fn $::plugins::DYE::desc_numeric_fields {
-		if { [return_zero_if_blank $data($fn)] != [return_zero_if_blank $src_data($fn)] } {
-			return 1
+		if { $data($fn) ne $src_data($fn) } {
+			if { [return_zero_if_blank $data($fn)] != [return_zero_if_blank $src_data($fn)] } {
+				msg -INFO [namespace current] "needs_saving: changed field $fn"
+				return 1
+			}
+		} else {
+			msg -NOTICE [namespace current] "needs_saving: field '$fn' not found in src_data"
 		}
 	}
 	
@@ -4211,7 +4221,8 @@ proc ::dui::pages::DYE::process_visualizer_dlg { {repo_link {}} {downloaded_shot
 	update_visualizer_button
 }
 
-# TBR: NO LONGER NEEDED
+# TBR: This is no longer needed as changes are auto-saved when leaving the page, or else
+# cancelled with the Undo button on the Edit data menu.
 proc ::dui::pages::DYE::ask_to_save_if_needed { {action page_cancel} } {
 	variable data
 	
