@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.38] - 2024-01-28
+
+### Changed
+ - Now the 2 "older" ways of reading past shots definitions into the next shot ("Read from Selected Shot" into Next, and "Copy to Next") should behave like DYE Favorites: it's the target drink weight that propagates to next shot drink weight (not the actual in-cup yield anymore), and they update the source shot (but this is only visible on DSx2)
+ - Fix bug introduced in previous version that made the shot data showing in the Fav editing page not being updated when changed the Fav type. Bug reported by Tuomas Välimäki.
+ - Fix bugs that copying previous shot data into next shot data was not being properly reflected nor synchronized with the data shown on the home page of MimojaCafe. Bugs reported by Erik Jacobs. 
+ - Updated plugin description on the extensions page.
+ 
 ## [2.37] - 2024-01-23
 
 ### Changed
