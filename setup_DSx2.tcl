@@ -1223,8 +1223,38 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		variable ::plugins::DYE::settings
 		say "" $::settings(sound_button_in)
 
+		# Compute the last setting for each grinder, if possible matching beans and profile,
+		# o/w only beans, o/w only profile, o/w just the last one.
+		set db ::plugins::SDB::get_db
+		db eval {SELECT grinder_model, grinder_setting FROM shot s \
+				WHERE trim(coalesce(grinder_model,''))<>'' \
+					AND clock=(SELECT MAX(clock) FROM shot WHERE grinder_model=s.grinder_model)
+				GROUP BY grinder_model ORDER BY MAX(clock) DESC} {
+			set grinder_models $grinder_model
+			set last_grinder_settings $grinder_setting
+		}
+#		if { $::plugins::DYE::settings(next_bean_brand) ne {} || \
+#				$::plugins::DYE::settings(next_bean_type) ne {} } {
+#			db eval {SELECT grinder_model, grinder_setting FROM shot s \
+#					WHERE trim(coalesce(grinder_model,''))<>'' \
+#						AND clock=(SELECT MAX(clock) FROM shot WHERE grinder_model=s.grinder_model)
+#					GROUP BY grinder_model ORDER BY MAX(clock) DESC} {
+#				set grinder_models $grinder_model
+#				set last_grinder_settings $grinder_setting
+#			}
+#		}
+		
+		set grinder_details [list]
+		for { set i 0 } { $i < [llength $last_grinder_settings] } { incr i 1 } {
+			if { [lindex $last_grinder_settings $i] eq {} } {
+				lappend grinder_details {}
+			} else {
+				lappend grinder_details "[translate {Last setting:}] [lindex $last_grinder_settings $i]" 
+			}
+		}
+		#[::plugins::SDB::available_categories grinder_model]
 		dui page open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) \
-			[::plugins::SDB::available_categories grinder_model] \
+			 $grinder_models -values_details $grinder_details \
 			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the grinder model" \
 			-allow_add 1 -add_label "Add new grinder" \
 			-option1 1 -option1_label "Load last grinder setting" \

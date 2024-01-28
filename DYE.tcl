@@ -6894,6 +6894,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		selected_idx -1
 		item_values {}
 		item_ids {}
+		item_details {}
 		item_type {}
 		allow_add 1
 		allow_option1 1
@@ -6973,15 +6974,12 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		# Define Tk Text tag styles
 		$tw tag configure item -lmargin1 [dui::platform::rescale_x 70]  \
 			-lmargin2 [dui::platform::rescale_x 80] -rmargin [dui::platform::rescale_x 70] \
-			-spacing1 [dui::platform::rescale_y 15] -spacing3 [dui::platform::rescale_y 15]
-		$tw tag configure itemsep -spacing1 [dui::platform::rescale_y 20]
-		$tw tag configure details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
-			-font [dui font get notosansuiregular 13]
-		$tw tag configure symbol -font [dui font get $::dui::symbol::font_filename 20]
-		
-		$tw tag configure nav_title -foreground brown -spacing1 [dui::platform::rescale_y 20]
-		$tw tag configure nav_details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
-			-font [dui font get notosansuiregular 13]
+			-spacing1 [dui::platform::rescale_y 15]  
+		$tw tag configure nodetail -spacing3 [dui::platform::rescale_y 15]
+		$tw tag configure details -lmargin1 [dui::platform::rescale_x 100] -lmargin2 [dui::platform::rescale_x 90] \
+			-rmargin [dui::platform::rescale_x 70] -font [dui font get notosansuiregular 12] \
+			-spacing1 [dui::platform::rescale_y -20] -spacing3 [dui::platform::rescale_y 15] \
+			-foreground [dui aspect get dtext disabledfill]		
 		
 		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
 		# when use_finger_down_for_tap=0. 
@@ -6993,6 +6991,17 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		
 	}
 	
+	# Accepted extra arguments:
+	# -page_title <text>
+	# -values_ids <list, same length as $values>
+	# -values_details <list, same length as $values>
+	# -selected <text>
+	# -variable <var_name>
+	# -allow add <1/0>
+	# -option1 <1/0>
+	# -option1_label <text>
+	# -category_name <text>
+	# -empty_items_msg
 	proc load { page_to_hide page_to_show variable values args } {
 		variable data
 		variable widgets
@@ -7022,6 +7031,8 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		set data(variable) $variable
 		set data(item_values) [subst $values]
 		set data(item_ids) [::dui::args::get_option -values_ids {}]
+		set data(item_details) [::dui::args::get_option -values_details {}]
+		
 		# TBD: What to do if values & ids have different lengths
 		# TBD: Add the current/selected value if not included in the list of available items
 		
@@ -7110,7 +7121,6 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			if { $data(shown_indexes) eq {} } {
 				set idx $i
 			} else {
-				#set idx [lindex $data(shown_indexes) $i]
 				set idx [lindex $data(shown_indexes) $i]
 			}
 			
@@ -7119,18 +7129,21 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			} else {
 				set item_id [lindex $data(item_ids) $idx]
 			}
-#			if { $data(item_values) eq "" } {
-#				msg -WARNING [namespace current] fill_itms: "empty clock"
-#				continue
-#			}
 			
 			set tags [list item item_$item_id]
-#			set dtags [list item item_$item_id details]
-			#if { $i == 0 } {
-				$tw insert insert "[lindex $data(item_values) $idx]\n" [concat $tags itemval]
-#			} else {
-#				$tw insert insert "\t[lindex $data(item_values) $idx]" [concat $tags itemval itemsep]
-#			}
+			set dtags [list item item_$item_id details]
+			
+			if { $data(item_details) ne "" && [lindex $data(item_details) $idx] ne "" } {
+				set details [lindex $data(item_details) $idx]
+			} else {
+				set details ""
+				set tags [concat $tags nodetail]
+			}
+			
+			$tw insert insert "[lindex $data(item_values) $idx]\n" $tags
+			if { $details ne "" } {
+				$tw insert insert "$details\n" $dtags
+			}
 						
 			add_divider_line_to_text 
 		}
@@ -7140,7 +7153,6 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	
 	proc click_item_text { widget x y X Y } {
 		set clicked_tags [$widget tag names @$x,$y]
-		
 		if { [llength $clicked_tags] > 1 } {
 			set item_idx [lsearch $clicked_tags "item_*"]
 			if { $item_idx > -1 } {
@@ -7244,7 +7256,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	proc page_cancel {} {
 		variable data
 		say [translate {cancel}] $::settings(sound_button_in)
-		dui page close_dialog {} {} $data(item_type)
+		dui page close_dialog {} {} $data(item_type) $data(option1) $data(option2)
 	}
 		
 	proc page_done {} {
@@ -7294,7 +7306,8 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		if { $data(variable) ne {} } {
 			set $data(variable) $data(selected)
 		}		
-		dui page close_dialog $data(selected) $data(selected_idx) $data(item_type)
+		dui page close_dialog $data(selected) $data(selected_idx) $data(item_type) \
+			$data(option1) $data(option2)
 	}	
 }
 ### "FILTER SHOT HISTORY" PAGE #########################################################################################
