@@ -2140,6 +2140,11 @@ msg -INFO "DEFAULT FOR GRINDER $grinder_model IS $default"
 			return {}
 		}
 	}
+	
+	proc get_default_setting { {grinder_model {}} } {
+		array set spec [get_spec $grinder_model]
+		return [value_or_default spec(default)]
+	} 
 }
 
 namespace eval ::plugins::DYE::favorites {
@@ -6967,7 +6972,8 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 
-		dui add dtoggle $page 20 [expr {$y0+50}] -tags option1 -anchor w
+		dui add dtoggle $page 20 [expr {$y0+50}] -tags option1 -anchor w \
+			-variable ::dui::pages::dye_item_select_dlg::data(option1)
 		dui add dtext $page 165 [expr {$y0+50}] -tags option1_lbl -anchor w -text [translate {Option 1}]
 		
 		# ----------------------------------------------------------------------------------------------
@@ -7203,7 +7209,6 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		# if the tag can't be found in the tw, this fails, so embedded in catch
 		catch {
 			$tw see item_${id}.last
-			$tw see item_${id}.first
 		}
 		
 	}

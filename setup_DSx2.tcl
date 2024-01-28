@@ -701,6 +701,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	variable data
 	array set data {
 		days_offroast_msg {}
+		last_grinder_settings {}
 	}
 	
 	proc setup {} {
@@ -1220,6 +1221,7 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 	}
 	
 	proc select_grinder { } {
+		variable data
 		variable ::plugins::DYE::settings
 		say "" $::settings(sound_button_in)
 
@@ -1233,6 +1235,17 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 			set grinder_models $grinder_model
 			set last_grinder_settings $grinder_setting
 		}
+		# Add grinders from the settings, if needed
+		foreach grinder [::plugins::DYE::grinders::models] {
+			if { $grinder ni $grinder_models } {
+				lappend grinder_models $grinder
+				array set gspec [::plugins::DYE::grinders::get_spec $grinder]
+				lappend last_grinder_settings [::plugins::DYE::grinders::get_default_setting $grinder]
+			}
+		}
+		# We need to store the last settings data to retrieve it when coming back from the dialog
+		set data(last_grinder_settings) $last_grinder_settings
+		
 #		if { $::plugins::DYE::settings(next_bean_brand) ne {} || \
 #				$::plugins::DYE::settings(next_bean_type) ne {} } {
 #			db eval {SELECT grinder_model, grinder_setting FROM shot s \
@@ -1263,20 +1276,21 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 			-return_callback [namespace current]::select_grinder_callback
 	}
 	
-	proc select_grinder_callback { {value {}} {id {}} {type {}} args } {
+	proc select_grinder_callback { {value {}} {id {}} {type {}} {option1 {}} {option2 {}} args } {
 		variable ::plugins::DYE::settings
 		variable data
 		dui page show [lindex $::skin_home_pages 0]
 		
-		if { $value ne "" && $settings(next_grinder_model) ne $value} {
+		if { $value ne ""} {
 			set settings(next_grinder_model) $value
 			
-			ensure_valid_grinder_spec 
-			array set spec [::plugins::DYE::grinders::get_spec $value]
-			if { [info exists spec(default)] } {
-				set settings(next_grinder_setting) $spec(default)
+			if { [string is true $option1] && [lindex $data(last_grinder_settings) $id] ne {}} {
+				set settings(next_grinder_setting) [lindex $data(last_grinder_settings) $id]
+				set ::settings(grinder_setting) $settings(next_grinder_setting)
+				::save_settings
 			}
-
+			
+			ensure_valid_grinder_spec
 			plugins::save_settings DYE
 			#grinder_model_change
 		}
