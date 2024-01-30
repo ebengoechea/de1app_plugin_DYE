@@ -364,7 +364,7 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		dbutton_symbol.fill.menu_dlg_btn $button_label_c
 		dbutton_symbol.disabledfill.menu_dlg_btn $disabled_c
 		
-		line.fill.menu_dlg_sepline $foreground_c
+		line.fill.menu_dlg_sepline $disabled_c
 		line.width.menu_dlg_sepline 1
 		
 		dtext.fill.menu_dlg $text_c
@@ -1226,7 +1226,7 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		say "" $::settings(sound_button_in)
 
 		# Compute the last setting for each grinder, if possible matching beans and profile,
-		# o/w only beans, o/w only profile, o/w just the last one.
+		# o/w only beans, o/w only profile, o/w just the last one.		
 		set db ::plugins::SDB::get_db
 		db eval {SELECT grinder_model, grinder_setting FROM shot s \
 				WHERE trim(coalesce(grinder_model,''))<>'' \
@@ -1243,26 +1243,42 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 				lappend last_grinder_settings [::plugins::DYE::grinders::get_default_setting $grinder]
 			}
 		}
+		
+		set grinder_setting_match [lrepeat [llength $grinder_models] "no beans match"]
+		
+		if { $::plugins::DYE::settings(next_bean_brand) ne {} || \
+				$::plugins::DYE::settings(next_bean_type) ne {} } {
+			db eval {SELECT grinder_model, grinder_setting FROM shot s \
+					WHERE trim(coalesce(grinder_model,''))<>'' \
+						AND bean_brand=$::plugins::DYE::settings(next_bean_brand) \
+						AND bean_type=$::plugins::DYE::settings(next_bean_type) \
+						AND clock=(SELECT MAX(clock) FROM shot WHERE grinder_model=s.grinder_model \
+							AND bean_brand=s.bean_brand AND bean_type=s.bean_type
+						)
+					GROUP BY grinder_model ORDER BY MAX(clock) DESC} {
+				set i 0
+				foreach grinder $grinder_model {
+					if { [lindex $grinder_setting $i] ne {} } {
+						set grinder_idx [lsearch $grinder $grinder_models]
+						if { $grinder_idx > -1 } {
+							lset last_grinder_settings $grinder_idx [lindex $grinder_setting $i]
+							lset grinder_setting_match $grinder_idx "matching beans"
+						}
+					}
+					incr i
+				}
+			}
+		}
+
 		# We need to store the last settings data to retrieve it when coming back from the dialog
 		set data(last_grinder_settings) $last_grinder_settings
-		
-#		if { $::plugins::DYE::settings(next_bean_brand) ne {} || \
-#				$::plugins::DYE::settings(next_bean_type) ne {} } {
-#			db eval {SELECT grinder_model, grinder_setting FROM shot s \
-#					WHERE trim(coalesce(grinder_model,''))<>'' \
-#						AND clock=(SELECT MAX(clock) FROM shot WHERE grinder_model=s.grinder_model)
-#					GROUP BY grinder_model ORDER BY MAX(clock) DESC} {
-#				set grinder_models $grinder_model
-#				set last_grinder_settings $grinder_setting
-#			}
-#		}
 		
 		set grinder_details [list]
 		for { set i 0 } { $i < [llength $last_grinder_settings] } { incr i 1 } {
 			if { [lindex $last_grinder_settings $i] eq {} } {
 				lappend grinder_details {}
 			} else {
-				lappend grinder_details "[translate {Last setting:}] [lindex $last_grinder_settings $i]" 
+				lappend grinder_details "[translate {Last setting:}] [lindex $last_grinder_settings $i] ([translate [lindex $grinder_setting_match $i]])" 
 			}
 		}
 		#[::plugins::SDB::available_categories grinder_model]
