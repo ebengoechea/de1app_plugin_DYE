@@ -1869,7 +1869,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		dui add dtoggle $page [expr $x+$x_2nd_what_offset] $y -anchor nw -tags {fav_copy_drink_weight fav_editing} \
 			-variable fav_copy_drink_weight -command change_copy_ratio
 		dui add dtext $page [expr $x+$x_2nd_what_offset+$x_toggle_lbl_dist] $y -tags {fav_copy_drink_weight_lbl fav_editing} -width 800 \
-			-text [translate "Yield"]
+			-text [translate "Target yield"]
 		
 		dui add dtext $page $x_data $y -tags {fav_ratio_desc fav_editing} -width 800 -anchor nw -justify left -font_size -2 
 			 
@@ -2002,7 +2002,17 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 				}
 
 				foreach field_name $fav_fields {
-					if { [info exists example_shot($field_name)] } {
+					if { $field_name eq "drink_weight" } {
+						if { [info exists example_shot(target_drink_weight)] &&
+								[lindex $example_shot(target_drink_weight) 0] > 0 } {
+							set data(fav_drink_weight) [lindex $example_shot(target_drink_weight) 0]
+							set example_shot(drink_weight) [lindex $example_shot(target_drink_weight) 0]
+						} elseif { [info exists example_shot(drink_weight)] && \
+								[lindex $example_shot(drink_weight) 0] > 0 } {
+							set data(fav_drink_weight) [lindex $example_shot(drink_weight) 0]
+							set example_shot(drink_weight) [lindex $example_shot(drink_weight) 0]
+						}
+					} elseif { [info exists example_shot($field_name)] } {
 						set data(fav_$field_name) [lindex $example_shot($field_name) 0]
 						set example_shot($field_name) [lindex $example_shot($field_name) 0]
 					}
@@ -2017,6 +2027,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 			foreach field_name $::plugins::DYE::settings(favs_n_recent_what_to_copy) {
 				set data(fav_copy_$field_name) 1
 			}
+			
 			
 		} elseif {$data(fav_type) eq "fixed"} {
 			dui item config $page fav_what_copy_msg -text [translate "(applies only to THIS favorite)"]

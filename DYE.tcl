@@ -10,7 +10,7 @@
 #set ::skindebug 1
 #plugins enable SDB
 #plugins enable DYE
-fconfigure $::logging::_log_fh -buffering line
+#fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
 package require http
@@ -1805,6 +1805,9 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 			} elseif { $field eq "ratio" } {
 				lappend expanded grinder_dose_weight target_drink_weight
 				set matched 1
+			} elseif { $field eq "drink_weight" } {
+				lappend expanded target_drink_weight
+				set matched 1				
 			} elseif { $field eq "note" } {
 				lappend expanded espresso_notes
 				set matched 1
@@ -1857,8 +1860,8 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		
 	### PUT THE DATA INTO THE "NEXT SHOT" DEFINITION (Distributed between DYE "next_*" variables
 	#	and global "$::settings" variables, depending on the variable)
-	# Load the profile before the fields, so if there are duplicate variables (dose, yield, grinder setting, or
-	# whatever John wants to add in the future) they can be overwritten if necessary
+	# Load the profile before the fields, so if there are duplicate variables (e.g. dose, yield, 
+	# grinder settings) they can be overwritten if necessary by the actual past shot data. 
 	if { $load_full_profile } {
 		# Copy each and every profile variable from the source shot, which may not match the
 		# current profile (with the same title) definition
@@ -1872,8 +1875,8 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		}
 	}
 	
-	foreach field [list_remove_element $what_to_copy "drink_weight"] {
-		if { [info exists ::plugins::DYE::settings(next_$field)] } {
+	foreach field $what_to_copy {
+		if { $field ne "drink_weight" && [info exists ::plugins::DYE::settings(next_$field)] } {
 			#msg "DYE LOAD_NEXT_FROM Copying next_$field='$src_shot($field)'"
 			set ::plugins::DYE::settings(next_$field) $src_shot($field)
 			
@@ -1887,7 +1890,8 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 				}
 				set settings_changed 1
 			
-				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
+				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && \
+						[return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
 					set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
 					set dsx_settings_changed 1
 				}			
@@ -1897,18 +1901,19 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	
 	if { "drink_weight" in $what_to_copy || "target_drink_weight" in $what_to_copy } {
 		set target_weight {}
-		if { [info exists src_shot(target_drink_weight)] } {
+		if { [info exists src_shot(target_drink_weight)] && $src_shot(target_drink_weight) > 0 } {
 			set target_weight $src_shot(target_drink_weight)
 		} elseif { [value_or_default src_shot(settings_profile_type)] eq "settings_2c" &&
 				[value_or_default src_shot(final_desired_shot_weight_advanced) 0] > 0 } {
 			set target_weight $src_shot(final_desired_shot_weight_advanced) 
+
 		} elseif { [value_or_default src_shot(final_desired_shot_weight) 0] }  {
 			set target_weight $src_shot(final_desired_shot_weight)
-		} elseif { [info exists src_shot(drink_weight)] } {
+		} elseif { [info exists src_shot(drink_weight)] && $src_shot(drink_weight) > 0 } {
 			set target_weight $src_shot(drink_weight)
 		}
 		
-		if { $target_weight ne {} } {
+		if { [return_zero_if_blank $target_weight] > 0 } {
 			set ::plugins::DYE::settings(next_drink_weight) $target_weight
 			
 			if { $skin eq "DSx" } {
@@ -1917,6 +1922,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 					set dsx_settings_changed 1
 				}
 			} else {
+				# TBD: Flag the profile as modified?
 				if {$::settings(settings_profile_type) eq "settings_2c"} {
 					set ::settings(final_desired_shot_weight_advanced) $target_weight
 				} else {
@@ -1925,31 +1931,6 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 				set settings_changed 1
 			}
 		}
-		
-#		if { $skin eq "MimojaCafe" } { 
-#			if {[::device::scale::expecting_present] && [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
-#				if {$::settings(settings_profile_type) eq "settings_2c"} {
-#					set ::settings(final_desired_shot_weight_advanced) $src_shot(drink_weight)
-#				} else {
-#					set ::settings(final_desired_shot_weight) $src_shot(drink_weight)
-#				}
-#				set settings_changed 1
-#			}
-#		} elseif { $skin eq "DSx" } {
-#			if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
-#				set ::DSx_settings(saw) $src_shot(drink_weight) 
-#				set dsx_settings_changed 1
-#			}
-#		} elseif { $isDSx2 } {
-#			if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
-#				if {$::settings(settings_profile_type) eq "settings_2c"} {
-#					set ::settings(final_desired_shot_weight_advanced) $src_shot(drink_weight)
-#				} else {
-#					set ::settings(final_desired_shot_weight) $src_shot(drink_weight)
-#				}
-#				set settings_changed 1
-#			}
-#		}
 	}
 	
 	if { "DSx2_workflow" in $what_to_copy || "workflow" in $what_to_copy || $load_workflow_settings } {
