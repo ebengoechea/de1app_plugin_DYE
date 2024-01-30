@@ -979,8 +979,8 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		}
 	}
 	
-	proc adjust_hook { args } {
-		::plugins::DYE::define_next_shot_desc	
+	proc adjust_hook { args } {		
+		::plugins::DYE::define_next_shot_desc
 	}
 	
 	# change needs to be one of plus_small, plus_big, minus_small or minus_big.
@@ -1058,6 +1058,11 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		
 		set ::plugins::DYE::settings(next_grinder_setting) $setting
 		plugins save_settings DYE
+		
+		if { $setting ne $::settings(grinder_setting) } {
+			set ::settings(grinder_setting) $setting
+			::save_settings
+		}
 	}	
 	
 	proc select_beans {} {
