@@ -6915,11 +6915,12 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 
 	proc setup {} {
 		variable data
+		variable widgets
 		set page [namespace tail [namespace current]]
 		
 		set page_width [dui page width $page 0]
 		set page_height [dui page height $page 0]
-		set splits [dui page split_space 0 $page_height 200 0.99 100 200]
+		set splits [dui page split_space 0 $page_height 200 0.99 100 110]
 		
 		set i 0		
 		set y0 [lindex $splits $i]
@@ -6932,9 +6933,9 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			-text [translate {Select an item}]
 		
 		dui add symbol $page 20 [expr {$y1-50}] -symbol magnifying-glass -font_size 20 -anchor w
-		set fs [dui add entry $page 90 [expr {$y1-50}] -canvas_width [expr {$page_width-190}] \
-			-tags filter_string -canvas_anchor w]
-		bind $fs <KeyRelease> [namespace current]::apply_string_filter
+		dui add entry $page 90 [expr {$y1-50}] -canvas_width [expr {$page_width-190}] \
+			-tags filter_string -canvas_anchor w
+		bind $widgets(filter_string) <KeyRelease> [namespace current]::apply_string_filter
 		
 		dui add dbutton $page $page_width [expr {$y1-50}] -bwidth 100 -bheight 100 -shape "" \
 			-tags clear_search_text -anchor e -fill $::skin_background_colour \
@@ -6958,14 +6959,18 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			-label_pos {165 0.5} -label_anchor w -symbol plus -symbol_pos {50 0.5} -symbol_anchor w -command {do_nothing} 
 		
 		set yb [expr {$y0+($y1-$y0)/2}]
-		dui add entry $page 165 $yb -canvas_anchor w -canvas_width [expr {$page_width-355}] \
-			-tags new_item_value 
-		dui add dbutton $page [expr {$page_width-190}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
-			-symbol check -symbol_pos {0.5 0.5} -symbol_font_size 30 -symbol_fill $::skin_green \
-			-command add_new_ok
+		dui add entry $page 165 $yb -canvas_anchor w -canvas_width [expr {$page_width-260}] \
+			-tags new_item_value -textvariable new_item_value
+		bind $widgets(new_item_value) <KeyRelease> [namespace current]::change_new_item_value
+		
 		dui add dbutton $page [expr {$page_width-100}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
-			-symbol xmark -symbol_pos {0.5 0.5} -symbol_font_size 30 -symbol_fill $::skin_red \
-			-command add_new_cancel
+			-tags add_new_ok -symbol check -symbol_pos {0.5 0.5} -symbol_font_size 30 \
+			-symbol_fill $::skin_green -symbol_disabledfill [dui aspect get dtext disabledfill] \
+			-command add_new_ok
+		
+#		dui add dbutton $page [expr {$page_width-100}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
+#			-symbol xmark -symbol_pos {0.5 0.5} -symbol_font_size 30 -symbol_fill $::skin_red \
+#			-command add_new_cancel
 		
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
@@ -7081,7 +7086,9 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		
 		if { $data(item_ids) eq {} && $data(selected) ne {} } {
 			item_select [lsearch $data(item_values) $data(selected)]
-		}		
+		}
+		
+		dui item disable $page_to_show add_new_ok*
 	}
 
 	# Trick for drawing a horizontal divider line in a Tk Text widget
@@ -7244,18 +7251,25 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		
 		fill_items
 	}
+	
+	proc change_new_item_value {} {
+		variable data
+		set page [namespace tail [namespace current]]
 		
+		if { [string trim $data(new_item_value)] eq {} } {
+			dui item disable $page add_new_ok*
+		} elseif { [string trim $data(new_item_value)] in $data(item_values) } { 
+			dui item disable $page add_new_ok*
+		} else {
+			dui item enable $page add_new_ok*
+		}
+	}
+	
 	proc add_new_ok {} {
 		variable data
 		set data(selected) $data(new_item_value)
 		set data(selected_idx) -1
 		page_done
-	}
-	
-	proc add_new_cancel {} {
-		variable data 
-		set data(new_item_value) {}
-		page_cancel
 	}
 	
 	proc page_cancel {} {
@@ -7267,46 +7281,6 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	proc page_done {} {
 		variable data
 		say [translate {done}] $::settings(sound_button_in)
-		
-#	variable widgets		
-#		set items_widget $widgets(items)
-#		set item_values [list]
-#		set item_ids [list]
-#		
-#		if {[$items_widget curselection] ne ""} {
-#			set sel_idx [$items_widget curselection]
-#			
-#			foreach i $sel_idx {
-#				lappend item_values [$items_widget get $i]
-#			}
-#						
-#			if { [llength $data(item_ids)] == 0 } {
-#				set item_ids $item_values
-#			} else {
-#				if { [llength $data(filter_indexes)] > 0 } {
-#					set new_sel_idx {}
-#					foreach i $sel_idx { 
-#						lappend new_sel_idx [lindex $data(filter_indexes) $i]
-#					}
-#					set sel_idx $new_sel_idx
-#				}
-#				foreach i $sel_idx {
-#					lappend item_ids [lindex $data(item_ids) $i]
-#				}
-#			}
-#		}
-#
-#		if { [$items_widget cget -selectmode] in {single browse} } {
-#			set item_values [lindex $item_values 0]
-#			set item_ids [lindex $item_ids 0]
-#		}
-#
-#		if { $data(variable) ne "" } {
-#			set $data(variable) $item_values
-#		}
-				
-		
-		#dui page close_dialog $data(item_values) $data(item_ids) $data(item_type)
 		
 		if { $data(variable) ne {} } {
 			set $data(variable) $data(selected)
