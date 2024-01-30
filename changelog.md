@@ -2,6 +2,13 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.39] - 2024-01-30
+
+### Changed
+ - Make changes in grinder setting in DSx2 espresso settings page reflect in DYE data (broken in previous update)
+ - Target drink weight was not being properly propagated from previous shots (instead, the profile value was being loaded. Broken in previous update)
+ - Have Recent Favorites example data show the _target_ drink weight instead of the drink weight.
+ 
 ## [2.38] - 2024-01-28
 
 ### Changed
