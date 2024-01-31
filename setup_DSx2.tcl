@@ -1069,6 +1069,7 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 			set ::settings(grinder_setting) $setting
 			::save_settings
 		}
+		::plugins::DYE::define_next_shot_desc
 	}	
 	
 	proc select_beans {} {
@@ -1078,30 +1079,47 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		set selected [string trim "$settings(next_bean_brand) $settings(next_bean_type) $settings(next_roast_date)"]
 		regsub -all " +" $selected " " selected
 	
-		dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
-			-theme [dui theme get] -page_title "Select the beans batch" -selected $selected \
-			-return_callback [namespace current]::select_beans_callback \
-			-listbox_width 1700
+#		dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
+#			-theme [dui theme get] -page_title "Select the beans batch" -selected $selected \
+#			-return_callback [namespace current]::select_beans_callback \
+#			-listbox_width 1700
+		
+		dui page open_dialog dye_item_select_dlg {} [::plugins::SDB::available_categories bean_desc] \
+			-values_details {} \
+			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the beans" \
+			-allow_add 1 -add_label "Add new beans" \
+			-option1 0 -option1_label "Load last shot with the bean" \
+			-empty_items_msg "No beans to show" \
+			-selected $selected \
+			-return_callback [namespace current]::select_beans_callback
 	}
 	
-	proc select_beans_callback { clock bean_desc item_type } {
+	proc select_beans_callback { {bean_desc {}} {idx {}} {item_type {}} {option1 {}} {option2 {}} args } {
 		variable ::plugins::DYE::settings
 		dui page show [lindex $::skin_home_pages 0]
-			
+		
 		if { $bean_desc ne "" } {
 			set db ::plugins::SDB::get_db
 			db eval {SELECT bean_brand,bean_type,roast_date,roast_level,bean_notes FROM V_shot \
 					WHERE clock=(SELECT MAX(clock) FROM V_shot WHERE bean_desc=$bean_desc)} {
 				set settings(next_bean_brand) $bean_brand
+				set ::settings(bean_brand) $bean_brand
 				set settings(next_bean_type) $bean_type
-				set settings(next_roast_date) $roast_date
-				set settings(next_roast_level) $roast_level
-				set settings(next_bean_notes) $bean_notes
-			}			
+				set ::settings(bean_type) $bean_type
+				set ::plugins::DYE::settings(next_roast_date) $roast_date
+				set ::settings(roast_date) $roast_date
+				set ::plugins::DYE::settings(next_roast_level) $roast_level
+				set ::settings(roast_level) $roast_level
+				set ::plugins::DYE::settings(next_bean_notes) $bean_notes
+				set ::settings(bean_notes) $bean_notes
+			}
 			plugins::save_settings DYE
+			::save_settings
+			
+			compute_days_offroast
+			::plugins::DYE::define_next_shot_desc
 		}
-		::dui::pages::dsx2_dye_home::compute_days_offroast
-	}	
+	}
 	
 	# TODO: Refactor this calculation into its own general proc in ::plugins::DYE
 	proc compute_days_offroast { {reformat 1} } {
