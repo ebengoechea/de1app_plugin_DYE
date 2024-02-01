@@ -1078,19 +1078,34 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		
 		set selected [string trim "$settings(next_bean_brand) $settings(next_bean_type) $settings(next_roast_date)"]
 		regsub -all " +" $selected " " selected
-	
-#		dui page open_dialog dui_item_selector {} [::plugins::SDB::available_categories bean_desc] \
-#			-theme [dui theme get] -page_title "Select the beans batch" -selected $selected \
-#			-return_callback [namespace current]::select_beans_callback \
-#			-listbox_width 1700
+
+		# [::plugins::SDB::available_categories bean_desc]
+		set db ::plugins::SDB::get_db
+		db eval {SELECT bean_desc, MAX(clock) AS last_clock, COUNT(clock) AS n_shots FROM V_shot s \
+				WHERE removed=0 AND LENGTH(TRIM(COALESCE(bean_desc,''))) > 0  \
+				GROUP BY bean_desc ORDER BY MAX(clock) DESC} {
+			set beans $bean_desc
+			set last_clock $last_clock
+			set n_shots $n_shots
+		}
 		
-		dui page open_dialog dye_item_select_dlg {} [::plugins::SDB::available_categories bean_desc] \
-			-values_details {} \
+		set details [list]
+		for { set i 0 } { $i < [llength $beans] } { incr i 1 } {
+			if { [return_zero_if_blank [lindex $n_shots $i]] == 0 } {
+				set detail "no shots"
+			} else {
+				set detail "[lindex $n_shots $i] shots"
+				if { [return_zero_if_blank [lindex $last_clock $i]] > 0 } { 
+					append detail ", last [::plugins::DYE::format_date [lindex $last_clock $i]]"
+				}
+			}
+			lappend details $detail
+		}
+		
+		dui page open_dialog dye_item_select_dlg {} $beans -values_details $details \
 			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the beans" \
-			-allow_add 1 -add_label "Add new beans" \
-			-option1 0 -option1_label "Load last shot with the bean" \
-			-empty_items_msg "No beans to show" \
-			-selected $selected \
+			-allow_add 1 -add_label "Add new beans" -option1 0 -option1_label "Load last shot with the bean" \
+			-empty_items_msg "No beans to show" -selected $selected \
 			-return_callback [namespace current]::select_beans_callback
 	}
 	
