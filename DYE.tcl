@@ -2005,8 +2005,6 @@ namespace eval ::plugins::DYE::grinders {
 			set default $grinder_setting
 		}
 		
-msg -INFO "DEFAULT FOR GRINDER $grinder_model IS $default"
-		
 		if { [llength $grinder_settings] > 0 } {
 			set max_setting [lindex $grinder_settings 0]
 			set min_setting $max_setting
@@ -2470,13 +2468,13 @@ namespace eval ::plugins::DYE::favorites {
 				set load_success [::plugins::DYE::load_next_from $fav_values(last_clock) \
 					{} $::plugins::DYE::settings(favs_n_recent_what_to_copy)]
 				if { [string is true $load_success ] } {
-					borg toast [translate "Recent favorite loaded"]
+					dui say  [translate "Recent favorite loaded"]
 					return 1
 				} else {
-					borg toast [translate "Error loading recent favorite"]
+					dui say [translate "Error loading recent favorite"]
 				}
 			} else {
-				borg toast [translate "Recent favorite doesn't have data to load"]
+				dui say [translate "Recent favorite doesn't have data to load"]
 				msg -WARNING [namespace current] "load: Recent favorite doesn't have data to load"
 			}			
 		} else {
@@ -2489,10 +2487,10 @@ namespace eval ::plugins::DYE::favorites {
 			
 			set load_success [::plugins::DYE::load_next_from {} fav_values $what_to_copy]
 			if { [string is true $load_success] } {
-				borg toast [translate "Fixed favorite loaded"]
+				dui say [translate "Fixed favorite loaded"]
 				return 1
 			} else {
-				borg toast [translate "Error loading fixed favorite"]
+				dui say [translate "Error loading fixed favorite"]
 			}
 		}
 		
@@ -6900,6 +6898,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		item_values {}
 		item_ids {}
 		item_details {}
+		item_extras {}
 		item_type {}
 		allow_add 1
 		allow_option1 1
@@ -7006,6 +7005,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	# -page_title <text>
 	# -values_ids <list, same length as $values>
 	# -values_details <list, same length as $values>
+	# -values_extras <list, same length as $values>
 	# -selected <text>
 	# -variable <var_name>
 	# -allow add <1/0>
@@ -7042,10 +7042,19 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		set data(variable) $variable
 		set data(item_values) [subst $values]
 		set data(item_ids) [::dui::args::get_option -values_ids {}]
-		set data(item_details) [::dui::args::get_option -values_details {}]
+		if { $data(item_ids) ne {} && [llength $data(item_values)] != [llength $data(item_ids)] } {
+			msg -ERROR [namespace current] "load: item_ids and item_values have different lengths"
+		}
 		
-		# TBD: What to do if values & ids have different lengths
-		# TBD: Add the current/selected value if not included in the list of available items
+		set data(item_details) [::dui::args::get_option -values_details {}]		
+		if { $data(item_details) ne {} && [llength $data(item_values)] != [llength $data(item_details)] } {
+			msg -ERROR [namespace current] "load: item_details and item_values have different lengths"
+		}
+		
+		set data(item_extras) [::dui::args::get_option -values_extras {}]		
+		if { $data(item_extras) ne {} && [llength $data(item_extras)] != [llength $data(item_extras)] } {
+			msg -ERROR [namespace current] "load: item_ids and item_extras have different lengths"
+		}
 		
 #		if { $data(selected_idx) > -1 } {
 #			# Remove selection from last loading of this form
@@ -7275,7 +7284,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	proc page_cancel {} {
 		variable data
 		say [translate {cancel}] $::settings(sound_button_in)
-		dui page close_dialog {} {} $data(item_type) $data(option1) $data(option2)
+		dui page close_dialog {} {} {} $data(item_type) $data(option1) $data(option2)
 	}
 		
 	proc page_done {} {
@@ -7284,12 +7293,20 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		
 		if { $data(variable) ne {} } {
 			set $data(variable) $data(selected)
-		}		
-		dui page close_dialog $data(selected) $data(selected_idx) $data(item_type) \
+		}
+		if { $data(item_extras) eq {} } {
+			set extra {}
+		} elseif { $data(item_ids) eq {} } {
+			set extra [lindex $data(item_extras) $data(selected_idx)]
+		} else {
+			set extra [lindex $data(item_extras) [lsearch $data(item_ids) $data(selected_idx)]]
+		}
+		
+		dui page close_dialog $data(selected) $data(selected_idx) $extra $data(item_type) \
 			$data(option1) $data(option2)
 	}	
 }
-### "FILTER SHOT HISTORY" PAGE #########################################################################################
+### "FILTER SHOT HISTORY" PAGE #####################################################################
 
 namespace eval ::dui::pages::DYE_fsh {
 	variable widgets

@@ -701,7 +701,6 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	variable data
 	array set data {
 		days_offroast_msg {}
-		last_grinder_settings {}
 	}
 	
 	proc setup {} {
@@ -1081,58 +1080,70 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 
 		# [::plugins::SDB::available_categories bean_desc]
 		set db ::plugins::SDB::get_db
+		set beans [list]
+		set last_clocks [list]
+		set details [list]
 		db eval {SELECT bean_desc, MAX(clock) AS last_clock, COUNT(clock) AS n_shots FROM V_shot s \
 				WHERE removed=0 AND LENGTH(TRIM(COALESCE(bean_desc,''))) > 0  \
 				GROUP BY bean_desc ORDER BY MAX(clock) DESC} {
-			set beans $bean_desc
-			set last_clock $last_clock
-			set n_shots $n_shots
-		}
-		
-		set details [list]
-		for { set i 0 } { $i < [llength $beans] } { incr i 1 } {
-			if { [return_zero_if_blank [lindex $n_shots $i]] == 0 } {
-				set detail "no shots"
+			lappend beans $bean_desc
+			set detail ""
+			if { [return_zero_if_blank $n_shots] > 0 } {
+				append detail "$n_shots [translate {shots}]"
 			} else {
-				set detail "[lindex $n_shots $i] shots"
-				if { [return_zero_if_blank [lindex $last_clock $i]] > 0 } { 
-					append detail ", last [::plugins::DYE::format_date [lindex $last_clock $i]]"
-				}
+				append detail [translate "no shots"]
+			}
+			set last_clock [return_zero_if_blank $last_clock]
+			lappend last_clocks $last_clock
+			if { $last_clock > 0 } {
+				append detail ", last [::plugins::DYE::format_date $last_clock]"
 			}
 			lappend details $detail
 		}
 		
-		dui page open_dialog dye_item_select_dlg {} $beans -values_details $details \
+		dui page open_dialog dye_item_select_dlg {} $beans -values_details $details -values_extras $last_clocks \
 			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the beans" \
-			-allow_add 1 -add_label "Add new beans" -option1 0 -option1_label "Load last shot with the bean" \
+			-category_name beans -allow_add 1 -add_label "Add new beans" \
+			-option1 0 -option1_label "Load last shot with the bean" \
 			-empty_items_msg "No beans to show" -selected $selected \
 			-return_callback [namespace current]::select_beans_callback
 	}
 	
-	proc select_beans_callback { {bean_desc {}} {idx {}} {item_type {}} {option1 {}} {option2 {}} args } {
+	proc select_beans_callback { {bean_desc {}} {idx {}} {last_clock {}} {item_type {}} \
+			{load_last_shot_into_next 0} {option2 {}} args } {
 		variable ::plugins::DYE::settings
 		dui page show [lindex $::skin_home_pages 0]
-		
+
 		if { $bean_desc ne "" } {
-			set db ::plugins::SDB::get_db
-			db eval {SELECT bean_brand,bean_type,roast_date,roast_level,bean_notes FROM V_shot \
-					WHERE clock=(SELECT MAX(clock) FROM V_shot WHERE bean_desc=$bean_desc)} {
-				set settings(next_bean_brand) $bean_brand
-				set ::settings(bean_brand) $bean_brand
-				set settings(next_bean_type) $bean_type
-				set ::settings(bean_type) $bean_type
-				set ::plugins::DYE::settings(next_roast_date) $roast_date
-				set ::settings(roast_date) $roast_date
-				set ::plugins::DYE::settings(next_roast_level) $roast_level
-				set ::settings(roast_level) $roast_level
-				set ::plugins::DYE::settings(next_bean_notes) $bean_notes
-				set ::settings(bean_notes) $bean_notes
+			if { [string is true $load_last_shot_into_next] && [return_zero_if_blank $last_clock] > 0 } {
+				set load_success [::plugins::DYE::load_next_from $last_clock {} \
+					$::plugins::DYE::settings(favs_n_recent_what_to_copy)]
+				if { [string is true $load_success] } {
+					dui say [translate "Last shot with selected beans copied to next"] 
+				} else {
+					dui say [translate "Error loading last shot with selected beans"]
+				}
+			} elseif { [return_zero_if_blank $last_clock] > 0 } {
+				set db ::plugins::SDB::get_db
+				db eval {SELECT bean_brand,bean_type,roast_date,roast_level,bean_notes FROM V_shot \
+						WHERE clock=$last_clock} {
+					set settings(next_bean_brand) $bean_brand
+					set ::settings(bean_brand) $bean_brand
+					set settings(next_bean_type) $bean_type
+					set ::settings(bean_type) $bean_type
+					set ::plugins::DYE::settings(next_roast_date) $roast_date
+					set ::settings(roast_date) $roast_date
+					set ::plugins::DYE::settings(next_roast_level) $roast_level
+					set ::settings(roast_level) $roast_level
+					set ::plugins::DYE::settings(next_bean_notes) $bean_notes
+					set ::settings(bean_notes) $bean_notes
+				}
+				plugins::save_settings DYE
+				::save_settings
+				
+				::plugins::DYE::define_next_shot_desc
 			}
-			plugins::save_settings DYE
-			::save_settings
-			
 			compute_days_offroast
-			::plugins::DYE::define_next_shot_desc
 		}
 	}
 	
@@ -1261,12 +1272,14 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		# Compute the last setting for each grinder, if possible matching beans and profile,
 		# o/w only beans, o/w only profile, o/w just the last one.		
 		set db ::plugins::SDB::get_db
+		set grinder_models [list]
+		set last_grinder_settings [list]
 		db eval {SELECT grinder_model, grinder_setting FROM shot s \
 				WHERE trim(coalesce(grinder_model,''))<>'' \
-					AND clock=(SELECT MAX(clock) FROM shot WHERE grinder_model=s.grinder_model)
+					AND clock=(SELECT MAX(clock) FROM shot WHERE grinder_model=s.grinder_model) \
 				GROUP BY grinder_model ORDER BY MAX(clock) DESC} {
-			set grinder_models $grinder_model
-			set last_grinder_settings $grinder_setting
+			lappend grinder_models $grinder_model
+			lappend last_grinder_settings $grinder_setting
 		}
 		# Add grinders from the settings, if needed
 		foreach grinder [::plugins::DYE::grinders::models] {
@@ -1277,6 +1290,7 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 			}
 		}
 		
+		# Find grinder settings matching beans, if available
 		set grinder_setting_match [lrepeat [llength $grinder_models] "no beans match"]
 		
 		if { $::plugins::DYE::settings(next_bean_brand) ne {} || \
@@ -1286,26 +1300,18 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 						AND bean_brand=$::plugins::DYE::settings(next_bean_brand) \
 						AND bean_type=$::plugins::DYE::settings(next_bean_type) \
 						AND clock=(SELECT MAX(clock) FROM shot WHERE grinder_model=s.grinder_model \
-							AND bean_brand=s.bean_brand AND bean_type=s.bean_type
-						)
+							AND bean_brand=s.bean_brand AND bean_type=s.bean_type) \
 					GROUP BY grinder_model ORDER BY MAX(clock) DESC} {
-				set i 0
-				foreach grinder $grinder_model {
-					if { [lindex $grinder_setting $i] ne {} } {
-						set grinder_idx [lsearch $grinder $grinder_models]
-						if { $grinder_idx > -1 } {
-							lset last_grinder_settings $grinder_idx [lindex $grinder_setting $i]
-							lset grinder_setting_match $grinder_idx "matching beans"
-						}
+				if { $grinder_setting ne {} } {
+					set grinder_idx [lsearch -nocase $grinder_models $grinder_model]
+					if { $grinder_idx > -1 } {
+						lset last_grinder_settings $grinder_idx $grinder_setting
+						lset grinder_setting_match $grinder_idx "matching beans"
 					}
-					incr i
 				}
 			}
 		}
 
-		# We need to store the last settings data to retrieve it when coming back from the dialog
-		set data(last_grinder_settings) $last_grinder_settings
-		
 		set grinder_details [list]
 		for { set i 0 } { $i < [llength $last_grinder_settings] } { incr i 1 } {
 			if { [lindex $last_grinder_settings $i] eq {} } {
@@ -1316,26 +1322,27 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		}
 		#[::plugins::SDB::available_categories grinder_model]
 		dui page open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) \
-			 $grinder_models -values_details $grinder_details \
+			 $grinder_models -values_details $grinder_details -values_extras $last_grinder_settings \
 			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the grinder model" \
-			-allow_add 1 -add_label "Add new grinder" \
+			-allow_add 1 -add_label "Add new grinder" -category_name grinder \
 			-option1 1 -option1_label "Load last grinder setting" \
 			-empty_items_msg "No grinders to show" \
 			-selected [string trim $settings(next_grinder_model)] \
 			-return_callback [namespace current]::select_grinder_callback
 	}
 	
-	proc select_grinder_callback { {value {}} {id {}} {type {}} {option1 {}} {option2 {}} args } {
+	proc select_grinder_callback { {grinder_model {}} {id {}} {last_grinder_setting {}} {type {}} \
+			{load_last_grinder_setting 0} {option2 {}} args } {
 		variable ::plugins::DYE::settings
 		variable data
 		dui page show [lindex $::skin_home_pages 0]
 		
-		if { $value ne ""} {
-			set settings(next_grinder_model) $value
+		if { $grinder_model ne ""} {
+			set settings(next_grinder_model) $grinder_model
 			
-			if { [string is true $option1] && [lindex $data(last_grinder_settings) $id] ne {}} {
-				set settings(next_grinder_setting) [lindex $data(last_grinder_settings) $id]
-				set ::settings(grinder_setting) $settings(next_grinder_setting)
+			if { [string is true $load_last_grinder_setting] && $last_grinder_setting ne {}} {
+				set settings(next_grinder_setting) $last_grinder_setting
+				set ::settings(grinder_setting) $last_grinder_setting
 				::save_settings
 			}
 			
@@ -2485,7 +2492,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable all_recent
 
 		if { ![validate_all] } {
-			borg toast [translate "Please correct the invalid favorite data"]
+			dui say [translate "Please correct the invalid favorite data"]
 			return {} 
 		}
 		
