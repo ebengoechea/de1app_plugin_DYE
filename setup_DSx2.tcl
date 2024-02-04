@@ -1,13 +1,5 @@
 package require struct::list
 
-#dselector.radius 40
-#dselector.fill $button_bg_c
-#dselector.selectedfill $foreground_c
-#dselector.outline $foreground_c
-#dselector.selectedoutline $foreground_c
-#dselector.label_fill $button_label_c
-#dselector.label_selectedfill $selected_c
-
 proc ::plugins::DYE::setup_ui_DSx2 {} {
 	variable settings
 	variable widgets
@@ -635,13 +627,13 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	
 	# New DSx2-specific styles
 	# dbutton.width.dsx2 0
+#	dbutton.pressfill.dsx2 $button_label_c
+#	dbutton_label.pressfill.dsx2 $button_bg_c
 	dui aspect set -theme DSx2 [subst {
-		dbutton.shape.dsx2 round_outline
+		dbutton.shape.dsx2 round
 		dbutton.bheight.dsx2 100
 		dbutton.fill.dsx2 $button_bg_c
 		dbutton.disabledfill.dsx2 $unselected_c
-		dbutton.outline.dsx2 $::skin_forground_colour
-		dbutton.disabledoutline.dsx2 $unselected_c
 		
 		dbutton_label.pos.dsx2 {0.5 0.5}
 		dbutton_label.font_size.dsx2 [expr {$default_font_size+1}]
@@ -710,8 +702,8 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		set page [lindex $::skin_home_pages 0]
 		
 		# TEMPORAL, DEBUGGING TEST!
-dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_y_scale) - 130}] \
-	-bwidth 250 -bheight 70 -style dsx2 -label "Test" -command [namespace current]::select_grinder 
+#dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_y_scale) - 130}] \
+#	-bwidth 250 -bheight 70 -style dsx2 -label "Test" -command [namespace current]::select_grinder 
 		#[list dui::page::open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) {"P100 SPP Burrs and an arbitrary name for this excellent grinder in all my life " "Niche Zero" "Comandante C40"} ] 
 		
 		# Define hooks for Damian's pages and procs
@@ -1104,7 +1096,8 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		dui page open_dialog dye_item_select_dlg {} $beans -values_details $details -values_extras $last_clocks \
 			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the beans" \
 			-category_name beans -allow_add 1 -add_label "Add new beans" \
-			-option1 0 -option1_label "Load last shot with the bean" \
+			-add_embedded 0 -option1 $settings(beans_select_copy_to_next) \
+			-option1_label "Copy beans last shot to Next" \
 			-empty_items_msg "No beans to show" -selected $selected \
 			-return_callback [namespace current]::select_beans_callback
 	}
@@ -1114,7 +1107,18 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		variable ::plugins::DYE::settings
 		dui page show [lindex $::skin_home_pages 0]
 
-		if { $bean_desc ne "" } {
+		set settings(beans_select_copy_to_next) $load_last_shot_into_next
+				
+		if { $idx eq "<ADD_NEW>" } {
+			foreach fn {bean_brand bean_type roast_level roast_date bean_notes} {
+				set ::settings($fn) {}
+				set settings(next_$fn) {} 
+			}
+			plugins::save_settings DYE
+			::save_settings
+			
+			::plugins::DYE::open -which_shot next
+		} elseif { $bean_desc ne "" } {
 			if { [string is true $load_last_shot_into_next] && [return_zero_if_blank $last_clock] > 0 } {
 				set load_success [::plugins::DYE::load_next_from $last_clock {} \
 					$::plugins::DYE::settings(favs_n_recent_what_to_copy)]
@@ -1144,6 +1148,8 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 				::plugins::DYE::define_next_shot_desc
 			}
 			compute_days_offroast
+		} else {
+			plugins::save_settings DYE
 		}
 	}
 	
@@ -1320,12 +1326,13 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 				lappend grinder_details "[translate {Last setting:}] [lindex $last_grinder_settings $i] ([translate [lindex $grinder_setting_match $i]])" 
 			}
 		}
+
 		#[::plugins::SDB::available_categories grinder_model]
 		dui page open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) \
 			 $grinder_models -values_details $grinder_details -values_extras $last_grinder_settings \
 			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the grinder model" \
-			-allow_add 1 -add_label "Add new grinder" -category_name grinder \
-			-option1 1 -option1_label "Load last grinder setting" \
+			-allow_add 1 -add_label "Add new grinder" -add_embedded 1 -category_name grinder \
+			-option1 $settings(grinder_select_load_last_setting) -option1_label "Load last grinder setting" \
 			-empty_items_msg "No grinders to show" \
 			-selected [string trim $settings(next_grinder_model)] \
 			-return_callback [namespace current]::select_grinder_callback
@@ -1336,7 +1343,9 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 		variable ::plugins::DYE::settings
 		variable data
 		dui page show [lindex $::skin_home_pages 0]
-		
+
+		set settings(grinder_select_load_last_setting) $load_last_grinder_setting
+				
 		if { $grinder_model ne ""} {
 			set settings(next_grinder_model) $grinder_model
 			
@@ -1347,9 +1356,9 @@ dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_
 			}
 			
 			ensure_valid_grinder_spec
-			plugins::save_settings DYE
-			#grinder_model_change
 		}
+				
+		plugins::save_settings DYE
 	}
 	
 	proc ensure_valid_grinder_spec {} {
@@ -1469,8 +1478,8 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 
 		dui add dtoggle $page [expr $x+$x_2nd_group_offset] $y -anchor nw -tags favs_group_by_profile_title \
 			-variable favs_group_by_profile_title -command {%NS::validate_group_by profile_title}
-		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y -tags favs_group_by_profile_title_lbl -width 400 \
-			-text [translate "Profile"]
+		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y \
+			-tags favs_group_by_profile_title_lbl -width 400 -text [translate "Profile"]
 
 		dui add dtoggle $page $x [incr y 125] -anchor nw -tags favs_group_by_workflow -variable favs_group_by_workflow \
 			-command {%NS::validate_group_by workflow}
@@ -1479,8 +1488,8 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 
 		dui add dtoggle $page [expr $x+$x_2nd_group_offset] $y -anchor nw -tags favs_group_by_grinder_model \
 			-variable favs_group_by_grinder_model -command {%NS::validate_group_by grinder_model}
-		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y -tags favs_group_by_grinder_model_lbl -width 400 \
-			-text [translate "Grinder"]
+		dui add dtext $page [expr $x+$x_2nd_group_offset+$x_toggle_lbl_dist] $y \
+			-tags favs_group_by_grinder_model_lbl -width 400 -text [translate "Grinder"]
 		
 		dui add dtext $page $x [incr y 210] -width 1000 -anchor w \
 			-text "[translate {Number of DYE favorites to show on home page}] (0-$data(max_dsx2_home_visible_favs))" 
@@ -1518,8 +1527,8 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			
 			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
 				-style dsx2 -tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
-				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_font_size 11 -label_width 450 \
-				-initial_state hidden
+				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_font_size 11 \
+				-label_width 450 -initial_state hidden
 			
 #			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
 #				-shape round_outline -bheight 100 -fill $::skin_forground_colour -outline $::skin_forground_colour \
@@ -2545,4 +2554,3 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 	}
 	
 }
-

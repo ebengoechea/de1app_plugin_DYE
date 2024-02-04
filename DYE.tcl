@@ -146,7 +146,7 @@ proc ::plugins::DYE::main {} {
 	dui page add dye_profile_viewer_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_profile_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_shot_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
-	dui page add dye_item_select_dlg -namespace true -type dialog -bbox {0 0 800 1200}
+	dui page add dye_item_select_dlg -namespace true -type dialog -bbox {0 0 900 1350}
 
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
@@ -410,6 +410,9 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 		::plugins::DYE::grinders::infer_spec
 		::plugins::DYE::grinders::save_specs
 	}
+	
+	ifexists settings(grinder_select_load_last_setting) 1
+	ifexists settings(beans_select_copy_to_next) 0
 }
 
 proc ::plugins::DYE::upgrade { previous_version } {
@@ -6901,6 +6904,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		item_extras {}
 		item_type {}
 		allow_add 1
+		add_embedded 1
 		allow_option1 1
 		allow_option2 0
 		option1 0
@@ -6938,15 +6942,15 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		
 		dui add dbutton $page $page_width [expr {$y1-50}] -bwidth 100 -bheight 100 -shape "" \
 			-tags clear_search_text -anchor e -fill $::skin_background_colour \
-			-symbol square-xmark -symbol_font_size 25 -symbol_pos {0.5 0.5} -symbol_fill $::skin_forground_colour \
-			-command clear_string_filter
+			-symbol square-xmark -symbol_font_size 25 -symbol_pos {0.5 0.5} \
+			-symbol_fill $::skin_forground_colour -command clear_string_filter
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 
 		set tw [dui add text $page 20 $y0 -tags items -canvas_width [expr {$page_width-40}] \
-			-canvas_height [expr {$y1-$y0-4}] -canvas_anchor nw -yscrollbar 0 -font_size 16 \
-			-highlightthickness 0 -initial_state disabled \-foreground $::skin_forground_colour \
+			-canvas_height [expr {$y1-$y0-4}] -canvas_anchor nw -yscrollbar 0 -font_size 15 \
+			-highlightthickness 0 -initial_state disabled -foreground $::skin_forground_colour \
 			-exportselection 0]	
 
 		set y0 $y1
@@ -6954,18 +6958,24 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 
 		dui add canvas_item line $page 0.01 $y0 0.99 $y0 -style menu_dlg_sepline
 		
-		dui add dbutton $page 0.0 $y0 1.0 $y1 -tags add_new -style menu_dlg_btn -label "[translate {Add new}]..." \
-			-label_pos {165 0.5} -label_anchor w -symbol plus -symbol_pos {50 0.5} -symbol_anchor w -command {do_nothing} 
-		
+		#-label_pos {165 0.5} -symbol_pos {50 0.5}
 		set yb [expr {$y0+($y1-$y0)/2}]
+		dui add dbutton $page 2 $y0 [expr {$page_width-2}] $y1 -tags add_new -style menu_dlg_btn \
+			-label "[translate {Add new}]..." -label_pos {165 0.5} -label_anchor w -symbol plus \
+			-symbol_pos {50 0.5} -symbol_anchor w -command add_new
+		
+		dui add symbol $page 48 $yb -anchor w -symbol plus -tags add_new_symbol -style medium \
+			-fill [dui::aspect::get dbutton_symbol fill -style mehu_dlg_btn] \
+			-disabledfill [dui::aspect::get dbutton_symbol disabledfill -style mehu_dlg_btn] \
+			-font_size [dui::aspect::get dbutton_symbol font_size] -initial_state hidden 
 		dui add entry $page 165 $yb -canvas_anchor w -canvas_width [expr {$page_width-260}] \
-			-tags new_item_value -textvariable new_item_value
+			-tags new_item_value -textvariable new_item_value -initial_state hidden
 		bind $widgets(new_item_value) <KeyRelease> [namespace current]::change_new_item_value
 		
 		dui add dbutton $page [expr {$page_width-100}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
 			-tags add_new_ok -symbol check -symbol_pos {0.5 0.5} -symbol_font_size 30 \
 			-symbol_fill $::skin_green -symbol_disabledfill [dui aspect get dtext disabledfill] \
-			-command add_new_ok
+			-command add_new_ok -initial_state hidden
 		
 #		dui add dbutton $page [expr {$page_width-100}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
 #			-symbol xmark -symbol_pos {0.5 0.5} -symbol_font_size 30 -symbol_fill $::skin_red \
@@ -7025,9 +7035,23 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			[translate [::dui::args::get_option -page_title "Select an item"]]
 
 		set data(allow_add) [string is true [::dui::args::get_option -allow_add 1]] 
-		dui item config $page_to_show add_new-lbl -text \
-			"[translate [::dui::args::get_option -add_label {Add new item}]]..."
-
+		if { $data(allow_add) } {
+			dui item config $page_to_show add_new-lbl -text \
+				"[translate [::dui::args::get_option -add_label {Add new item}]]..."
+			
+			set data(add_embedded) [string is true [::dui::args::get_option -add_embedded 1]]
+			
+			if { $data(add_embedded) } {
+				dui item hide $page_to_show add_new* -initial yes
+				dui item show $page_to_show {add_new_symbol new_item_value add_new_ok*} -initial yes
+			} else {
+				dui item show $page_to_show add_new* -initial yes
+				dui item hide $page_to_show {add_new_symbol new_item_value add_new_ok*} -initial yes
+			}			
+		} else {
+			dui item hide $page_to_show {add_new* add_new_symbol new_item_value add_new_ok*} -initial yes
+		}
+		
 		if { [::dui::args::has_option -option1] } {
 			set data(allow_option1) 1
 			set data(option1) [string is true [::dui::args::get_option -option1]]
@@ -7086,9 +7110,6 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	proc show { page_to_hide page_to_show args } {
 		variable data
 		
-		if { ! $data(allow_add) } {
-			dui item disable $page_to_show add_new*  
-		}
 		if { ! $data(allow_option1) } {
 			dui item disable $page_to_show {option1* option1_lbl}
 		}
@@ -7261,6 +7282,15 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		fill_items
 	}
 	
+	proc add_new {} {
+		variable data
+		if { ! $data(add_embedded) } {
+			set data(selected) {}
+			set data(selected_idx) "<ADD_NEW>"
+			page_done
+		}
+	}
+	
 	proc change_new_item_value {} {
 		variable data
 		set page [namespace tail [namespace current]]
@@ -7290,16 +7320,21 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	proc page_done {} {
 		variable data
 		say [translate {done}] $::settings(sound_button_in)
-		
+
 		if { $data(variable) ne {} } {
 			set $data(variable) $data(selected)
 		}
-		if { $data(item_extras) eq {} } {
+		
+		if { $data(selected_idx) eq "<ADD_NEW>" } {
 			set extra {}
-		} elseif { $data(item_ids) eq {} } {
-			set extra [lindex $data(item_extras) $data(selected_idx)]
 		} else {
-			set extra [lindex $data(item_extras) [lsearch $data(item_ids) $data(selected_idx)]]
+			if { $data(item_extras) eq {} } {
+				set extra {}
+			} elseif { $data(item_ids) eq {} } {
+				set extra [lindex $data(item_extras) $data(selected_idx)]
+			} else {
+				set extra [lindex $data(item_extras) [lsearch $data(item_ids) $data(selected_idx)]]
+			}
 		}
 		
 		dui page close_dialog $data(selected) $data(selected_idx) $extra $data(item_type) \
