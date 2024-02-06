@@ -2550,9 +2550,535 @@ namespace eval ::dui::pages::DYE {
 	# If editing the next shot description, remember whether it was modified originally, to be able to restore the
 	# value in case the changes are cancelled.
 	variable src_next_modified 0
+	
+	variable panel_width 0
+}
+
+proc ::dui::pages::DYE::setup_panel { page x y height title symbol } {
+	variable panel_width 
+	
+	dui add shape round_outline $page $x $y -bwidth $panel_width -bheight $height \
+		-anchor nw -width 1 -outline $::skin_forground_colour
+	
+	dui add shape round $page $x $y -bwidth 350 -bheight 90 -radius {40 20 20 20} \
+		-style dye_pv_icon_btn
+	dui add symbol $page [expr {$x+20}] [expr $y+45] -anchor w -symbol $symbol \
+		-font_size 28 -fill white 
+	dui add dtext $page [expr {$x+215}] [expr $y+45] -anchor center -justify center \
+		-text [translate $title] -font_size 13 -fill white -width 250
 }
 
 proc ::dui::pages::DYE::setup {} {
+	variable data
+	variable widgets
+	variable panel_width
+	
+	set page [namespace tail [namespace current]]
+	regsub -all { } $::settings(skin) "_" skin
+	if { [::plugins::DYE::is_DSx2] } { set skin "DSx" }
+	
+	set x_page_margin 50
+	set y_page_margin 40
+
+	dui add dbutton $page $x_page_margin $y_page_margin -anchor nw -bwidth 110 -bheight 140 \
+		tags dye_menu -style dsx2 -symbol left-long -symbol_pos {0.5 0.35} \
+		-label [translate back] -label_pos {0.5 0.8} -label_font_size 10 -label_fill white \
+		-command page_done
+	
+	dui add dbutton $page [expr {$x_page_margin+140}] $y_page_margin -anchor nw -bwidth 110 -bheight 140 \
+		tags dye_menu -style dsx2 -symbol bars -symbol_pos {0.5 0.35} \
+		-label [translate menu] -label_pos {0.5 0.8} -label_font_size 10 -label_fill white \
+		-command open_menu
+	
+	dui add variable $page [expr {$x_page_margin+280}] $y_page_margin -tags page_title -style page_title \
+		-anchor nw -justify left -command {%NS::toggle_title}	
+	dui add variable $page [expr {$x_page_margin+280}] [expr {$y_page_margin+90}] -anchor nw -justify left \
+		-textvariable {[::dui::pages::DYE::propagate_state_msg]} -tags propagate_state_msg \
+		-font_size -3
+	
+#	# NAVIGATION
+#	set x_left_label 100; set y 40; set hspace 110
+	set nav_hsep 25
+	set navb_width 110
+	set navb_height 140
+	set x [expr {2560-$x_page_margin-$nav_hsep}]
+	set y $y_page_margin
+
+	dui add shape round_outline $page [expr {2560-$x_page_margin}] $y_page_margin \
+		-bwidth [expr {$navb_width*6+$nav_hsep*9}] -bheight $navb_height -anchor ne -width 1 \
+		-fill $::skin_forground_colour 
+	
+	dui add dbutton $page $x $y -anchor ne -bwidth $navb_width -bheight $navb_height tags move_to_next_def -symbol forward-fast \
+		-symbol_pos {0.5 0.35} -symbol_anchor center -symbol_justify center \
+		-label [translate NEXT] -label_pos {0.5 0.8} -label_font_size 10 -label_fill white
+	
+	incr x [expr {-$navb_width-$nav_hsep}]
+	dui add dbutton $page $x $y -anchor ne -bwidth $navb_width -bheight $navb_height \
+		-tags move_forward -symbol forward \
+		-symbol_pos {0.5 0.35} -symbol_anchor center -symbol_justify center \
+		-label [translate forward] -label_pos {0.5 0.8} -label_font_size 10 -label_fill white
+	
+	incr x [expr {-$navb_width-$nav_hsep*2}]
+	dui add dbutton $page $x $y -anchor ne -bwidth $navb_width -bheight $navb_height \
+		-tags move_by -symbol coffee-beans \
+		-symbol_pos {0.5 0.35} -symbol_anchor center -symbol_justify center \
+		-label [translate {move by beans}] -label_width 120 -label_pos {0.5 0.8} \
+		-label_font_size 10 -label_fill white
+	
+	incr x [expr {-$navb_width-$nav_hsep}]
+	dui add dbutton $page $x $y -anchor ne -bwidth $navb_width -bheight $navb_height \
+		-tags search_shot -symbol binoculars \
+		-symbol_pos {0.5 0.35} -symbol_anchor center -symbol_justify center \
+		-label [translate {search}] -label_pos {0.5 0.8} -label_font_size 10 -label_fill white
+	
+	incr x [expr {-$navb_width-$nav_hsep*2}]
+	dui add dbutton $page $x $y -anchor ne -bwidth $navb_width -bheight $navb_height \
+		-tags move_backward -symbol backward \
+		-symbol_pos {0.5 0.35} -symbol_anchor center -symbol_justify center \
+		-label [translate {backward}] -label_pos {0.5 0.8} -label_font_size 10 -label_fill white
+	
+	incr x [expr {-$navb_width-$nav_hsep}]
+	dui add dbutton $page $x $y -anchor ne -bwidth $navb_width -bheight $navb_height \
+		-tags move_first -symbol backward-fast \
+		-symbol_pos {0.5 0.35} -symbol_anchor center -symbol_justify center \
+		-label [translate {first}] -label_pos {0.5 0.8} -label_font_size 10 -label_fill white
+
+	# LEFT COLUMN
+	incr y 210
+	set panel_width [expr {(2560-$x_page_margin*2-75)/2}]
+	set button_width 525
+	set button_height 90 
+	
+	# WORKFLOW PANEL
+	setup_panel $page $x_page_margin $y 260 "WORKFLOW" arrow-progress
+
+	dui add dbutton $page [expr {$x_page_margin+$panel_width-70}] [expr {$y+10}] -anchor ne \
+		-bwidth 280 -bheight 80 -symbol cloud -symbol_pos {0.25 0.4} -symbol_anchor e \
+		-symbol_justify right -symbol_font_size 22 -label "Uploaded" -label_pos {0.3 0.4} \
+		-label_anchor w -label_justify left -label_font_size 16 -label_font_family notosansuibold
+	
+	dui add dtext $page [expr {$x_page_margin*2+$button_width/2}] [expr {$y+136}] -text [translate "DSx2 Workflow"] \
+		-anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page [expr {$x_page_margin*2}] [expr {$y+140}] -bwidth $button_width -bheight $button_height \
+		-style dsx2 -label "americano"
+
+	dui add dtext $page [expr {$x_page_margin*2+$button_width+40+$button_width/2}] [expr {$y+136}] -text [translate "Source shot"] \
+		-anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page [expr {$x_page_margin*2+$button_width+40}] [expr {$y+140}] -bwidth $button_width -bheight $button_height \
+		-style dsx2 -label "Yesterday at 17:50:21\nD'Origen Numa Roaster..." -label_font_size 12 
+	
+	# BEANS PANEL
+	incr y [expr {260+50}]
+	setup_panel $page $x_page_margin $y 350 "BEANS..." coffee-beans
+
+	dui add dbutton $page [expr {$x_page_margin+$panel_width-50}] [expr {$y+10}] -anchor ne \
+		-bwidth 180 -bheight 80 -symbol broom-wide -symbol_pos {0.25 0.4} -symbol_anchor e \
+		-symbol_justify right -symbol_font_size 22 -label "Clear" -label_pos {0.3 0.4} \
+		-label_anchor w -label_justify left -label_font_size 16 -label_font_family notosansuibold
+
+	dui add dbutton $page [expr {$x_page_margin+$panel_width-50-180-100}] [expr {$y+10}] -anchor ne \
+		-bwidth 180 -bheight 80 -symbol ballot-check -symbol_pos {0.25 0.4} -symbol_anchor e \
+		-symbol_justify right -symbol_font_size 22 -label "Select" -label_pos {0.3 0.4} \
+		-label_anchor w -label_justify left -label_font_size 16 -label_font_family notosansuibold
+	
+	dui add dtext $page [expr {$x_page_margin*2+$button_width/2}] [expr {$y+136}] -text [translate "Roaster"] \
+		-anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page [expr {$x_page_margin*2}] [expr {$y+140}] -bwidth $button_width -bheight $button_height \
+		-style dsx2 -label "D'Origen" -label_font_size 12 -label_width 490
+
+	dui add dtext $page [expr {$x_page_margin*2+$button_width+40+$button_width/2}] [expr {$y+136}] -text [translate "Bean type"] \
+		-anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page [expr {$x_page_margin*2+$button_width+40}] [expr {$y+140}] -bwidth $button_width -bheight $button_height \
+		-style dsx2 -label "Ethiopia Mana Mufti Delayer one and even longer label" -label_font_size 12 \
+		-label_width 490
+
+	dui add entry $page [expr {$x_page_margin*2+180}] [expr {$y+250}] -tags roast_date -width 12 \
+		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_width 200 \
+		-label_pos [list [expr {$x_page_margin*2}] [expr {$y+270}]] \
+		-label_font_size 12 -label_font_family notosansuibold
+	bind $widgets(roast_date) <Leave> [list + [namespace current]::compute_days_offroast]
+
+	dui add variable $page [expr {$x_page_margin*2+500}] [expr {$y+252}] -tags days_offroast_msg
+
+	# EQUIPMENT PANEL
+	incr y [expr {350+50}]
+	setup_panel $page $x_page_margin $y 260 "EQUIPMENT..." wrench
+
+	dui add dbutton $page [expr {$x_page_margin+$panel_width-50}] [expr {$y+10}] -anchor ne \
+		-bwidth 180 -bheight 80 -symbol broom-wide -symbol_pos {0.25 0.4} -symbol_anchor e \
+		-symbol_justify right -symbol_font_size 22 -label "Clear" -label_pos {0.3 0.4} \
+		-label_anchor w -label_justify left -label_font_size 16 -label_font_family notosansuibold
+	
+	dui add dtext $page [expr {$x_page_margin*2+$button_width/2}] [expr {$y+136}] -text [translate "Grinder"] \
+		-anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page [expr {$x_page_margin*2}] [expr {$y+140}] -bwidth $button_width -bheight $button_height \
+		-style dsx2 -label "P100 SPP HU" -label_font_size 12
+	
+	dui add dtext $page [expr {$x_page_margin*2+$button_width+40+$button_width/2}] [expr {$y+136}] \
+		-text [translate "Grinder setting"] -anchor s -font_size 12 -font_family notosansuibold
+	set xb [expr {$x_page_margin*2+$button_width+40}]
+	set yb [expr {$y+140}]
+	dui add dbutton $page $xb $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol minus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 110] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol minus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add variable $page [incr xb 150] [expr {$yb+45}] -anchor center -justify center \
+		-textvariable {$::plugins::DYE::settings(next_grinder_setting)} -font_size 20
+	dui add dbutton $page [incr xb 65] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol plus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 105] $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol plus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+	
+		
+		
+#	dui add dbutton $page [expr {$x_page_margin*2+$button_width+40}] [expr {$y+140}] -bwidth $button_width -bheight $button_height \
+#	-style dsx2 -label "Ethiopia Mana Mufti Delayer one and even longer label" -label_font_size 12 \
+#	-label_width 490
+	
+	# PEOPLE PANEL
+	incr y [expr {260+50}]
+	setup_panel $page $x_page_margin $y 260 "PEOPLE" people
+	
+	dui add dbutton $page [expr {$x_page_margin+$panel_width-50}] [expr {$y+10}] -anchor ne \
+		-bwidth 180 -bheight 80 -symbol broom-wide -symbol_pos {0.25 0.4} -symbol_anchor e \
+		-symbol_justify right -symbol_font_size 22 -label "Clear" -label_pos {0.3 0.4} \
+		-label_anchor w -label_justify left -label_font_size 16 -label_font_family notosansuibold
+	
+	dui add dtext $page [expr {$x_page_margin*2+$button_width/2}] [expr {$y+136}] -text [translate "Barista"] \
+		-anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page [expr {$x_page_margin*2}] [expr {$y+140}] -bwidth $button_width -bheight $button_height \
+		-style dsx2 -label "Enrique" -label_font_size 12
+
+	dui add dtext $page [expr {$x_page_margin*2+$button_width+40+$button_width/2}] [expr {$y+136}] -text [translate "Drinker"] \
+		-anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page [expr {$x_page_margin*2+$button_width+40}] [expr {$y+140}] -bwidth $button_width -bheight $button_height \
+		-style dsx2 -label "Olga" -label_font_size 12 
+	
+	
+	# -------------------------------------------------------------------------------------------
+#	set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
+#	
+	# RIGHT COLUMN
+	set y [expr {$y_page_margin + 210}]
+	
+	# EXTRACTION PANEL
+	set x [expr {$x_page_margin+$panel_width+75}]
+	setup_panel $page $x $y 1290 "EXTRACTION..." mug-hot
+	
+	dui add graph $page [expr {$x+$panel_width-50}] [expr {$y+20}] -width 600 -height 300 \
+		-canvas_anchor ne -style dyev3_text_graph
+
+	incr y 360
+	dui add dtext $page [expr {$x+$x_page_margin+$button_width/2}] [expr {$y-4}] -text [translate "Profile"] \
+		-anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page [expr {$x+$x_page_margin}] $y -bwidth $button_width -bheight $button_height \
+		-style dsx2 -labelvariable {$::settings(profile_title)} -label_font_size 12
+
+	dui add dbutton $page [expr {$x+$x_page_margin+$button_width+70}] [expr {$y+10}] -anchor nw \
+		-bwidth 180 -bheight 80 -symbol pencil -symbol_pos {0.25 0.4} -symbol_anchor e \
+		-symbol_justify right -symbol_font_size 22 -label "Edit" -label_pos {0.3 0.4} \
+		-label_anchor w -label_justify left -label_font_size 16 -label_font_family notosansuibold
+
+	dui add dbutton $page [expr {$x+$x_page_margin+$button_width+300}] [expr {$y+10}] -anchor nw \
+		-bwidth 180 -bheight 80 -symbol signature -symbol_pos {0.25 0.4} -symbol_anchor e \
+		-symbol_justify right -symbol_font_size 22 -label "Viewer" -label_pos {0.3 0.4} \
+		-label_anchor w -label_justify left -label_font_size 16 -label_font_family notosansuibold
+	
+	incr y 160
+	set xb [expr {$x+$x_page_margin}]
+	set yb $y
+	
+	dui add dtext $page [expr {$xb+$button_width/2}] [expr {$y-4}] \
+		-text [translate "Dose (g)"] -anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page $xb $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol minus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 110] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol minus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add variable $page [incr xb 150] [expr {$yb+45}] -anchor center -justify center \
+		-textvariable {$::plugins::DYE::settings(next_grinder_dose_weight)} -font_size 20
+	dui add dbutton $page [incr xb 65] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol plus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 105] $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol plus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+
+	set xb [expr {$xb+95+50}]
+	
+	dui add dtext $page [expr {$xb+$button_width/2}] [expr {$y-4}] \
+		-text [translate "Yield (g)"] -anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page $xb $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol minus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 110] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol minus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add variable $page [incr xb 150] [expr {$yb+45}] -anchor center -justify center \
+		-textvariable {$::plugins::DYE::settings(next_drink_weight)} -font_size 20
+	dui add dbutton $page [incr xb 65] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol plus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 105] $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol plus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+
+	incr y 180
+	set xb [expr {$x+$x_page_margin}]
+	set yb $y
+	
+	dui add dtext $page [expr {$xb+$button_width/2}] [expr {$y-4}] \
+		-text [translate "Total Dissolved Solids (%)"] -anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page $xb $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol minus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 110] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol minus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add variable $page [incr xb 150] [expr {$yb+45}] -anchor center -justify center \
+		-textvariable {$::settings(drink_tds)} -font_size 20
+	dui add dbutton $page [incr xb 65] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol plus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 105] $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol plus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+	
+	set xb [expr {$xb+95+50}]
+	
+	dui add dtext $page [expr {$xb+$button_width/2}] [expr {$y-4}] \
+		-text [translate "Extraction Yield (%)"] -anchor s -font_size 12 -font_family notosansuibold
+	dui add dbutton $page $xb $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol minus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 110] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol minus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add variable $page [incr xb 150] [expr {$yb+45}] -anchor center -justify center \
+		-textvariable {$::settings(drink_ey)} -font_size 20
+	dui add dbutton $page [incr xb 65] [expr {$yb+5}] -bwidth 90 -bheight 80 \
+		-style dsx2 -symbol plus -symbol_font_size 16 -symbol_pos {0.5 0.5}
+	dui add dbutton $page [incr xb 105] $yb -bwidth 95 -bheight $button_height \
+		-style dsx2 -symbol plus -symbol_font_size 25 -symbol_pos {0.5 0.5}
+
+	incr y 140
+	
+	lassign [::plugins::SDB::field_lookup espresso_enjoyment {n_decimals min_value max_value \
+		default_value small_increment big_increment}] n_decimals min max default smallinc biginc
+	dui add dtext $page [expr {$x+$x_page_margin}] [expr {$y+10}] \
+		-text [translate "Enjoyment"] -anchor nw -font_size 12 -font_family notosansuibold
+
+	# Enjoyment stars rating (on top of the enjoyment text entry + arrows, then dinamically one or the other is hidden
+	#	when the page is shown, depending on the settings)
+	dui add drater $page [expr {$x+$x_page_margin+200}] $y -tags espresso_enjoyment_rater -width $button_width \
+	 	-variable espresso_enjoyment -min $min -max $max -n_ratings 5 -use_halfs yes
+		
+	# Espresso notes
+	incr y 130
+	dui add dbutton $page [expr {$x+$panel_width-50}] [expr {$y+15}] -anchor se \
+		-bwidth 180 -bheight 80 -symbol broom-wide -symbol_pos {0.25 0.4} -symbol_anchor e \
+		-symbol_justify right -symbol_font_size 22 -label "Clear" -label_pos {0.3 0.4} \
+		-label_anchor w -label_justify left -label_font_size 16 -label_font_family notosansuibold
+	
+	set tw [dui add multiline_entry $page [expr {$x+$x_page_margin}] $y -tags espresso_notes \
+		-canvas_height 270 -canvas_width [expr {$panel_width-100}] -font_size 14 \
+		-label "Notes" -label_pos [list [expr {$x+$x_page_margin}] [expr {$y-4}]] -label_anchor sw \
+		-label_font_size 12 -label_font_family notosansuibold]
+		
+#	# BEANS DATA
+#	if { [dui aspect exists image -source -style dye_beans_img] } {
+#		set img_src [dui aspect get image -source -style dye_beans_img]
+#	} else {
+#		set img_src "bean_${skin}.png"
+#	}
+#	dui add image $page $x_left_label 150 $img_src -tags beans_img
+#	dui add dtext $page $x_left_field 250 -text [translate "Beans"] -tags beans_header -style section_header \
+#		-command beans_select
+#	
+#	dui add symbol $page [expr {$x_left_field+300}] 245 -tags beans_select -symbol sort-down -font_size 24 -command yes
+#
+#	# Beans roaster / brand 
+#	set y 350
+#	dui add dcombobox $page $x_left_field $y -tags bean_brand -width $width_left_field \
+#		-label [translate [::plugins::SDB::field_lookup bean_brand name]] -label_pos [list $x_left_label $y] \
+#		-values {[::plugins::SDB::available_categories bean_brand]} \
+#		-page_title [translate "Select the beans roaster or brand"] -listbox_width 1000
+#	
+#	# Beans type/name
+#	incr y 100
+#	dui add dcombobox $page $x_left_field $y -tags bean_type -width $width_left_field \
+#		-label [translate [::plugins::SDB::field_lookup bean_type name]] -label_pos [list $x_left_label $y] \
+#		-values {[::plugins::SDB::available_categories bean_type]} -page_title [translate "Select the beans type"] \
+#		-listbox_width 1000
+#
+#	# Roast date
+#	incr y 100
+#	dui add entry $page $x_left_field $y -tags roast_date -width [expr {$width_left_field/2}] \
+#		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_pos [list $x_left_label $y]
+#	bind $widgets(roast_date) <Leave> [list + [namespace current]::compute_days_offroast]
+#	
+#	dui add variable $page [expr {$x_left_field+400}] $y -tags days_offroast_msg
+#	bind $widgets(roast_date) <Configure> [list ::dui::item::relocate_text_wrt DYE days_offroast_msg roast_date e 30 0 w]
+#		
+#	# Roast level
+#	incr y 100
+#	dui add dcombobox $page $x_left_field $y -tags roast_level -width $width_left_field \
+#		-label [translate [::plugins::SDB::field_lookup roast_level name]] -label_pos [list $x_left_label $y] \
+#		-values {[::plugins::SDB::available_categories roast_level]} -page_title [translate "Select the beans roast level"] \
+#		-listbox_width 800
+#
+#	# Bean notes
+#	incr y 100
+#	dui add multiline_entry $page $x_left_field $y -tags bean_notes -width $width_left_field -height 3 \
+#		-label [translate [::plugins::SDB::field_lookup bean_notes name]] -label_pos [list $x_left_label $y]
+#	
+#	# EQUIPMENT
+#	set y 925
+#
+#	if { [dui aspect exists image -source -style dye_equipment_img] } {
+#		set img_src [dui aspect get image -source -style dye_equipment_img]
+#	} else {
+#		set img_src "niche_${skin}.png"
+#	}
+#	dui add image $page $x_left_label $y $img_src -tags equipment_img
+#	dui add dtext $page $x_left_field [expr {$y+130}] -text [translate "Equipment"] -style section_header
+#			
+#	# Grinder model
+#	incr y 240
+#	dui add dcombobox $page $x_left_field $y -tags grinder_model -width $width_left_field \
+#		-label [translate [::plugins::SDB::field_lookup grinder_model name]] -label_pos [list $x_left_label $y] \
+#		-values {[::plugins::SDB::available_categories grinder_model]} -callback_cmd select_grinder_model_callback \
+#		-page_title [translate "Select the grinder model"] -listbox_width 1200
+#	bind $widgets(grinder_model) <Leave> ::dui::pages::DYE::grinder_model_change
+#	
+#	# Grinder setting
+#	incr y 100
+#	dui add dcombobox $page $x_left_field $y -tags grinder_setting -width $width_left_field \
+#		-label [translate [::plugins::SDB::field_lookup grinder_setting name]] -label_pos [list $x_left_label $y] \
+#		-command grinder_setting_select
+#	
+#	# EXTRACTION
+#	set x_right_label 1280; set x_right_field 1525
+#	
+#	if { [dui aspect exists image -source -style dye_extraction_img] } {
+#		set img_src [dui aspect get image -source -style dye_extraction_img]
+#	} else {
+#		set img_src "espresso_${skin}.png"
+#	}	
+#	dui add image $page $x_right_label 150 $img_src -tags extraction_img
+#	dui add dtext $page 1550 250 -text [translate "Extraction"] -style section_header
+#
+#	# Calc EY from TDS button
+#	dui add dtoggle $page 1935 245 -tags calc_ey_from_tds -label [translate "Calc EY from TDS"] \
+#		-label_pos {2075 248} -variable ::plugins::DYE::settings(calc_ey_from_tds) -command calc_ey_from_tds_click 
+#	
+#	# Grinder Dose weight
+#	set y 350
+#	lassign [::plugins::SDB::field_lookup grinder_dose_weight {n_decimals min_value max_value default_value small_increment big_increment}] \
+#		n_decimals min max default smallinc biginc
+#	
+#	# [translate [::plugins::SDB::field_lookup grinder_dose_weight name]]
+#	dui add entry $page $x_right_field $y -tags grinder_dose_weight -width 5 -label_pos [list $x_right_label $y] \
+#		-label [translate "Dose (g)"] -data_type numeric \
+#		-editor_page yes -editor_page_title [translate "Edit beans dose weight (g)"] \
+#		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc
+#	
+#	bind $widgets(grinder_dose_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
+#	bind $widgets(grinder_dose_weight) <FocusOut> "[namespace current]::calc_ratio_and_time_label"
+#	
+#	# Drink weight (Yield)
+#	set offset 350
+#	lassign [::plugins::SDB::field_lookup drink_weight {n_decimals min_value max_value default_value small_increment big_increment}] \
+#		n_decimals min max default smallinc biginc
+#	
+#	# [translate [::plugins::SDB::field_lookup drink_weight name]]
+#	dui add entry $page [expr {$x_right_field+$offset}] $y -tags drink_weight -width 5 \
+#		-label [translate "Yield (g)"] -label_pos [list [expr {$x_right_field+$offset-20}] $y] -label_anchor ne -label_justify right \
+#		-data_type numeric -editor_page yes -editor_page_title [translate "Edit final drink weight (g)"] \
+#		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc
+#	dui add variable $page [expr {$x_right_field+$offset+65}] [expr {$y+85}] -tags target_drink_weight \
+#		-textvariable {SAW $%NS::data(target_drink_weight)g} -anchor center -justify center -font_size -4
+#	
+#	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
+#	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ratio_and_time_label"
+#	
+#	dui add variable $page [expr {$x_right+50}] $y -tags ratio_and_time_label -anchor ne -justify right -font_size +2
+#		
+#	# Total Dissolved Solids
+#	set x_hclicker_field 2050
+#	incr y 125	
+#	lassign [::plugins::SDB::field_lookup drink_tds {n_decimals min_value max_value default_value small_increment big_increment}] \
+#		n_decimals min max default smallinc biginc
+#	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Total Dissolved Solids (TDS)"] -tags {drink_tds_label drink_tds*}
+#	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610 -bheight 75 -tags drink_tds \
+#		-labelvariable {$%NS::data(drink_tds)%} -style dye_double \
+#		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc \
+#		-editor_page yes -editor_page_title [translate "Edit Total Dissolved Solids (%%)"] -callback_cmd %NS::calc_ey_from_tds
+#	#bind $widgets(drink_tds) <FocusOut> ::dui::pages::DYE::calc_ey_from_tds
+#	
+#	# Extraction Yield
+#	incr y 100
+#	lassign [::plugins::SDB::field_lookup drink_ey {n_decimals min_value max_value default_value small_increment big_increment}] \
+#		n_decimals min max default smallinc biginc
+#	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Extraction Yield (EY)"] -tags {drink_ey_label drink_ey*}
+#	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610 -bheight 75 -tags drink_ey \
+#		-labelvariable {$%NS::data(drink_ey)%} -style dye_double \
+#		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc \
+#		-editor_page yes -editor_page_title [translate "Edit Extraction Yield (%%)"]
+#	
+#	# Enjoyment entry with horizontal clicker
+#	incr y 100
+#	lassign [::plugins::SDB::field_lookup espresso_enjoyment {n_decimals min_value max_value default_value small_increment big_increment}] \
+#		n_decimals min max default smallinc biginc
+#	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Enjoyment (0-100)"] -tags espresso_enjoyment_label
+#		
+#	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610  -bheight 75 -tags espresso_enjoyment \
+#		-labelvariable espresso_enjoyment -style dye_double \
+#		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc \
+#		-editor_page yes -editor_page_title [translate "Edit espresso enjoyment"]	
+#	
+#	# Enjoyment stars rating (on top of the enjoyment text entry + arrows, then dinamically one or the other is hidden
+#	#	when the page is shown, depending on the settings)
+#	dui add drater $page [expr {$x_hclicker_field-250}] $y -tags espresso_enjoyment_rater -width 650 \
+#		-variable espresso_enjoyment -min $min -max $max -n_ratings 5 -use_halfs yes
+#	
+#	# Espresso notes
+#	incr y 100
+#	set tw [dui add multiline_entry $page $x_right_field $y -tags espresso_notes -height 5 -canvas_width 900 -label_width 245 \
+#		-label [translate [::plugins::SDB::field_lookup espresso_notes name]] -label_pos [list $x_right_label $y]]
+#
+#	# PEOPLE
+#	set y 1030
+#	
+#	if { [dui aspect exists image -source -style dye_people_img] } {
+#		set img_src [dui aspect get image -source -style dye_people_img]
+#	} else {
+#		set img_src "people_${skin}.png"
+#	}
+#	dui add image $page $x_right_label $y $img_src -tags people_img
+#	dui add dtext $page $x_right_field [expr {$y+140}] -text [translate "People"] -style section_header 
+#		
+#	# Barista (my_name)
+#	incr y 240
+#	dui add dcombobox $page $x_right_field $y -tags my_name -canvas_width 325 \
+#		-label [translate [::plugins::SDB::field_lookup my_name name]] -label_pos [list $x_right_label $y] \
+#		-values {[::plugins::SDB::available_categories my_name]} -page_title [translate "Select the barista"] \
+#		-listbox_width 800
+#	
+#	# Drinker name
+#	dui add dcombobox $page [expr {$x_right_field+575}] $y -tags drinker_name -canvas_width 325 \
+#		-label [translate [::plugins::SDB::field_lookup drinker_name name]] -label_pos [list [expr {$x_right_label+675}] $y] \
+#		-values {[::plugins::SDB::available_categories drinker_name]} -page_title [translate "Select the coffee drinker"] \
+#		-listbox_width 800
+	
+	# BOTTOM BUTTONS
+#	dui add dbutton $page 1280 1480 -label [translate Done] -tags page_done -style insight_ok -anchor n \
+#		-bheight 100 -tap_pad 20
+	
+#	set y 1415 	
+#	dui add dbutton $page $x_page_margin 1480 -tags edit_dialog -style dsx_settings -symbol pencil -label [translate "Edit data"] \
+#		-bheight 100 -tap_pad 20 -symbol_font_size 25
+#
+#	dui add dbutton $page [expr {150+[dui aspect get dbutton bwidth -style dsx_settings]}] 1480 -tags manage_dialog \
+#		-style dsx_settings -symbol objects-column -label [translate "Manage"] -bheight 100 -tap_pad 20 \
+#		-symbol_font_size 25
+#	
+#	dui add dbutton $page [expr {2560-$x_page_margin}] 1480 -anchor ne -tags visualizer_dialog \
+#		-style dsx_settings -symbol cloud -label [translate "Visualizer"] \
+#		-label1variable visualizer_status_label -label1_pos {0.5 0.8} -symbol_font_size 25 \
+#		-label1_anchor center -label1_justify center -label1_font_size -3 -bheight 100 -tap_pad 20
+#	
+#	dui add variable $page 2420 1390 -tags warning_msg -style remark -anchor e -justify right -initial_state hidden
+}
+
+proc ::dui::pages::DYE::old_setup {} {
 	variable data
 	variable widgets
 	set page [namespace tail [namespace current]]
@@ -2947,6 +3473,10 @@ proc ::dui::pages::DYE::hide { page_to_hide page_to_show } {
 
 	save_description
 	dui say [translate "Saved"] ""
+}
+
+proc ::dui::pages::DYE::open_menu { } {
+		
 }
 
 proc ::dui::pages::DYE::toggle_title { } {
