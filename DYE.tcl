@@ -2552,20 +2552,9 @@ namespace eval ::dui::pages::DYE {
 	variable src_next_modified 0
 	
 	variable panel_width 0
-}
-
-proc ::dui::pages::DYE::setup_panel { page x y height title symbol } {
-	variable panel_width 
 	
-	dui add shape round_outline $page $x $y -bwidth $panel_width -bheight $height \
-		-anchor nw -width 1 -outline $::skin_forground_colour
-	
-	dui add shape round $page $x $y -bwidth 350 -bheight 90 -radius {40 20 20 20} \
-		-style dye_pv_icon_btn
-	dui add symbol $page [expr {$x+20}] [expr $y+45] -anchor w -symbol $symbol \
-		-font_size 28 -fill white 
-	dui add dtext $page [expr {$x+215}] [expr $y+45] -anchor center -justify center \
-		-text [translate $title] -font_size 13 -fill white -width 250
+	variable page_states
+	array set page_states {}
 }
 
 proc ::dui::pages::DYE::setup {} {
@@ -3076,6 +3065,127 @@ proc ::dui::pages::DYE::setup {} {
 #		-label1_anchor center -label1_justify center -label1_font_size -3 -bheight 100 -tap_pad 20
 #	
 #	dui add variable $page 2420 1390 -tags warning_msg -style remark -anchor e -justify right -initial_state hidden
+	setup_menu $page
+}
+
+proc ::dui::pages::DYE::setup_panel { page x y height title symbol } {
+	variable panel_width 
+	
+	dui add shape round_outline $page $x $y -bwidth $panel_width -bheight $height \
+		-anchor nw -width 1 -outline $::skin_forground_colour
+	
+	dui add shape round $page $x $y -bwidth 350 -bheight 90 -radius {40 20 20 20} \
+		-style dye_pv_icon_btn
+	dui add symbol $page [expr {$x+20}] [expr $y+45] -anchor w -symbol $symbol \
+		-font_size 28 -fill white 
+	dui add dtext $page [expr {$x+215}] [expr $y+45] -anchor center -justify center \
+		-text [translate $title] -font_size 13 -fill white -width 250
+}
+
+proc ::dui::pages::DYE::setup_menu { page } {
+	variable widgets 
+	
+	# Create a special transparent full-page background for pages with type=dialog
+	dui add canvas_item rect $page 0 0 2560 1800 -fill {} -width 0 -tags _dye_transp_bg \
+		-initial_state hidden	
+	set can [dui::canvas]
+	$can bind _dye_transp_bg [dui::platform::button_press] {::dui::pages::DYE::close_menu; break}
+	$can bind _dye_transp_bg <Double-Button-1> {break}
+	
+	set x -800
+	dui add canvas_item rect $page $x 0 0 1600 -tags {dye_menu dye_menu*} -fill $::skin_forground_colour \
+		-width 0 -initial_state hidden
+	
+	dui add symbol $page [expr {$x+30}] 60 -anchor w -justify left -tags {dye_menu_icon dye_menu*} \
+		-symbol $::plugins::DYE::settings(describe_icon) -font_size 26 -fill white -initial_state hidden
+	dui add dtext $page [expr {$x+130}] 60 -anchor w -justify left -tags {dye_menu_title dye_menu*} \
+		-text "Describe Your Espresso" -font_size 18 -fill white -initial_state hidden
+	dui add dtext $page -20 90 -anchor e -justify right -tags {dye_menu_version dye_menu*} \
+		-text "v$::plugins::DYE::version" -font_size 12 -fill white -initial_state hidden
+					 
+	set tw [dui add text $page $x 120 -canvas_width [expr {-$x-2}] -canvas_height 1480 -tags {dye_menu_text dye_menu*} \
+		-font_size -2 -foreground "#7f879a" -exportselection 0 -initial_state hidden]
+
+	$tw tag configure section -spacing1 [dui::platform::rescale_y 20] -spacing3 [dui::platform::rescale_y 10] \
+		-lmargin1 [dui::platform::rescale_x 30] -font [dui::font::get notosansuibold 11] -foreground brown
+	$tw tag configure icon -font [dui font get $::dui::symbol::font_filename 20] \
+		-lmargin1 [dui::platform::rescale_x 60] -spacing3 [dui::platform::rescale_y 15]
+	$tw tag configure more_icon -font [dui font get $::dui::symbol::font_filename 20]
+	
+#	$tw tag configure menu  
+	
+	
+	$tw configure -state normal
+	$tw configure -tabs [list [dui::platform::rescale_x 140] left [dui::platform::rescale_x 770] right] 
+	$tw delete 1.0 end
+
+	$tw insert insert "[translate {V I E W   S H O T   D A T A}]\n" section
+	
+	$tw insert insert [dui::symbol::get house] icon
+	$tw insert insert "\t[translate {Main panel}]\n" menu
+	
+	$tw insert insert "[dui::symbol::get square-ellipsis-vertical]" icon
+	$tw insert insert "\t[translate {Other sections}]" menu
+	$tw insert insert "\t[dui::symbol::get chevron-right]\n" more_icon
+	
+	$tw insert insert "[translate {P R O P A G A T I O N}]\n" section
+
+	$tw insert insert [dui::symbol::get file-import] icon
+	$tw insert insert "\t[translate {Read from previous shot...}]\n" menu
+	
+	$tw insert insert [dui::symbol::get file-import] icon
+	$tw insert insert "\t[translate {Read from selected shot...}]\n" menu
+	
+	$tw insert insert [dui::symbol::get file-export] icon
+	$tw insert insert "\t[translate {Copy to next shot plan...}]\n" menu
+
+	$tw insert insert "[translate {E D I T   D A T A}]\n" section
+
+	$tw insert insert [dui::symbol::get broom] icon
+	$tw insert insert "\t[translate {Clear all}]\n" menu
+
+	$tw insert insert [dui::symbol::get arrow-rotate-left] icon
+	$tw insert insert "\t[translate {Undo changes}]\n" menu
+
+	$tw insert insert "[translate {M A N A G E   S H O T S}]\n" section
+
+	$tw insert insert [dui::symbol::get trash] icon
+	$tw insert insert "\t[translate {Delete shot}]\n" menu
+	
+	$tw insert insert [dui::symbol::get file-export] icon
+	$tw insert insert "\t[translate {Export shot...}]\n" menu
+	
+	$tw insert insert [dui::symbol::get gears] icon
+	$tw insert insert "\t[translate {Shot DataBase settings}]\n" menu
+	
+	$tw insert insert "[translate {F A V O R I T E S}]\n" section
+	
+	$tw insert insert [dui::symbol::get repeat] icon
+	$tw insert insert "\t[translate {Load favorite}]" menu
+	$tw insert insert "\t[dui::symbol::get chevron-right]\n" more_icon
+	
+	$tw insert insert [dui::symbol::get pen-to-square] icon
+	$tw insert insert "\t[translate {Edit favorite}]" menu
+	$tw insert insert "\t[dui::symbol::get chevron-right]\n" more_icon
+
+	$tw insert insert [dui::symbol::get gears] icon
+	$tw insert insert "\t[translate {Favorites settings}]\n" menu
+	
+	$tw insert insert "[translate {V I S U A L I Z E R}]\n" section
+	
+	$tw insert insert [dui::symbol::get cloud-arrow-up] icon
+	$tw insert insert "\t[translate {Upload this shot}]\n" menu
+
+	$tw insert insert [dui::symbol::get cloud-arrow-down] icon
+	$tw insert insert "\t[translate {Download this shot}]\n" menu
+
+	$tw insert insert [dui::symbol::get cloud-arrow-down] icon
+	$tw insert insert "\t[translate {Download by code...}]\n" menu
+
+	$tw insert insert [dui::symbol::get gears] icon
+	$tw insert insert "\t[translate {Visualizer settings...}]\n" menu
+	
+	$tw configure -state disabled
 }
 
 proc ::dui::pages::DYE::old_setup {} {
@@ -3469,14 +3579,103 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 # Because we save here, we don't need to save explicitly when leaving the page, EXCEPT if we're loading a new shot
 #	in the same page (e.g. when navigation buttons are clicked).
 proc ::dui::pages::DYE::hide { page_to_hide page_to_show } {
-	variable data
-
+	variable page_states
+	array unset page_states
+	
 	save_description
 	dui say [translate "Saved"] ""
 }
 
+proc ::dui::pages::DYE::slide_menu { page x x_end {x_incr 25} {end_cmd {}} } {	
+	incr x $x_incr
+	if { ($x_incr > 0 && $x > $x_end) || ($x_incr < 0 && $x < $x_end) } {
+		set x $x_end
+	}
+	dui item moveto $page dye_menu* $x 0 dye_menu
+	
+	if { ($x_incr > 0 && $x < $x_end) || ($x_incr < 0 && $x > $x_end) } {
+		after 1 [list ::dui::pages::DYE::slide_menu $page $x $x_end $x_incr $end_cmd]
+	} elseif { $end_cmd ne {} } {
+		uplevel #0 {*}$end_cmd
+	}
+}
+
 proc ::dui::pages::DYE::open_menu { } {
-		
+	variable page_states
+	set page [namespace tail [namespace current]]
+	set can [dui::canvas]
+	
+	dui item show $page {_dye_transp_bg dye_menu*}
+	slide_menu $page -[dui::platform::rescale_x 800] 0 [dui::platform::rescale_x 100]
+	
+	# Tk widgets always appear on top of any canvas item. So we need to iterate through widgets in the 
+	# background page, disabling those that don't overlap the dialog, and hiding those that do.
+	array set page_states {}
+	set menu_items [dui::item::get $page {dye_menu* _dye_transp_bg}]
+	set page_items [dui::page::items $page]	
+	foreach item $page_items {
+		if { $item ni $menu_items } {
+			if { [$can type $item] eq "window" } {
+				set w [$can itemcget $item -window]
+				# "try" as not all widgets support the -state option (e.g. Graph)	
+				try {
+					set state [$w cget -state]
+					set page_states($item) $state
+					if { $state ne "hidden" } {
+						$w configure -state disabled
+					}
+				} on error err {
+					set state [$can itemcget $item -state]
+					set page_states($item) $state
+					if { $state ne "hidden" } {
+						$can itemconfigure $item -state disabled
+					}
+				}
+			} else {
+				set state [$can itemcget $item -state]
+				set page_states($item) $state
+				if { $state ne "hidden" } {
+					$can itemconfigure $item -state disabled
+				}
+			}
+		}
+	}
+	
+	foreach item [$can find overlapping 0 0 [dui::platform::rescale_x 800] \
+				[dui::platform::rescale_y 1600]] {
+		if { [$can type $item] eq "window" && $item in $page_items && $item ni $menu_items} {
+			$can itemconfigure $item -state hidden
+		}
+	}
+
+	$can raise _dye_transp_bg
+}
+
+proc ::dui::pages::DYE::close_menu { } {
+	slide_menu [namespace tail [namespace current]] 0 [dui::platform::rescale_x -800] \
+		[dui::platform::rescale_x -100] ::dui::pages::DYE::end_close_menu
+}
+
+proc ::dui::pages::DYE::end_close_menu { } {
+	variable page_states
+	set page [namespace tail [namespace current]]
+	
+	# If there's a set of saved item states, restore them, even if we're not back to the same page, as
+	# Tk widgets disabling is not restored by canvas showing them.
+	set can [dui::canvas]
+	if { [array size page_states] > 0 } {
+		foreach item [array names page_states] {
+			if { [$can type $item] eq "window" } {
+				try {
+					[$can itemcget $item -window] configure -state $page_states($item)
+				} on error err {}
+			} 
+			$can itemconfigure $item -state $page_states($item)
+		}
+		array unset page_states
+	}
+ 
+	dui::item::hide $page {_dye_transp_bg dye_menu*}
 }
 
 proc ::dui::pages::DYE::toggle_title { } {
