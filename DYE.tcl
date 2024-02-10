@@ -4895,6 +4895,7 @@ namespace eval ::dui::pages::dye_menu {
 
 	variable page_width 800
 	variable page_height 1600
+	variable selected_menu_tag {}
 	
 	proc setup {} {		
 		variable widgets
@@ -4911,89 +4912,95 @@ namespace eval ::dui::pages::dye_menu {
 			-text "v$::plugins::DYE::version" -font_size 12 -fill white 
 							
 		set tw [dui add text $page 0 120 -canvas_width [expr {$page_width-2}] \
-			-canvas_height [expr {$page_height-120}] -tags dye_menu -font_size -2 \
+			-canvas_height [expr {$page_height-120}] -tags dye_menu_text \
 			-foreground "#7f879a" -exportselection 0]
 		
-		$tw tag configure section -spacing1 [dui::platform::rescale_y 20] -spacing3 [dui::platform::rescale_y 10] \
+		$tw tag configure section -spacing1 [dui::platform::rescale_y 10] -spacing3 [dui::platform::rescale_y 10] \
 			-lmargin1 [dui::platform::rescale_x 30] -font [dui::font::get notosansuibold 11] -foreground brown
+		$tw tag configure menu -spacing1 [dui::platform::rescale_y 10] -spacing3 [dui::platform::rescale_y 10]
 		$tw tag configure icon -font [dui font get $::dui::symbol::font_filename 20] \
-			-lmargin1 [dui::platform::rescale_x 60] -spacing3 [dui::platform::rescale_y 15]
+			-lmargin1 [dui::platform::rescale_x 60] 
+		
 		$tw tag configure more_icon -font [dui font get $::dui::symbol::font_filename 20]
 		
+		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
+		# when use_finger_down_for_tap=0. 
+		$tw tag bind menu <ButtonPress-1> [list + [namespace current]::click_menu_item %W %x %y %X %Y]
+
 		$tw configure -state normal
 		$tw configure -tabs [list [dui::platform::rescale_x 140] left \
 				[dui::platform::rescale_x [expr {$page_width-20}]] right] 
 		$tw delete 1.0 end
 		
-		$tw insert insert "[translate {V I E W   S H O T   D A T A}]\n" section
+		add_section "View Shot Data"
+		add_menu_item house "Home panel" view_home 0 0
+		add_menu_item square-ellipsis-vertical "Other sections" view_other 0 1
 		
-		$tw insert insert [dui::symbol::get house] icon
-		$tw insert insert "\t[translate {Main panel}]\n" menu
+		add_section "Propagation"
+		add_menu_item file-import "Read from previous shot" read_previous 1 0
+		add_menu_item file-import "Read from selected shot" read_selected 1 0
+		add_menu_item file-export "Copy to next shot plan" copy_to_next 1 0
+																
+		add_section "Favorites"
+		add_menu_item repeat "Load favorite" load_fav 0 1
+		add_menu_item pen-to-square "Edit favorite" edit_fav 0 1
+		add_menu_item gears "Favorites settings" fav_settings 0 0
 		
-		$tw insert insert "[dui::symbol::get square-ellipsis-vertical]" icon
-		$tw insert insert "\t[translate {Other sections}]" menu
-		$tw insert insert "\t[dui::symbol::get chevron-right]\n" more_icon
+		add_section "Visualizer"
+		add_menu_item cloud-arrow-up "Upload this shot" upload_shot 0 0
+		add_menu_item cloud-arrow-down "Download this shot" download_shot 0 0
+		add_menu_item cloud-arrow-down "Download by code" download_code 1 0
+		add_menu_item gears "Visualizer settings" visualizer_settings 0 0
 		
-		$tw insert insert "[translate {P R O P A G A T I O N}]\n" section
+		add_section "Edit Data"
+		add_menu_item broom "Clear all" clear 0 0
+		add_menu_item arrow-rotate-left "Undo changes" undo 0 0
 		
-		$tw insert insert [dui::symbol::get file-import] icon
-		$tw insert insert "\t[translate {Read from previous shot...}]\n" menu
-		
-		$tw insert insert [dui::symbol::get file-import] icon
-		$tw insert insert "\t[translate {Read from selected shot...}]\n" menu
-		
-		$tw insert insert [dui::symbol::get file-export] icon
-		$tw insert insert "\t[translate {Copy to next shot plan...}]\n" menu
-		
-		$tw insert insert "[translate {E D I T   D A T A}]\n" section
-		
-		$tw insert insert [dui::symbol::get broom] icon
-		$tw insert insert "\t[translate {Clear all}]\n" menu
-		
-		$tw insert insert [dui::symbol::get arrow-rotate-left] icon
-		$tw insert insert "\t[translate {Undo changes}]\n" menu
-		
-		$tw insert insert "[translate {M A N A G E   S H O T S}]\n" section
-		
-		$tw insert insert [dui::symbol::get trash] icon
-		$tw insert insert "\t[translate {Delete shot}]\n" menu
-		
-		$tw insert insert [dui::symbol::get file-export] icon
-		$tw insert insert "\t[translate {Export shot...}]\n" menu
-		
-		$tw insert insert [dui::symbol::get gears] icon
-		$tw insert insert "\t[translate {Shot DataBase settings}]\n" menu
-		
-		$tw insert insert "[translate {F A V O R I T E S}]\n" section
-		
-		$tw insert insert [dui::symbol::get repeat] icon
-		$tw insert insert "\t[translate {Load favorite}]" menu
-		$tw insert insert "\t[dui::symbol::get chevron-right]\n" more_icon
-		
-		$tw insert insert [dui::symbol::get pen-to-square] icon
-		$tw insert insert "\t[translate {Edit favorite}]" menu
-		$tw insert insert "\t[dui::symbol::get chevron-right]\n" more_icon
-		
-		$tw insert insert [dui::symbol::get gears] icon
-		$tw insert insert "\t[translate {Favorites settings}]\n" menu
-		
-		$tw insert insert "[translate {V I S U A L I Z E R}]\n" section
-		
-		$tw insert insert [dui::symbol::get cloud-arrow-up] icon
-		$tw insert insert "\t[translate {Upload this shot}]\n" menu
-		
-		$tw insert insert [dui::symbol::get cloud-arrow-down] icon
-		$tw insert insert "\t[translate {Download this shot}]\n" menu
-		
-		$tw insert insert [dui::symbol::get cloud-arrow-down] icon
-		$tw insert insert "\t[translate {Download by code...}]\n" menu
-		
-		$tw insert insert [dui::symbol::get gears] icon
-		$tw insert insert "\t[translate {Visualizer settings}]\n" menu
-		
+		add_section "Manage Shots"
+		add_menu_item trash "Delete shot" delete_shot 1 0
+		add_menu_item file-export "Export shot" export_shot 1 0
+		add_menu_item gears "Shot DataBase settings" sdb_settings 0 0
+				
 		$tw configure -state disabled
 	}
 
+	proc add_section { title } {
+		variable widgets
+		set title [string toupper [translate $title]]
+		regsub -all {([^ ]) ([^ ])} $title {\1   \2} title
+		regsub -all {([^ )([^ ])} $title {\1 \2} title
+		$widgets(dye_menu_text) insert insert "$title\n" section
+	}
+
+	proc add_menu_item { symbol text item_tag {ellipsis 0} {more 0}} {
+		variable widgets
+		set tw $widgets(dye_menu_text)
+		
+		set tags [list menu i_$item_tag]
+		$tw insert insert "[dui::symbol::get $symbol]" [concat $tags icon]
+		set text [translate $text]
+		if { [string is true $ellipsis] } {
+			append text "..."
+		}
+		if { [string is true $more] } {
+			$tw insert insert "\t$text" $tags
+			$tw insert insert "\t[dui::symbol::get chevron-right]\n" [concat $tags more_icon]
+		} else {
+			$tw insert insert "\t$text\n" $tags
+		}
+	}
+	
+	# Trick for drawing a horizontal divider line in a Tk Text widget
+	proc add_divider_line {} {
+		variable widgets
+		set tw $widgets(dye_menu_text)
+
+		$tw insert insert "\n"			 
+		$tw tag add line insert-1lines insert
+		$tw tag configure line -font "Arial 1" -background \
+			[dui::aspect::get line fill -style menu_dlg_sepline -default "light grey"] 		
+	}
+	
 	proc load { page_to_hide page_to_show args } {
 		variable page_width
 		dui::page::moveto $page_to_show -$page_width 0
@@ -5039,6 +5046,55 @@ namespace eval ::dui::pages::dye_menu {
 	proc ::dui::pages::dye_menu::end_close_menu { } {
 		dui::page::close_dialog	
 	}
+	
+	proc click_menu_item { widget x y X Y } {
+		variable data
+	
+		set clicked_tags [$widget tag names @$x,$y]
+		
+		if { [llength $clicked_tags] > 1 } {
+			set item_idx [lsearch $clicked_tags "i_*"]
+			if { $item_idx > -1 } {
+				set item_tag [lindex $clicked_tags $item_idx]
+				menu_item_select [string range $item_tag 2 end]
+			}
+		}
+	}
+
+	proc menu_item_select { menu_tag } {
+		variable data
+		variable widgets
+		variable selected_menu_tag
+
+		set widget $widgets(dye_menu_text)
+
+		if { $menu_tag eq "" } {
+			if { $selected_menu_tag ne "" } {
+				$widget tag configure i_$selected_menu_tag -background {} -foreground {}
+				set selected_menu_tag {}
+			}
+			return
+		} elseif { $selected_menu_tag eq $menu_tag } {
+			return
+		}
+
+		if { $selected_menu_tag ne "" } {
+			$widget tag configure i_$selected_menu_tag -background {} -foreground {}
+		}
+		
+		set selected_menu_tag $menu_tag
+		array set selected_shot {}
+				
+		$widget tag configure i_$menu_tag -background $::skin_forground_colour \
+			-foreground $::skin_background_colour
+		
+		# if the tag can't be found in the widget, this fails, so embedded in catch
+		catch {
+			$widget see i_${menu_tag}.last
+			#$widget see i_${menu_tag}.first
+		}		
+	}
+	
 }
 
 ### DYE EDIT DIALOG PAGE ###########################################################################################
