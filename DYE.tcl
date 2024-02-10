@@ -146,7 +146,8 @@ proc ::plugins::DYE::main {} {
 	dui page add dye_profile_viewer_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_profile_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_shot_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
-	dui page add dye_item_select_dlg -namespace true -type dialog -bbox {0 0 900 1350}
+	dui page add dye_item_select_dlg -namespace true -type dialog -bbox {0 0 900 1600} \
+		-bg_shape rect -fill $::skin_background_colour -width 2 -outline $::skin_forground_colour
 
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
@@ -6888,6 +6889,51 @@ FROM V_shot WHERE removed=0 "
 
 ### ITEM SELECTOR DIALOG PAGE #########################################################################################
 
+#proc load { page_to_hide page_to_show args } {
+#	variable page_width
+#	dui::page::moveto $page_to_show -$page_width 0
+#	return 1
+#}
+#
+#proc show { page_to_hide page_to_show } {
+#	variable page_width
+#	variable page_height
+#	
+#	# Hide Tk widgets in the destination area
+#	set can [dui::canvas]
+#	foreach item [$can find overlapping 0 0 $page_width $page_height] {
+#		if { [$can type $item] eq "window" } {
+#			$can itemconfigure $item -state hidden
+#		}
+#	}
+#	
+#	slide $page_to_show -[dui::platform::rescale_x $page_width] 0 [dui::platform::rescale_x 100]
+#}
+#
+#proc slide { page x x_end {x_incr 100} {end_cmd {}} } {	
+#	incr x $x_incr
+#	if { ($x_incr > 0 && $x > $x_end) || ($x_incr < 0 && $x < $x_end) } {
+#		set x $x_end
+#	}
+#	
+#	dui::page::moveto $page $x 0
+#	
+#	if { ($x_incr > 0 && $x < $x_end) || ($x_incr < 0 && $x > $x_end) } {
+#		after 1 [list ::dui::pages::dye_menu::slide $page $x $x_end $x_incr $end_cmd]
+#	} elseif { $end_cmd ne {} } {
+#		uplevel #0 {*}$end_cmd
+#	}
+#}
+#
+#proc hide { page_to_hide page_to_show } {
+#	# We need an unload page action for sliding back to work with dialogs
+##		slide $page_to_hide 0 [dui::platform::rescale_x -[dui::page::width $page_to_hide 0]] \
+##			[dui::platform::rescale_x -100] ::dui::pages::dye_menu::end_close_menu
+#}
+#
+#proc ::dui::pages::dye_menu::end_close_menu { } {
+#	dui::page::close_dialog	
+#}
 namespace eval ::dui::pages::dye_item_select_dlg {
 	variable widgets
 	array set widgets {}
@@ -6916,13 +6962,18 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		new_item_value {}
 	}
 
+	variable page_width 900 
+	variable page_height 1600
+	
 	proc setup {} {
 		variable data
 		variable widgets
+		variable page_heihgt
 		set page [namespace tail [namespace current]]
 		
 		set page_width [dui page width $page 0]
 		set page_height [dui page height $page 0]
+		
 		set splits [dui page split_space 0 $page_height 200 0.99 100 110]
 		
 		set i 0		
@@ -7023,13 +7074,17 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	# -option1_label <text>
 	# -category_name <text>
 	# -empty_items_msg
+	# -theme to repaint itself if needed under the desired theme
 	proc load { page_to_hide page_to_show variable values args } {
 		variable data
 		variable widgets
+		variable page_width 
+		
+		if { [info exists opts(-theme)] } {
+			dui page retheme $page_to_show $opts(-theme)
+		}
 
-#		if { [info exists opts(-theme)] } {
-#			dui page retheme $page_to_show $opts(-theme)
-#		}
+		dui::page::moveto $page_to_show $::dui::_base_screen_width 0
 		
 		dui item config $page_to_show page_title -text \
 			[translate [::dui::args::get_option -page_title "Select an item"]]
@@ -7109,7 +7164,10 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	
 	proc show { page_to_hide page_to_show args } {
 		variable data
-		
+		variable page_width
+		variable page_height
+		set can [dui::canvas]
+				
 		if { ! $data(allow_option1) } {
 			dui item disable $page_to_show {option1* option1_lbl}
 		}
@@ -7119,8 +7177,38 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		}
 		
 		dui item disable $page_to_show add_new_ok*
+				
+		# Hide Tk widgets in the destination area
+		set hide_page_items [dui::page::items $page_to_hide]
+		foreach item [$can find overlapping [expr {$::dui::_base_screen_width-$page_width}] 0 \
+				$::dui::_base_screen_width $page_height] {
+			if { [$can type $item] eq "window" && $item in $hide_page_items} {
+				$can itemconfigure $item -state hidden
+			}
+		}
+		
+#		slide $page_to_show [dui::platform::rescale_x $::dui::_base_screen_width] \
+#			[dui::platform::rescale_x [expr {$::dui::_base_screen_width-$page_width}]] \
+#			[dui::platform::rescale_x -100]
+		slide $page_to_show [::round_to_integer $::dui::_base_screen_width] \
+				[::round_to_integer [expr {$::dui::_base_screen_width-$page_width}]] -100
 	}
 
+	proc slide { page x x_end {x_incr 100} {end_cmd {}} } {	
+		incr x $x_incr
+		if { ($x_incr > 0 && $x > $x_end) || ($x_incr < 0 && $x < $x_end) } {
+			set x $x_end
+		}
+		
+		dui::page::moveto $page $x 0
+		
+		if { ($x_incr > 0 && $x < $x_end) || ($x_incr < 0 && $x > $x_end) } {
+			after 1 [list [namespace current]::slide $page $x $x_end $x_incr $end_cmd]
+		} elseif { $end_cmd ne {} } {
+			uplevel #0 {*}$end_cmd
+		}
+	}
+		
 	# Trick for drawing a horizontal divider line in a Tk Text widget
 	proc add_divider_line_to_text {} {
 		variable widgets
