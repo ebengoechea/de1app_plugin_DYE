@@ -4913,7 +4913,8 @@ namespace eval ::dui::pages::dye_menu {
 							
 		set tw [dui add text $page 0 120 -canvas_width [expr {$page_width-2}] \
 			-canvas_height [expr {$page_height-120}] -tags dye_menu_text \
-			-foreground "#7f879a" -exportselection 0]
+			-foreground "#7f879a" -exportselection 0 -inactiveselectbackground $::skin_background_colour \
+			-selectforeground "#7f879a"]
 		
 		$tw tag configure section -spacing1 [dui::platform::rescale_y 10] -spacing3 [dui::platform::rescale_y 10] \
 			-lmargin1 [dui::platform::rescale_x 30] -font [dui::font::get notosansuibold 11] -foreground brown
@@ -5011,15 +5012,16 @@ namespace eval ::dui::pages::dye_menu {
 		variable page_width
 		variable page_height
 		
-		# Hide Tk widgets in the destination area
+		# Hide Tk widgets in the destination area		
 		set can [dui::canvas]
+		set hide_page_items [dui::page::items $page_to_hide]
 		foreach item [$can find overlapping 0 0 $page_width $page_height] {
-			if { [$can type $item] eq "window" } {
+			if { [$can type $item] eq "window" && $item in $hide_page_items} {
 				$can itemconfigure $item -state hidden
 			}
 		}
 		
-		slide $page_to_show -[dui::platform::rescale_x $page_width] 0 [dui::platform::rescale_x 100]
+		slide $page_to_show -$page_width 0 100
 	}
 
 	proc slide { page x x_end {x_incr 100} {end_cmd {}} } {	
