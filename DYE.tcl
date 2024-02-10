@@ -4927,11 +4927,13 @@ namespace eval ::dui::pages::dye_menu {
 			-foreground "#7f879a" -exportselection 0 -inactiveselectbackground $::skin_background_colour \
 			-selectforeground "#7f879a"]
 		
+		$tw configure -tabs [list [dui::platform::rescale_x 85] center [dui::platform::rescale_x 140] left \
+				[dui::platform::rescale_x [expr {$page_width-20}]] right] 
+		
 		$tw tag configure section -spacing1 [dui::platform::rescale_y 10] -spacing3 [dui::platform::rescale_y 10] \
 			-lmargin1 [dui::platform::rescale_x 30] -font [dui::font::get notosansuibold 11] -foreground brown
 		$tw tag configure menu -spacing1 [dui::platform::rescale_y 10] -spacing3 [dui::platform::rescale_y 10]
-		$tw tag configure icon -font [dui font get $::dui::symbol::font_filename 20] \
-			-lmargin1 [dui::platform::rescale_x 60] 
+		$tw tag configure icon -font [dui font get $::dui::symbol::font_filename 20] 
 		
 		$tw tag configure more_icon -font [dui font get $::dui::symbol::font_filename 20]
 		
@@ -4940,8 +4942,6 @@ namespace eval ::dui::pages::dye_menu {
 		$tw tag bind menu <ButtonPress-1> [list + [namespace current]::click_menu_item %W %x %y %X %Y]
 
 		$tw configure -state normal
-		$tw configure -tabs [list [dui::platform::rescale_x 140] left \
-				[dui::platform::rescale_x [expr {$page_width-20}]] right] 
 		$tw delete 1.0 end
 		
 		add_section "View Shot Data"
@@ -4989,7 +4989,7 @@ namespace eval ::dui::pages::dye_menu {
 		set tw $widgets(dye_menu_text)
 		
 		set tags [list menu i_$item_tag]
-		$tw insert insert "[dui::symbol::get $symbol]" [concat $tags icon]
+		$tw insert insert "\t[dui::symbol::get $symbol]" [concat $tags icon]
 		set text [translate $text]
 		if { [string is true $ellipsis] } {
 			append text "..."
