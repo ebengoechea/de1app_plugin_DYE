@@ -2568,6 +2568,11 @@ proc ::dui::pages::DYE::setup {} {
 	set x_page_margin 50
 	set y_page_margin 40
 
+	# Left area to swipe to show the menu
+	dui add dbutton $page 0 0 -bwidth $x_page_margin -bheight $::dui::_base_screen_height \
+		-tags dye_left_swipe 
+	[dui::canvas] bind dye_left_swipe <<FingerMotion>> {::dui::pages::DYE::swipe_left %X %Y}
+	
 	dui add dbutton $page $x_page_margin $y_page_margin -anchor nw -bwidth 110 -bheight 140 \
 		tags dye_menu -style dsx2 -symbol left-long -symbol_pos {0.5 0.35} \
 		-label [translate back] -label_pos {0.5 0.8} -label_font_size 10 -label_fill white \
@@ -3570,6 +3575,12 @@ proc ::dui::pages::DYE::show { page_to_hide page_to_show } {
 	calc_ey_from_tds
 	update_visualizer_button 0
 }
+
+proc ::dui::pages::DYE::swipe_left { change_x change_y } {
+	if { $change_x > abs($change_y) } {
+		dui::page::open_dialog dye_menu
+	}
+}		
 
 # Ensure the shot description is saved if it has been modified and we're leaving the page unexpectedly, for example
 # 	if a GHC button is tapped while editing the shot, or the machine is starting up.
@@ -5015,7 +5026,8 @@ namespace eval ::dui::pages::dye_menu {
 		# Hide Tk widgets in the destination area		
 		set can [dui::canvas]
 		set hide_page_items [dui::page::items $page_to_hide]
-		foreach item [$can find overlapping 0 0 $page_width $page_height] {
+		foreach item [$can find overlapping 0 0 [dui::platform::rescale_x $page_width] \
+				[dui::platform::rescale_y $page_height]] {
 			if { [$can type $item] eq "window" && $item in $hide_page_items} {
 				$can itemconfigure $item -state hidden
 			}
