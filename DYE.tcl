@@ -6941,6 +6941,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	variable data
 	array set data {
 		variable {}
+		default_filter_msg {Search...}
 		filter_string {}
 		selected {}
 		selected_idx -1
@@ -6960,6 +6961,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		filter_indexes {}
 		shown_indexes {}
 		new_item_value {}
+		default_new_item_msg {New item name}
 	}
 
 	variable page_width 900 
@@ -6984,17 +6986,19 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			-tags close_dialog -style menu_dlg_close -command page_cancel
 		
 		dui add dtext $page 0.48 [expr {$y0+55}] -tags page_title -style menu_dlg_title \
-			-text [translate {Select an item}]
+			-text [translate {Select an item}] -font_family notosansuibold
 		
 		dui add symbol $page 20 [expr {$y1-50}] -symbol magnifying-glass -font_size 20 -anchor w
 		dui add entry $page 90 [expr {$y1-50}] -canvas_width [expr {$page_width-190}] \
 			-tags filter_string -canvas_anchor w
-		bind $widgets(filter_string) <KeyRelease> [namespace current]::apply_string_filter
+		bind $widgets(filter_string) <FocusIn> [namespace current]::focus_in_filter_string
+		bind $widgets(filter_string) <FocusOut> [namespace current]::focus_out_filter_string
+		bind $widgets(filter_string) <KeyRelease> [namespace current]::apply_filter_string
 		
-		dui add dbutton $page $page_width [expr {$y1-50}] -bwidth 100 -bheight 100 -shape "" \
+		dui add dbutton $page [expr {$page_width-2}] [expr {$y1-50}] -bwidth 100 -bheight 100 -shape "" \
 			-tags clear_search_text -anchor e -fill $::skin_background_colour \
 			-symbol square-xmark -symbol_font_size 25 -symbol_pos {0.5 0.5} \
-			-symbol_fill $::skin_forground_colour -command clear_string_filter
+			-symbol_fill $::skin_forground_colour -command clear_filter_string
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
@@ -7021,6 +7025,8 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			-font_size [dui::aspect::get dbutton_symbol font_size] -initial_state hidden 
 		dui add entry $page 165 $yb -canvas_anchor w -canvas_width [expr {$page_width-260}] \
 			-tags new_item_value -textvariable new_item_value -initial_state hidden
+		bind $widgets(new_item_value) <FocusIn> [namespace current]::focus_in_new_item_value
+		bind $widgets(new_item_value) <FocusOut> [namespace current]::focus_out_new_item_value
 		bind $widgets(new_item_value) <KeyRelease> [namespace current]::change_new_item_value
 		
 		dui add dbutton $page [expr {$page_width-100}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
@@ -7055,11 +7061,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
 		# when use_finger_down_for_tap=0. 
 		$tw tag bind item <ButtonPress-1> [list + [namespace current]::click_item_text %W %x %y %X %Y]
-		$tw tag bind item <Double-Button-1> [namespace current]::page_done
-
-		#$tw tag bind nav_cat <ButtonPress-1> [list + [namespace current]::click_nav_cat_text %W %x %y %X %Y]
-		##$tw tag bind <Double-Button-1> [namespace current]::page_done
-		
+		$tw tag bind item <Double-Button-1> [namespace current]::page_done		
 	}
 	
 	# Accepted extra arguments:
@@ -7073,7 +7075,9 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 	# -option1 <1/0>
 	# -option1_label <text>
 	# -category_name <text>
-	# -empty_items_msg
+	# -empty_items_msg <text>
+	# -default_filter_msg <text>
+	# -default_new_value_msg <text>
 	# -theme to repaint itself if needed under the desired theme
 	proc load { page_to_hide page_to_show variable values args } {
 		variable data
@@ -7135,11 +7139,12 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			msg -ERROR [namespace current] "load: item_ids and item_extras have different lengths"
 		}
 		
-#		if { $data(selected_idx) > -1 } {
-#			# Remove selection from last loading of this form
-#			$widgets(items) tag configure item_$data(selected_idx) -background {} -foreground {}
-#			set data(selected_idx) -1
-#		}		
+		if { $data(selected_idx) > -1 } {
+			# Remove selection from last loading of this form
+			$widgets(items) tag configure item_$data(selected_idx) -background {} -foreground {}
+			set data(selected_idx) -1
+		}
+		
 		set data(selected) [::dui::args::get_option -selected {}]
 		if { $variable ne "" && $data(selected) eq "" && [subst "\$$variable"] ne "" } {
 			set data(selected) [subst "\$$data(variable)"]
@@ -7151,12 +7156,17 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 				set data(item_values) [list "<SEL>" {*}$data(item_ids)]
 			}
 		}
+		
 		set data(item_type) [::dui::args::get_option -category_name {}]
 		set data(empty_items_msg) [translate [::dui::args::get_option -empty_items_msg "No items to show"]]
+		set data(default_filter_msg) [::dui::args::get_option -default_filter_msg "Search..."]
 		set data(filter_string) {}
+		focus_out_filter_string
 		set data(filter_indexes) {} 
 		set data(shown_indexes) {}
+		set data(default_new_filter_msg) [::dui::args::get_option -default_new_filter_msg "New item name"]
 		set data(new_item_value) {}
+		focus_out_new_item_value
 		
 		fill_items
 		return 1
@@ -7187,9 +7197,6 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			}
 		}
 		
-#		slide $page_to_show [dui::platform::rescale_x $::dui::_base_screen_width] \
-#			[dui::platform::rescale_x [expr {$::dui::_base_screen_width-$page_width}]] \
-#			[dui::platform::rescale_x -100]
 		slide $page_to_show [::round_to_integer $::dui::_base_screen_width] \
 				[::round_to_integer [expr {$::dui::_base_screen_width-$page_width}]] -100
 	}
@@ -7280,6 +7287,12 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		}
 
 		$tw configure -state disabled
+		
+		if { $data(selected_idx) ne {} && $data(selected_idx) ne "-1" } {
+			item_select $data(selected_idx)
+		} elseif { $data(selected) ne {} } {
+			item_select [lsearch $data(item_values) $data(selected)]
+		}
 	}
 	
 	proc click_item_text { widget x y X Y } {
@@ -7313,9 +7326,16 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 				set data(selected) ""
 				set data(selected_idx) -1
 			}
-			
+
+			catch {
+				$tw see 0.0
+			}			
 			return
 		} elseif { $data(selected_idx) eq $id } {
+			catch {
+				$tw see item_${id}.last
+				$tw see item_${id}.first
+			}
 			return
 		}
 		
@@ -7334,18 +7354,38 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		# if the tag can't be found in the tw, this fails, so embedded in catch
 		catch {
 			$tw see item_${id}.last
+			$tw see item_${id}.first
 		}
 		
 	}
 	
-	proc clear_string_filter {} {
+	proc focus_in_filter_string {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		if { $data(filter_string) eq [translate $data(default_filter_msg)] } {
+			set data(filter_string) {}
+			dui item config $page filter_string -foreground [dui::aspect::get entry foreground]
+		}
+	}
+
+	proc focus_out_filter_string {} {
+		variable data		
+		set page [namespace tail [namespace current]]
+		if { [string trim $data(filter_string)] eq {} } {
+			set data(filter_string) [translate $data(default_filter_msg)]
+			dui item config $page filter_string -foreground "grey"
+		}
+	}
+	
+	proc clear_filter_string {} {
 		variable data
 		
 		set data(filter_string) {}
-		apply_string_filter
+		focus_out_filter_string
+		apply_filter_string
 	}
 	
-	proc apply_string_filter {} {
+	proc apply_filter_string {} {
 		variable data
 		
 		set data(show_indexes) {}
@@ -7356,8 +7396,14 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 			return
 		} 
 		
-		if { [string length $data(filter_string)] > 0 } {
-			set filter "*[regsub -all {[[:space:]]} $data(filter_string) *]*"
+		if { $data(filter_string) eq [translate $data(default_filter_msg)] } {
+			set filter ""
+		} else {
+			set filter [string trim $data(filter_string)]
+		}
+		
+		if { [string length $filter] > 0 } {
+			set filter "*[regsub -all {[[:space:]]} $filter *]*"
 			set data(shown_indexes) [lsearch -all -nocase $data(item_values) $filter]
 			if { [llength $data(shown_indexes)] == 0 } {
 				show_no_items_found 
@@ -7368,6 +7414,24 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		}
 		
 		fill_items
+	}
+	
+	proc focus_in_new_item_value {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		if { $data(new_item_value) eq [translate $data(default_new_item_msg)] } {
+			set data(new_item_value) {}
+			dui item config $page new_item_value -foreground [dui::aspect::get entry foreground]
+		}
+	}
+
+	proc focus_out_new_item_value {} {
+		variable data		
+		set page [namespace tail [namespace current]]
+		if { [string trim $data(new_item_value)] eq {} } {
+			set data(new_item_value) [translate $data(default_new_item_msg)]
+			dui item config $page new_item_value -foreground "grey"
+		}
 	}
 	
 	proc add_new {} {

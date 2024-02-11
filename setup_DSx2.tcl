@@ -1094,12 +1094,12 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		}
 		
 		dui page open_dialog dye_item_select_dlg {} $beans -values_details $details -values_extras $last_clocks \
-			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the beans" \
+			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select beans" \
 			-category_name beans -allow_add 1 -add_label "Add new beans" \
 			-add_embedded 0 -option1 $settings(beans_select_copy_to_next) \
 			-option1_label "Copy beans last shot to Next" \
-			-empty_items_msg "No beans to show" -selected $selected \
-			-return_callback [namespace current]::select_beans_callback
+			-empty_items_msg "No beans to show" -default_filter_msg "Search beans..." \
+			-selected $selected -return_callback [namespace current]::select_beans_callback
 	}
 	
 	proc select_beans_callback { {bean_desc {}} {idx {}} {last_clock {}} {item_type {}} \
@@ -1330,11 +1330,11 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		#[::plugins::SDB::available_categories grinder_model]
 		dui page open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) \
 			 $grinder_models -values_details $grinder_details -values_extras $last_grinder_settings \
-			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select the grinder model" \
+			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select grinder model" \
 			-allow_add 1 -add_label "Add new grinder" -add_embedded 1 -category_name grinder \
 			-option1 $settings(grinder_select_load_last_setting) -option1_label "Load last grinder setting" \
-			-empty_items_msg "No grinders to show" \
-			-selected [string trim $settings(next_grinder_model)] \
+			-empty_items_msg "No grinders to show" -default_filter_msg "Search grinders..." \
+			-default_new_item_msg "New grinder name" -selected [string trim $settings(next_grinder_model)] \
 			-return_callback [namespace current]::select_grinder_callback
 	}
 	
