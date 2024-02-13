@@ -227,4 +227,12 @@ Currently only available under DSx2.
 
 **R2. Redesigned DYE Menu**
 
-![Redesigned DYE Menus](DYE_Menus_redesign.png "Redesigned DYE Menus")
+A sliding-from-tablet-left side menu that is scrollable so it can grow:
+
+![Redesigned DYE Menus](DYE_redesigned_menu.png "Redesigned DYE Menus")
+
+**R3. Redesigned item selection dialog**
+
+A sliding-from-tablet-right side menu that can serve to select any item from a list. Here shown for beans but allows selecting grinder, roast levels, etc. With embedded search and the option to add new items (either embedded or by calling another page or dialog).
+
+![Redesigned item selection dialog](DYE_beans_select_slider_dialog.png "Redesigned item selection dialog")
