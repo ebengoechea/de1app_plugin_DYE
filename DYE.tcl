@@ -27,7 +27,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.39
+	variable version 2.40
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people. Also includes beans-based workflow, shot history management, and profile tools."]
@@ -6404,17 +6404,17 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		if { $data(filter_matching) ne {} } {
 			if { "beans" in $data(filter_matching) && ($data(bean_brand) ne "" || $data(bean_type) ne "") } {
 				if { $data(bean_brand) ne "" } { 
-					append filter "bean_brand='$data(bean_brand)' AND "
+					append filter "bean_brand=[::plugins::SDB::string2sql $data(bean_brand)] AND "
 				}
 				if { $data(bean_type) ne "" } {
-					append filter "bean_type='$data(bean_type)' AND "
+					append filter "bean_type=[::plugins::SDB::string2sql $data(bean_type)] AND "
 				}
 			}
 			if { "profile" in $data(filter_matching) && $data(profile_title) ne "" } {
-				append filter "profile_title='$data(profile_title)' AND "
+				append filter "profile_title=[::plugins::SDB::string2sql $data(profile_title)] AND "
 			}
 			if { "grinder" in $data(filter_matching) && $data(grinder_model) ne "" } {
-				append filter "grinder_model='$data(grinder_model)' AND "
+				append filter "grinder_model=[::plugins::SDB::string2sql $data(grinder_model)] AND "
 			}
 		}
 		

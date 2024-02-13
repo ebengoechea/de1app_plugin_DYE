@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.40] - 2024-02-13
+
+### Changed
+ - Fix a bug that SQL filters were not being properly escaped on the Shot Selector dialog when matching beans, profile or grinder. Reported by Peter P.
+
 ## [2.39] - 2024-01-30
 
 ### Changed
