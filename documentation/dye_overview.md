@@ -107,44 +107,49 @@ Several new UI capabilities were first introduced in DYE, then moved to the GDUI
 
 For example, DYE is the only skin or plugin currently using DUI themes to adapt its colors (and potentially other aspects) to the skin in use. It defines a DUI theme for each skin (or skin sub-theme) it integrates with. A frequent problem with this approach is that several skins define less colors in their own theming system than DYE needs (such as colors for disabled states, or for different types of buttons). When a skin uses just one color set, it’s easier to define the extra colors directly in the DUI theme, but if the skin allows for users to define their own colors (such as MimojaCafe or DSx2), mismatches aren’t easily solved.
 
-## 2024 Redesign:
+## 2024 Redesign objectives
 DYE started as a simple tool to log data and with time it has come to offer many additional features. With its spin-offs, it also enlarged the GUI possibilities of the DE1 app. But as features and new GUI elements were added "where they fitted", its actual state shows some pages that were developed originally and never touched, mixed with more modern-looking pages, sometimes offering similar features. It lacks consistency in both GUI and functional design. 
 
 These are my general thoughts about a redesign, some of them reflected in the preliminary prototype:
 
-  - Improved & consistent navigation through history
-    - Merge the shot selector and the shot search pages
-    - Visually join the navigation buttons (now on both left & right of top area in home page)
-    - Remove link to the main app history viewer (not really finished and not really related to DYE)
-    - New "Move by beans/profile/grinder/workflow" feature
+**Improved & consistent navigation through history** 
 
-  - Full shot view
-    - Include graph, profile, workflow and source shot in DYE home page. To fit this, I propose:
-      - Group the content in panels with a smaller header than the current one. By replacing the big images with Font Awesome icons we gain some space.
+  - Merge the shot selector and the shot search pages
+  - Visually join the navigation buttons (now on both left & right of top area in home page)
+  - Remove link to the main app history viewer (not really finished and not really related to DYE)
+  - New "Move by beans/profile/grinder/workflow" feature
+
+**Full shot view**
+
+  - Include graph, profile, workflow and source shot in DYE home page. To fit this, I propose:
+    - Group the content in panels with a smaller header than the current one. By replacing the big images with Font Awesome icons we gain some space.
       - Remove non-essential beans data (roast level & bean note), which should still be accesible but not in the default home.
       - Remove the "Done" and menu buttons in the bottom. 
         - The menu buttons seem a bit "ad hoc", and I propose to replace them by a single menu sliding from the page left that can be open either from the "menu" button on the top left, or by swiping from the left of the tablet.
         - The "Done" button is replaced by a "back" button on the top left. This will also be used when expanding the section panels (beans, equipment, or extraction), to return to the home page.
       
-  - Additional metadata
-    - The new design must allow adding new metadata fields. My current proposal is to make the section headers (workflow, beans, equipment, and extraction) clickable, and when clicked they expand to occupy the whole panel space with the additional data in that section. Ideally that panel should be scrollable in case a lot of data is added in the future, but this depends on the implementation of a DUI multi-canvas feature.
+**Additional metadata**
+
+  - The new design must allow adding new metadata fields. My current proposal is to make the section headers (workflow, beans, equipment, and extraction) clickable, and when clicked they expand to occupy the whole panel space with the additional data in that section. Ideally that panel should be scrollable in case a lot of data is added in the future, but this depends on the implementation of a DUI multi-canvas feature.
     
-  - User home page customization
-    - Allowing users to select what fields are shown on the DYE home page to match their actual needs and workflow is not critical but should be at least contemplated as a future option. The idea behind the redesigned home is that each field occupies horizontall either 1/2 panel or the full length of the panel, and the creation of the home could be controlled by a user specification that defines which panels they want, and what fields inside each panel.
+**User home page customization**
+  - Allowing users to select what fields are shown on the DYE home page to match their actual needs and workflow is not critical but should be at least contemplated as a future option. The idea behind the redesigned home is that each field occupies horizontall either 1/2 panel or the full length of the panel, and the creation of the home could be controlled by a user specification that defines which panels they want, and what fields inside each panel.
     
-  - Improved data entry
-    - Most data entry operations are selection instead of typing (hopefully, as typing on the tablet is not nice). Focus must be put on facilitating this type of data entry. Ideas here:
-      - Make categories buttons instead of text entry widgets.
-      - Improve category selection by using a popup or slide-from-right dialog that also allows searching, adding new values, or additional options. A preliminary design is this:
-      - Improve numerical entry by:
+**Improved data entry**
+  - Most data entry operations are selection instead of typing (hopefully, as typing on the tablet is not nice). Focus must be put on facilitating this type of data entry. Ideas here:
+    - Make categories buttons instead of text entry widgets.
+    - Improve category selection by using a popup or slide-from-right dialog that also allows searching, adding new values, or additional options. A preliminary design is this:
+    - Improve numerical entry by:
         - Provide -/+ buttons also for dose & yield (current DYE only allows typing for these)
         - Possible new dialog offering more data possibilites (slider, and possibly number pad). An improved version of the current full-page numeric pad.
-        - Calendar widget for dates? (expensive to program)
+    - Calendar widget for dates? (expensive to program)
+    
+  - Some extra functions such as clearing a whole panel to enter new data are provided in the prototype with a different, lighter, aspect button than data entry buttons. Clearing data has to be done manually in the current page, pressing backspace repeteadly on each field, which is slow.
       	
-  - Expand or integrate the dialling-in workflow capabilties:
-    - Bring DYE Favorites to the main interface, available under all skins and not only DSx2 (though the level of UI integration will be much lower)
-    - Homogeneous system for choosing "what to copy/propagate". Mimic the Favorites one, that shows the data that actually will be copied depending on what you choose? Also, maybe, let users define too the default propagation fields from Last to Next whenever a shot is made, as if it was a Recent Fav (or use the same set as the Favs)
-    - Allow exploring shot graphs, e.g. taping the graph brings a full-panel view of the graph that allow analysis and comparisons.
+**Expand or integrate the dialling-in workflow capabilties**
+  - Bring DYE Favorites to the main interface, available under all skins and not only DSx2 (though the level of UI integration will be much lower)
+  - Homogeneous system for choosing "what to copy/propagate". Mimic the Favorites one, that shows the data that actually will be copied depending on what you choose? Also, maybe, let users define too the default propagation fields from Last to Next whenever a shot is made, as if it was a Recent Fav (or use the same set as the Favs)
+  - Allow exploring shot graphs, e.g. taping the graph brings a full-panel view of the graph that allow analysis and comparisons.
 
 
 ## DYE Pages Reference
