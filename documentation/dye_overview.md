@@ -153,15 +153,15 @@ These are my general thoughts about a redesign, some of them reflected in the pr
 
 **1. DYE Home page**
 
-![DYE Home page](DYE_Home_page.png "DYE Home page")
+![DYE Home page](DYE_Home_page.PNG "DYE Home page")
 
 **2. Edit data menu (popup dialog)**
 
-![DYE Edit Data menu](DYE_Edit_data_menu.png "DYE Edit data menu")
+![DYE Edit Data menu](DYE_edit_data_menu.png "DYE Edit data menu")
 
 **3. Manage menu (popup dialog)**
 
-![DYE Manage menu](DYE_Manage_menu.png "DYE Manage menu")
+![DYE Manage menu](DYE_manage_menu.png "DYE Manage menu")
 
 **4. Visualizer menu (popup dialog)**
 
@@ -185,9 +185,13 @@ These are my general thoughts about a redesign, some of them reflected in the pr
 
 **9. DYE settings page 1**
 
+Settings pages have the default/Insight settings aspect instead of the DYE theme aspect, as they are normally open from the extensions page.
+
 ![DYE Settings page 1](DYE_Settings_1.png "DYE Settings page 1")
 
 **10. DYE settings page 2**
+
+Settings pages have the default/Insight settings aspect instead of the DYE theme aspect, as they are normally open from the extensions page.
 
 ![DYE Settings page 2](DYE_Settings_2.png "DYE Settings page 2")
 
