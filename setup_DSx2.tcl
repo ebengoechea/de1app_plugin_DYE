@@ -819,6 +819,11 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			-font [skin_font font_bold 24] -tags {wf_grinder_setting wf_grinder_setting*} -anchor center \
 			-textvariable {$::plugins::DYE::settings(next_grinder_setting)} \
 			-initial_state hidden
+		# Grinder setting Entry hidden by default, only shown if grinder has no spec 
+		set w [dui add entry $page $x [expr {$y+190}] -tags wf_grinder_setting_entry -width 8 \
+			-canvas_anchor center -justify center -initial_state hidden \
+			-textvariable ::plugins::DYE::settings(next_grinder_setting)]
+		bind $w <Leave> [list + [namespace current]::change_grinder_setting_entry]
 		
 		trace add execution ::show_espresso_settings leave ${ns}::show_espresso_settings_hook
 		trace add execution ::hide_espresso_settings leave ${ns}::hide_espresso_settings_hook
@@ -877,7 +882,9 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			}
 		}
 		
-		ensure_valid_grinder_spec 
+		if { [string is true $::wf_espresso_set_showing] } {
+			ensure_valid_grinder_spec
+		}
 	}
 	
 	proc show_graph_hook { args } {
@@ -925,22 +932,23 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			wf_days_offroast wf_heading_grinder wf_grinder* \
 			wf_heading_grinder_setting wf_grinder_setting*} -initial yes -current yes
 		 
-		if { $::settings(grinder_setting) ne {} && ![string is double $::settings(grinder_setting)] } {
-			dui item disable $page wf_grinder_setting*
-		}
+#		if { $::settings(grinder_setting) ne {} && ![string is double $::settings(grinder_setting)] } {
+#			dui item disable $page wf_grinder_setting*
+#		}
 		
 		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
 			dui item show $page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg launch_dye*} \
 				-initial yes -current yes
 		}
 		::dui::pages::dsx2_dye_home::compute_days_offroast
+		::dui::pages::dsx2_dye_home::ensure_valid_grinder_spec
 	}
 
 	proc hide_espresso_settings_hook { args } {
 		set page [lindex $::skin_home_pages 0]
 		dui item hide $page {wf_heading_beans wf_dye_beans* wf_heading_roast_date wf_roast_date* \
 			wf_days_offroast wf_heading_grinder wf_grinder* \
-			wf_heading_grinder_setting wf_grinder_setting*} \
+			wf_heading_grinder_setting wf_grinder_setting* wf_grinder_setting_entry*} \
 			-initial yes -current yes
 		
 		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
@@ -979,7 +987,14 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	proc adjust_hook { args } {		
 		::plugins::DYE::define_next_shot_desc
 	}
-	
+
+	proc change_grinder_setting_entry { } {
+		set ::settings(grinder_setting) $::plugins::DYE::settings(next_grinder_setting)
+		plugins save_settings DYE
+		::save_settings
+		::plugins::DYE::define_next_shot_desc
+	}
+
 	# change needs to be one of plus_small, plus_big, minus_small or minus_big.
 	proc change_grinder_setting { change } {
 		set page [lindex $::skin_home_pages 0]
@@ -1327,8 +1342,9 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			}
 		}
 
-		#[::plugins::SDB::available_categories grinder_model]
-		dui page open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) \
+		# WARNING: Don't pass the DYE settings variable to the dialog, as in the callback we need
+		#	to check whether it has been changed to know what to do with the setting
+		dui page open_dialog dye_item_select_dlg {} \
 			 $grinder_models -values_details $grinder_details -values_extras $last_grinder_settings \
 			-coords {490 1580} -anchor s -theme [dui theme get] -page_title "Select grinder model" \
 			-allow_add 1 -add_label "Add new grinder" -add_embedded 1 -category_name grinder \
@@ -1345,32 +1361,91 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		dui page show [lindex $::skin_home_pages 0]
 
 		set settings(grinder_select_load_last_setting) $load_last_grinder_setting
+		set needs_saving 0
+		set orig_grinder_setting $settings(next_grinder_setting)
 				
 		if { $grinder_model ne ""} {
-			set settings(next_grinder_model) $grinder_model
-			
+			if { $grinder_model ne $settings(next_grinder_model) } {
+				set settings(next_grinder_model) $grinder_model
+				set ::settings(grinder_model) $grinder_model
+				set needs_saving 1
+			}
 			if { [string is true $load_last_grinder_setting] && $last_grinder_setting ne {}} {
+
 				set settings(next_grinder_setting) $last_grinder_setting
 				set ::settings(grinder_setting) $last_grinder_setting
-				::save_settings
+			} elseif { $needs_saving } {
+				# Grinder changed, if we are not using the last setting, the default is loaded
+				set default_setting [::plugins::DYE::grinders::get_default_setting $grinder_model]
+
+				set settings(next_grinder_setting) $default_setting
+				set ::settings(grinder_setting) $default_setting
 			}
 			
-			ensure_valid_grinder_spec
+			# ensure_valid_grinder_spec may modify the setting, so we tell it not to save 
+			# (to avoid saving settins twice) and check afterwards
+			ensure_valid_grinder_spec 1 0
+			
+			if { $settings(next_grinder_setting) ne $orig_grinder_setting } {
+				set needs_saving 1
+			}
 		}
-				
-		plugins::save_settings DYE
+
+		if { $needs_saving } {
+			::save_settings			
+			plugins::save_settings DYE
+		}
 	}
 	
-	proc ensure_valid_grinder_spec {} {
+	proc ensure_valid_grinder_spec { {check_setting 1} {save_settings 1} } {
+		variable ::plugins::DYE::settings
+		
 		set page [lindex $::skin_home_pages 0]
-		set grinder $::plugins::DYE::settings(next_grinder_model)
+		set grinder $settings(next_grinder_model)
 		array set spec [::plugins::DYE::grinders::get_spec $grinder]
+msg "DYE ENSURE_VALID_GRINDER, grinder=$grinder, spec=[array get spec]"		
+		
 		if { [array size spec] == 0 } {
-			dui item disable $page {wf_heading_grinder_setting wf_grinder_setting*}
-			msg -NOTICE [namespace current] "::select_grinder_callback: no spec for next grinder model '$grinder'"
+			dui item disable $page wf_grinder_setting*
+			dui item show $page wf_grinder_setting_entry
+			msg -NOTICE [namespace current] "::ensure_valid_grinder_spec: no spec for next grinder model '$grinder'"
+		} elseif { [string is true $check_setting] } { 
+			if { $settings(next_grinder_setting) ne {}} {
+				set gsetting $settings(next_grinder_setting)
+				if { [string is true [value_or_default spec(is_numeric) 1]] } {
+					if { [string is double $gsetting] } {
+						set  gsetting [number_in_range $gsetting 0 [value_or_default spec(min) 0.0] \
+							[value_or_default spec(max) 100.0] 0 [value_or_default spec(max_dec) 2]]
+						if { $gsetting != $settings(next_grinder_setting) } {
+							set ::plugins::DYE::settings(next_grinder_setting) $gsetting
+							set ::settings(grinder_setting) $gsetting
+							if { [string is true $save_settings] } {
+								plugins save_settings DYE
+								::save_settings
+							}
+						}
+						dui item enable $page wf_grinder_setting*
+						dui item hide $page wf_grinder_setting_entry
+					} else {
+						dui item disable $page wf_grinder_setting*
+						dui item show $page wf_grinder_setting_entry
+						msg -NOTICE [namespace current] "::ensure_valid_grinder_spec: grinder setting '$gsetting' is not a number"							
+					}
+				} else {
+					if { $gsetting in $spec(values) } {
+						dui item enable $page wf_grinder_setting*
+						dui item hide $page wf_grinder_setting_entry
+					} else {
+						dui item disable $page wf_grinder_setting*
+						dui item show $page wf_grinder_setting_entry
+						msg -NOTICE [namespace current] "::ensure_valid_grinder_spec: grinder setting '$gsetting' is not among valid set of values"
+					}
+				}
+			}
 		} else {
-			dui item enable $page {wf_heading_grinder_setting wf_grinder_setting*}
-		}	
+			dui item enable $page wf_grinder_setting*
+			dui item hide $page wf_grinder_setting_entry
+		}
 	}
 	
 	proc set_scale_weight_to_dose_hook { args } {

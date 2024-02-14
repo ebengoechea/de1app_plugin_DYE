@@ -2145,7 +2145,24 @@ namespace eval ::plugins::DYE::grinders {
 	
 	proc get_default_setting { {grinder_model {}} } {
 		array set spec [get_spec $grinder_model]
-		return [value_or_default spec(default)]
+		set default [value_or_default spec(default)]
+		
+		if { $default eq {} } {
+			# Define an arbitrary default if not explicitly defined
+			if { [string is true [value_or_default spec(is_numeric) 1]] } {
+				set min [value_or_default spec(min) 0.0]
+				set max [value_or_default spec(max) 100.0]
+				set default [expr {$min + ($max-$min) / 2.0}]
+			} else {
+				set values [value_or_default spec(values)]
+				set idx [round_to_integer [expr {[llength $values] / 2}]]
+				if { $idx > 0 } {
+					set default [lindex $values [expr {$idx-1}]]
+				}
+			}
+		}
+		
+		return $default
 	} 
 }
 
