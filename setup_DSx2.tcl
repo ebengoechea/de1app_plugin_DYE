@@ -1041,16 +1041,17 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			}
 		} else {
 			set values [value_or_default spec(values) {}]
+			set big_step [value_or_default spec(big_step) 5]
 			if { [llength $values] > 0 } {
 				set setting_idx [lsearch $values $setting]
 				if { $setting_idx > -1 } {
 					switch $change \
 						plus_big {
-							incr setting_idx 2
+							incr setting_idx $big_step
 						} plus_small {
 							incr setting_idx 1
 						} minus_big {
-							incr setting_idx -2
+							incr setting_idx -$big_step
 						} minus_small {
 							incr setting_idx -1
 						}

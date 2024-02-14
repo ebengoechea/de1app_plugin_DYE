@@ -2083,7 +2083,8 @@ namespace eval ::plugins::DYE::grinders {
 				set result [list is_numeric 1 min $min_setting max $max_setting \
 					n_dec $n_dec small_step $min_step big_step $big_step default $default]
 			} else {
-				set result [list is_numeric 0 default $default values [lsort -dictionary -increasing $grinder_settings]]
+				set result [list is_numeric 0 default $default big_step 5 \
+					values [lsort -dictionary -increasing $grinder_settings]]
 			}
 			
 			set specs($grinder_model) $result
