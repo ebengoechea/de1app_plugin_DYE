@@ -2,6 +2,18 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.41] - 2024-02-16
+
+### New
+ - New dialog for beans and grinder selection from DSx2 espresso settings buttons. The new dialog slides from the right side of the page and allows selecting, searching, adding new values, and optionally propagating the last shot made with the beans to Next, or the last setting done with the grinder (matching beans if possible).
+ - Grinder with non-numeric settings now accept a **big_step** field in their definitions, that should be a positive integer giving the number of steps to move up/down when clicking on the big change arrow buttons. Requested by Matt Bower.
+ - On DSx2 settings page, if a grinder has no specification or it is invalid, revert to a text entry widget instead of just disabling it.
+ 
+### Changed
+ - Headings and arrows for DYE inputs in DSx2 settings page reduced in size to match the DSx2 headings and arrows.
+ - If source shot was exactly the last shot, workflow value was not showing on the source shot description in DSx2 home page after an app restart. Fixed.
+ - Show DYE version in DYE Favs pages on bottom-right, instead of DSx2 version.
+
 ## [2.40] - 2024-02-13
 
 ### Changed
