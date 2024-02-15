@@ -667,14 +667,14 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 
 		dbutton_label.pos.dsx2_pm {0.5 0.5}
 		dbutton_label.font_family.dsx2_pm "$::skin(font_awesome_light)"
-		dbutton_label.font_size.dsx2_pm [fixed_size 34]
+		dbutton_label.font_size.dsx2_pm [fixed_size 30]
 		dbutton_label.anchor.dsx2_pm center	
 		dbutton_label.justify.dsx2_pm center
 		dbutton_label.fill.dsx2_pm $button_label_c
 		dbutton_label.disabledfill.dsx2_pm $disabled_c
 
 		dtext.font_family.dsx2_setting_heading "$boldfont"
-		dtext.font_size.dsx2_setting_heading 16
+		dtext.font_size.dsx2_setting_heading 15
 		dtext.fill.dsx2_setting_heading $text_c 
 		dtext.disabledfill.dsx2_setting_heading $disabled_c
 		dtext.anchor.dsx2_setting_heading center
