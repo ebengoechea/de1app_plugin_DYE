@@ -960,7 +960,7 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 #	using use_settings=1 just after finishing a shot, otherwise the settings 
 #	variables may contain the plan for the next shot instead of the last one.
 # NOTE that since DYE favorites, this also formats the "SOURCE" shot description.
-proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_settings 0} args } {	
+proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_settings 0} args } {
 	variable settings
 	if { $settings(show_shot_desc_on_home) == 1 } {
 		set isDSx2 [is_DSx2] 
@@ -988,6 +988,9 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 					set last_shot(profile_title) $::settings(profile_title)
 					if { $isDSx2 } {
 						set last_shot(workflow) [value_or_default ::skin(workflow) {}]
+						if { $last_shot(workflow) eq {} } {
+							set last_shot(workflow) [value_or_default ::settings(DSx2_workflow) {}]
+						}
 					} else {
 						set last_shot(workflow) {}
 					}
@@ -996,7 +999,7 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 					if { [ifexists ::settings(espresso_clock) 0] > 0 } {
 						append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
 					}
-					append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) {no}]] [translate {workflow}]"
+					append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
 				} else {
 					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
 				}
@@ -1009,14 +1012,14 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 					} else {
 						foreach field [array names last_shot] {
 							set last_shot($field) [lindex $last_shot($field) 0]
-						}				
-							
+						}
+
 						set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 						
 						if { $::settings(espresso_clock) > 0 } {
 							append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
 						}
-						append settings(last_shot_header) ", [translate [value_or_default ::last_shot(workflow) {no}]] [translate {workflow}]"						
+						append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
 					}
 					
 				} else {
@@ -1037,6 +1040,7 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 			} else {
 				set settings(last_shot_header) [translate {LAST SHOT: }]	
 			}
+
 			set workflow [value_or_default last_shot(workflow)]
 			if { $workflow eq {} } {
 				set workflow [value_or_default last_shot(DSx2_workflow) "no"]
