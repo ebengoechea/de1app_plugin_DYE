@@ -1634,7 +1634,9 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		dui add dbutton $page 800 1425 -bwidth 300 -bheight 100 -shape round -tags close_dye_edit_favs \
 			-label [translate "Back"] -label_pos {0.5 0.5} -label_justify center -command page_done
 		
-		dui::page::add_items $page skin_version
+		#dui::page::add_items $page skin_version
+		dui add dtext [list $page dsx2_dye_edit_fav] 2540 1580 -tags plugin_version \
+			-font [skin_font font 13] -fill $::skin_text_colour -anchor e -text "DYE v$::plugins::DYE::version"
 		
 		show_or_hide_dye_favorites
 	}
@@ -2093,8 +2095,7 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		dui add dbutton $page 1000 1425 -bwidth 300 -bheight 100 -shape round -tags cancel_fav_edits \
 			-label [translate "Cancel edit"] -label_pos {0.5 0.5} -label_justify center -command cancel_fav_edits \
 			
-		
-		dui::page::add_items $page skin_version
+		#dui::page::add_items $page skin_version
 	}
 
 	proc load { page_to_hide page_to_show n_fav } {
