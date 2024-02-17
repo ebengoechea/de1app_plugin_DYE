@@ -8576,17 +8576,16 @@ proc ::dui::pages::DYE_settings::page_done {} {
 #### DYE Settings page 2 ################################################################################
 
 namespace eval ::dui::pages::DYE_settings2 {
-	variable widgets
-	array set widgets {}
+	#variable widgets
+	#array set widgets {}
 	
 	variable data
 	array set data {
-		page_name "::dui::pages::DYE_settings2"
 	}
 }
 
 proc ::dui::pages::DYE_settings2::setup {} {
-	variable widgets
+	#variable widgets
 	set page [namespace tail [namespace current]]
 
 	# HEADER AND BACKGROUND
@@ -8648,8 +8647,8 @@ proc ::dui::pages::DYE_settings2::load { page_to_hide page_to_show args } {
 }
 
 # Added to context actions, so invoked automatically whenever the page is loaded
-proc ::dui::pages::DYE_settings2::show { page_to_hide page_to_show } {
-}
+#proc ::dui::pages::DYE_settings2::show { page_to_hide page_to_show } {
+#}
 
 
 proc ::dui::pages::DYE_settings2::dsx2_show_shot_desc_on_home_change {} {
@@ -8657,6 +8656,8 @@ proc ::dui::pages::DYE_settings2::dsx2_show_shot_desc_on_home_change {} {
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 			::plugins::DYE::define_last_shot_desc
 			::plugins::DYE::define_next_shot_desc
+		} elseif { [::plugins::DYE::is_DSx2] } {
+			::restore_live_graphs_default_vectors
 		}
 		::dui::pages::dsx2_dye_home::toggle_show_shot_desc
 	}
