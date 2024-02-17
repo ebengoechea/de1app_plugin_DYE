@@ -8656,7 +8656,7 @@ proc ::dui::pages::DYE_settings2::dsx2_show_shot_desc_on_home_change {} {
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 			::plugins::DYE::define_last_shot_desc
 			::plugins::DYE::define_next_shot_desc
-		} elseif { [::plugins::DYE::is_DSx2] } {
+		} else {
 			::restore_live_graphs_default_vectors
 		}
 		::dui::pages::dsx2_dye_home::toggle_show_shot_desc
