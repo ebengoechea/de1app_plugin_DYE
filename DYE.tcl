@@ -392,12 +392,12 @@ espresso_notes my_name drinker_name scentone skin beverage_type final_desired_sh
 		#set empty_fav [list "n_recent" "" [list]]
 		for {set i [llength $settings(favorites)]} {$i < [favorites::max_number]} {incr i 1} {
 			favorites::set_fav $i "n_recent"
-			#lappend settings(favorites) $empty_fav
 		}
 	}
 
 	ifexists settings(favs_n_recent_grouping) {beans profile_title}
 	ifexists settings(favs_n_recent_what_to_copy) {workflow profile_title beans roast_date grinder grinder_dose_weight drink_weight}
+	ifexists settings(selected_n_fav) -1
 	
 	ifexists settings(dsx2_show_shot_desc_on_home) 1
 	ifexists settings(dsx2_use_dye_favs) 0
@@ -727,9 +727,11 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 # TBD: NO LONGER NEEDED? define_last_shot_desc ALREADY DONE in reset_gui_starting_espresso_leave_hook,
 #	only useful if this is invoked from Insight's original Godshots/Describe Espresso pages.
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
+	set isDSx2 [is_DSx2 1 "Damian"]
 	::plugins::DYE::define_last_shot_desc {} yes
-	# Updating recent favorites saves DYE settings
+	# Updating recent favorites saves DYE settings	
 	::plugins::DYE::favorites::update_recent
+	::plugins::DYE::favorites::select_from_clock $::settings(espresso_clock)
 }
 
 proc ::plugins::DYE::saver_page_onshow { args } {
@@ -1764,7 +1766,7 @@ proc ::plugins::DYE::open_profile_tools { args } {
 # This was created for loading DYE favorites, either from a saved shot 
 #	(recent-type favs, when src_clock is given), or from an array
 #	(fixed-type favs, when src_array_name is given, can be partial).
-proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_to_copy {}} } {
+proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_to_copy {}} {n_fav -1} } {
 	variable data
 	variable src_data
 	variable settings 
@@ -1774,6 +1776,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	set skin $::settings(skin)
 	set isDSx2 [::plugins::DYE::is_DSx2]
 	set settings_changed 0
+	# TBD: Unneeded? DYE settings are alwasys saved at the end
 	set dye_settings_changed 0
 	set dsx_settings_changed 0
 	set dsx2_settings_changed 0
@@ -1846,7 +1849,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	### GET THE SOURCE DATA
 	if { $src_clock ne {} } {
 		array set src_shot [::plugins::SDB::load_shot $src_clock 1 1 1 $load_workflow_settings]
-		set ::plugins::DYE::settings(next_src_clock) $src_clock
+		set settings(next_src_clock) $src_clock
 		
 		if { $isDSx2 && [string is true $settings(dsx2_update_chart_on_copy)] &&
 				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
@@ -1855,7 +1858,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	} elseif { $src_array_name ne {} } {
 		upvar $src_array_name src_shot
 		if { [value_or_default src_shot(clock) 0] > 0 } {
-			set ::plugins::DYE::settings(next_src_clock) $src_shot(clock)
+			set settings(next_src_clock) $src_shot(clock)
 		}
 	} else {
 		msg -ERROR [namespace current] "load_next_from: Either 'src_clock' or 'src_array_name' have to be provided"
@@ -1866,7 +1869,17 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		msg -WARNING [namespace current] "load_next_from: Shot data is empty"
 		return 0 
 	}
-		
+	
+	# Update the selected favorite number, if the data comes from a DYE Favorite
+	if { $n_fav > 0 } {
+		if { $n_fav != $settings(selected_n_fav) } {
+			set settings(selected_n_fav) $n_fav
+			set dye_setttings_changed 1
+		}
+	} elseif { $settings(next_src_clock) > 0 } {
+		set n_fav [::plugins::DYE::favorites::select_from_clock $src_clock]
+	}
+	
 	### PUT THE DATA INTO THE "NEXT SHOT" DEFINITION (Distributed between DYE "next_*" variables
 	#	and global "$::settings" variables, depending on the variable)
 	# Load the profile before the fields, so if there are duplicate variables (e.g. dose, yield, 
@@ -2300,6 +2313,11 @@ namespace eval ::plugins::DYE::favorites {
 		}
 	}	
 
+	proc fav_clock { fav } {
+		array set values [fav_values $fav]
+		return [value_or_default values(last_clock) 0]
+	}
+	
 	proc fav_icon_symbol { fav_or_fav_type } {
 		if { ![string is double $fav_or_fav_type] && [llength $fav_or_fav_type] == 1 } {
 			set fav_type [string tolower $fav_or_fav_type]
@@ -2427,7 +2445,17 @@ namespace eval ::plugins::DYE::favorites {
 	
 	proc update_recent { {max_title_chars 28} } {
 		variable all_recent
+		variable ::plugins::DYE::settings
 		set max_n_favs [max_number]
+		
+		set sel_n_fav $settings(selected_n_fav)
+		set sel_clock 0
+		if { $sel_n_fav > -1 && [fav_type $sel_n_fav] eq "n_recent" } { 
+			set sel_clock [fav_clock $sel_n_fav]
+			set sel_n_fav -1
+		}
+		
+msg "DYE FAVORITES update_recent, sel_n_fav=$sel_n_fav, sel_clock=$sel_clock"
 		
 		array set all_recent [get_all_recent_descs_from_db $max_n_favs]
 		set all_recent_names [array names all_recent]
@@ -2450,6 +2478,10 @@ namespace eval ::plugins::DYE::favorites {
 						set fav_values($f) [lindex $all_recent($f) $nshot]
 					}
 					set fav_title [define_recent_title fav_values [expr {$nshot+1}] $max_title_chars]
+					
+					if { $sel_clock > 0 && $fav_values(last_clock) eq $sel_clock } {
+						set sel_n_fav $i
+					}
 				} else {
 					set fav_title [maxstring "<[translate {Recent}] #[expr $nshot+1],\n[translate {no data yet}]>" [expr $max_title_chars*2]]
 				}
@@ -2461,6 +2493,7 @@ namespace eval ::plugins::DYE::favorites {
 			}
 		}
 		
+		set settings(selected_n_fav) $sel_n_fav
 		plugins save_settings DYE 
 	}
 	
@@ -2480,11 +2513,44 @@ namespace eval ::plugins::DYE::favorites {
 		return $recent_fav_number
 	}
 	
+	proc selected_n_fav { } {
+		variable ::plugins::DYE::settings
+		return $settings(selected_n_fav)
+	}
+	
+	proc clear_selected { {save_settings 1} } {
+		variable ::plugins::DYE::settings
+		set settings(selected_n_fav) -1 
+		if { [string is true $save_settings] } {
+			::plugins::save_settings DYE
+		}
+	}
+	
+	proc n_fav_matching_clock { clock } {
+		set n_fav -1
+		set max_n_favs [max_number]	
+		set i 0
+		while { $n_fav == -1 && $i < $max_n_favs }  {
+			if { [fav_clock $i] eq $clock } {
+				set n_fav $i
+			}
+			incr i 1
+		}
+		
+		return $n_fav
+	}
+	
+	proc select_from_clock { clock } {
+		variable ::plugins::DYE::settings
+		set settings(selected_n_fav) [n_fav_matching_clock $clock]
+		::plugins::save_settings DYE
+		return $settings(selected_n_fav)
+	}
+		
 	proc load { n_fav } {
 		if { ![is_valid_n_fav $n_fav] } { return 0 }
 		
 		array set fav_values [fav_values $n_fav]
-		
 		if { [array size fav_values] == 0 } {
 			return 0
 		}
@@ -2492,9 +2558,10 @@ namespace eval ::plugins::DYE::favorites {
 		if { [fav_type $n_fav] eq "n_recent" } {
 			if {[info exists fav_values(last_clock)]} {
 				set load_success [::plugins::DYE::load_next_from $fav_values(last_clock) \
-					{} $::plugins::DYE::settings(favs_n_recent_what_to_copy)]
+					{} $::plugins::DYE::settings(favs_n_recent_what_to_copy) $n_fav]
 				if { [string is true $load_success ] } {
 					dui say  [translate "Recent favorite loaded"]
+					
 					return 1
 				} else {
 					dui say [translate "Error loading recent favorite"]
@@ -2511,7 +2578,7 @@ namespace eval ::plugins::DYE::favorites {
 				set what_to_copy [array names fav_values]
 			}
 			
-			set load_success [::plugins::DYE::load_next_from {} fav_values $what_to_copy]
+			set load_success [::plugins::DYE::load_next_from {} fav_values $what_to_copy $n_fav]
 			if { [string is true $load_success] } {
 				dui say [translate "Fixed favorite loaded"]
 				return 1
@@ -3009,9 +3076,13 @@ proc ::dui::pages::DYE::propagate_state_msg {} {
 		} else {
 			return [translate "Changes here will propagate to next shot"]
 		}
-	} else {
-		return ""
-	}	
+	} elseif { $data(describe_which_shot) eq "past" }  {
+		set n_fav [::plugins::DYE::favorites::n_fav_matching_clock $data(clock)]
+		if { $n_fav > -1 } {
+			return "[translate {Favorite number}] [expr {$n_fav+1}]"
+		}
+	} 
+	return ""
 }
 
 proc ::dui::pages::DYE::move_backward {} {

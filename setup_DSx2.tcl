@@ -19,6 +19,9 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	# Modify DSx2 home page(s) to adapt to DYE UI widgets and workflow
 	::dui::pages::dsx2_dye_home::setup
 	
+	trace add variable ::plugins::DYE::settings(selected_n_fav) write \
+		::dui::pages::dsx2_dye_favs::change_selected_favorite
+	
 	# SCREENSAVER 
 	# Makes the left side of the app screensaver clickable so that you can describe your 
 	# last shot without waking up the DE1.
@@ -56,7 +59,6 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	set default_font_size 16
 
 	dui aspect set -theme DSx2 [subst {
-
 		page.bg_img {}
 		page.bg_color $background_c
 		dialog_page.bg_shape round_outline
@@ -627,19 +629,19 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	
 	# New DSx2-specific styles
 	# dbutton.width.dsx2 0
-#	dbutton.pressfill.dsx2 $button_label_c
-#	dbutton_label.pressfill.dsx2 $button_bg_c
 	dui aspect set -theme DSx2 [subst {
 		dbutton.shape.dsx2 round
 		dbutton.bheight.dsx2 100
 		dbutton.fill.dsx2 $button_bg_c
-		dbutton.disabledfill.dsx2 $unselected_c
+		dbutton.pressfill.dsx2 $button_label_c
+		dbutton.disabledfill.dsx2 $unselected_c		
 		
 		dbutton_label.pos.dsx2 {0.5 0.5}
 		dbutton_label.font_size.dsx2 [expr {$default_font_size+1}]
 		dbutton_label.anchor.dsx2 center	
 		dbutton_label.justify.dsx2 center
 		dbutton_label.fill.dsx2 $button_label_c
+		dbutton_label.pressfill.dsx2 $button_bg_c
 		dbutton_label.disabledfill.dsx2 $disabled_c
 		
 		dbutton_label1.pos.dsx2 {0.5 0.8}
@@ -647,6 +649,7 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		dbutton_label1.anchor.dsx2 center
 		dbutton_label1.justify.dsx2 center
 		dbutton_label1.fill.dsx2 $button_label_c
+		dbutton_label1.pressfill.dsx2 $selected_c
 		dbutton_label1.activefill.dsx2 $fill_and_insert_c
 		dbutton_label1.disabledfill.dsx2 $disabled_c
 		
@@ -1665,6 +1668,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 	
 	proc show { page_to_hide page_to_show } {
 		dui item config $page_to_show {dye_favs dye_favs_icons} -state normal
+		change_selected_favorite
 	}
 
 #	proc hide { page_to_hide page_to_show } {
@@ -1767,6 +1771,9 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_dsx2_home_visible_favs)} {incr i 1} {
 			dui item config $main_home_page dye_fav_$i* -initial_state hidden -state hidden
 		}
+		if { $are_favs_visible } {
+			change_selected_favorite
+		}
 		
 		dui item config $main_home_page dye_fav_more* -initial_state $dye_favs_state
 		dui item moveto $main_home_page dye_fav_more* [expr $::skin(button_x_fav)-50] \
@@ -1806,17 +1813,46 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		}
 	}
 	
-	proc load_favorite { n_fav } {
+	proc load_favorite { n_fav } {		
 		set current_page [dui page current]
 		if { $current_page eq "dsx2_dye_edit_fav" } {
 			return
 		}
 		
-		::plugins::DYE::favorites::load $n_fav
+		set sel_n_fav [::plugins::DYE::favorites::selected_n_fav]
+		if { [::plugins::DYE::favorites::load $n_fav] } {
+			if { $sel_n_fav > -1 } {
+				dui item config dsx2_dye_favs dye_fav_${sel_n_fav}-lbl1 \
+					-fill [::dui::aspect::get dbutton_label1 fill -style dsx2]  
+			}
+			set sel_n_fav [::plugins::DYE::favorites::selected_n_fav]
+			if { $sel_n_fav > -1 } {
+				after 200 [namespace current]::change_selected_favorite
+			}
+		}
+		
 		if { $current_page eq "dsx2_dye_favs" } {
 			page_done
 		}
 	}
+
+	# Executed whenever DYE settings(selected_n_fav) is modified
+	proc change_selected_favorite { args } {
+		set sel_n_fav [::plugins::DYE::favorites::selected_n_fav]
+		set max_n_fav [::plugins::DYE::favorites::max_number]
+		set fill_c [::dui::aspect::get dbutton_label1 fill -style dsx2]
+
+		if { $sel_n_fav > -1 && $sel_n_fav < $max_n_fav} {
+			dui item config dsx2_dye_favs dye_fav_${sel_n_fav}-lbl1 \
+				-fill $::skin_selected_colour
+		}
+		for { set i 0 } { $i < $max_n_fav } { incr i 1 } {
+			if { $i != $sel_n_fav } {
+				dui item config dsx2_dye_favs dye_fav_${i}-lbl1 -fill $fill_c
+			}
+		}
+	}
+	
 	
 	# Note that we cannot make all the button showing/hiding when changing the number of favorites shown if
 	# we run this code in the "hide" proc/event (not sure why...) so we do here, at the risk that unexpectedly
