@@ -2440,7 +2440,8 @@ namespace eval ::plugins::DYE::favorites {
 			lappend favs_grouping_fields bean_type roast_date
 		}
 		
-		return [::plugins::SDB::shots_by $favs_grouping_fields 1 {} $max_n_recent]
+		return [::plugins::SDB::shots_by $favs_grouping_fields 1 \
+			"beverage_type NOT IN ('cleaning','calibrate')" $max_n_recent]
 	}
 	
 	proc update_recent { {max_title_chars 28} } {
@@ -2454,8 +2455,6 @@ namespace eval ::plugins::DYE::favorites {
 			set sel_clock [fav_clock $sel_n_fav]
 			set sel_n_fav -1
 		}
-		
-msg "DYE FAVORITES update_recent, sel_n_fav=$sel_n_fav, sel_clock=$sel_clock"
 		
 		array set all_recent [get_all_recent_descs_from_db $max_n_favs]
 		set all_recent_names [array names all_recent]
