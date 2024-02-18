@@ -1867,6 +1867,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 	
 	if { [array size src_shot] == 0 } { 
 		msg -WARNING [namespace current] "load_next_from: Shot data is empty"
+		dui say [translate "Can't load shot, data is empty"]
 		return 0 
 	}
 	
@@ -1894,6 +1895,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 			::select_profile $src_shot(profile_filename)
 		} else {
 			msg -WARNING [namespace current] "load_next_from: profile in 'what_to_copy', but profile_filename not found"
+			dui say [translate "Cannot propagate profile, filename not found"]
 		}
 	}
 	
@@ -1964,6 +1966,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		}
 		if { $workflow ni [array names ::plugins::DYE::workflow_settings_vars]} {
 			msg -WARNING [namespace current] "load_next_from: workflow value '$workflow' not recognized"
+			dui say "[translate {Cannot propagate unrecognized workflow value}]: $workflow"
 			set workflow "none"
 		}
 		::workflow $workflow
