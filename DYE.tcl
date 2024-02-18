@@ -10,7 +10,7 @@
 #set ::skindebug 1
 #plugins enable SDB
 #plugins enable DYE
-#fconfigure $::logging::_log_fh -buffering line
+fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
 package require http
@@ -167,6 +167,9 @@ proc ::plugins::DYE::main {} {
 		trace add execution ::plugins::SDB::save_espresso_to_history_hook leave ::plugins::DYE::save_espresso_to_history_hook
 	}
 
+	# Ensure DYE Favorites and next shot descriptions are updated when profile is modified
+	trace add execution ::select_profile leave ::plugins::DYE::select_profile_hook
+	
 	# Screensaver icon
 	dui page add_action saver show ::plugins::DYE::saver_page_onshow
 	
@@ -732,6 +735,12 @@ proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 	# Updating recent favorites saves DYE settings	
 	::plugins::DYE::favorites::update_recent
 	::plugins::DYE::favorites::select_from_clock $::settings(espresso_clock)
+}
+
+proc ::plugins::DYE::select_profile_hook { args } {
+msg "DYE SELECT_PROFILE_HOOK"	
+	::plugins::DYE::favorites::clear_selected_if_needed profile_title
+	::plugins::DYE::define_next_shot_desc
 }
 
 proc ::plugins::DYE::saver_page_onshow { args } {
@@ -2316,6 +2325,11 @@ namespace eval ::plugins::DYE::favorites {
 		}
 	}	
 
+	proc fav_values_fields { fav } {
+		array set values [fav_values $fav]
+		return [array names values]
+	}	
+	
 	proc fav_clock { fav } {
 		array set values [fav_values $fav]
 		return [value_or_default values(last_clock) 0]
@@ -2526,6 +2540,43 @@ namespace eval ::plugins::DYE::favorites {
 		if { [string is true $save_settings] } {
 			::plugins::save_settings DYE
 		}
+	}
+	
+	# Detects if the selected favorite needs to be cleared depending on 
+	# what Next fields have been changed 
+	proc clear_selected_if_needed { changed_fields } {
+		variable ::plugins::DYE::settings
+		set sel_n_fav $settings(selected_n_fav)
+		if { $sel_n_fav < 0 } { return }
+		
+		set clear_sel 0
+		set sel_type [fav_type $sel_n_fav]
+		if { $sel_type eq "n_recent" } {
+			set favs_grouping $settings(favs_n_recent_grouping)
+			
+			if { "beans" in $favs_grouping && \
+					[any_in_list $changed_fields {beans bean_brand bean_type roast_date}] } {
+				set clear_sel 1
+			} elseif { "profile_title" in $favs_grouping && \
+					[any_in_list $changed_fields {profile_title profile_filename}] } {
+				set clear_sel 1
+			} elseif { "workflow" in $favs_grouping && \
+					[any_in_list $changed_fields {workflow DSx2_workflow}] } {
+				set clear_sel 1
+			} elseif { "grinder_model" in $favs_grouping && "grinder_model" in $changed_fields } {
+				set clear_sel 1
+			}
+		} elseif { $sel_type eq "fixed" } {	
+			set fixed_fields [fav_values_fields $sel_n_fav]
+			if { [any_in_list $changed_fields $fixed_fields] } {
+				set clear_sel 1
+			}
+		}
+		
+		if { $clear_sel } {
+			set settings(selected_n_fav) -1
+		}
+		return $clear_sel
 	}
 	
 	proc n_fav_matching_clock { clock } {
@@ -3705,8 +3756,10 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 			if { [info exists ::plugins::DYE::settings(next_$field)] } {
 				set ::plugins::DYE::settings(next_modified) 1
 				set ::plugins::DYE::settings(next_$field) $changes($field)
-				if { ([metadata get $field propagate] || $field eq "espresso_notes") && [info exists ::settings($field)] } {
-					if { $changes($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
+				if { ([metadata get $field propagate] || $field eq "espresso_notes") && \
+						[info exists ::settings($field)] } {
+					if { $changes($field) eq "" && ([metadata get $field data_type] eq "number" || \
+							$field eq "grinder_setting") } {
 						if { $field ni {grinder_dose_weight grinder_setting} } {
 							set ::settings($field) 0
 						}
@@ -3715,7 +3768,8 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 					}
 					set settings_changed 1
 					
-					if { $skin eq "DSx" && $field eq "grinder_dose_weight" && [return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
+					if { $skin eq "DSx" && $field eq "grinder_dose_weight" && \
+							[return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
 						set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
 						set dsx_settings_changed 1
 					}
@@ -3746,6 +3800,7 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 			}
 		}
 		
+		::plugins::DYE::favorites::clear_selected_if_needed [array names changes]
 		::plugins::DYE::define_next_shot_desc data
 		set dye_settings_changed 1
 	} elseif { $data(path) eq {} } {

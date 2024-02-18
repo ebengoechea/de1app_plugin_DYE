@@ -986,8 +986,17 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		}
 	}
 	
-	proc adjust_hook { args } {		
+	proc adjust_hook { adjust_args args } {
+msg "DYE ADJUST_HOOK, args=$args"		
 		::plugins::DYE::define_next_shot_desc
+		
+		set adjust_var [lindex $adjust_args 1]
+		if { $adjust_var eq "dose" } {
+			set adjust_var "grinder_dose_weight"
+		} elseif { $adjust_var eq "saw" } {
+			set adjust_var "drink_weight"
+		}		
+		::plugins::DYE::favorites::clear_selected_if_needed $adjust_var
 	}
 
 	proc change_grinder_setting_entry { } {
@@ -1078,6 +1087,8 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			set ::settings(grinder_setting) $setting
 			::save_settings
 		}
+		
+		::plugins::DYE::favorites::clear_selected_if_needed grinder_setting
 		::plugins::DYE::define_next_shot_desc
 	}	
 	
@@ -1163,6 +1174,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 				plugins::save_settings DYE
 				::save_settings
 				
+				::plugins::DYE::favorites::clear_selected_if_needed bean_type
 				::plugins::DYE::define_next_shot_desc
 			}
 			compute_days_offroast
@@ -1176,9 +1188,14 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		variable ::plugins::DYE::settings
 		variable data
 		
-		set roast_date [string trim $settings(next_roast_date)]		
+		set roast_date [string trim $settings(next_roast_date)]	
 		if { $roast_date eq "" } {
 			set data(days_offroast_msg) ""
+			if { $::settings(roast_date) ne {} } {
+				set ::settings(roast_date) {}
+				::save_settings
+				::plugins::DYE::favorites::clear_selected_if_needed roast_date
+			}
 			return
 		} 
 			
@@ -1286,6 +1303,12 @@ namespace eval ::dui::pages::dsx2_dye_home {
 				set data(days_offroast_msg) [translate {Date in the future!}]
 			}
 		}
+		
+		if { $::settings(roast_date) ne $settings(next_roast_date) } {
+			set ::settings(roast_date) $settings(next_roast_date)
+			::save_settings
+			::plugins::DYE::favorites::clear_selected_if_needed roast_date
+		}
 	}
 	
 	proc select_grinder { } {
@@ -1371,18 +1394,20 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			if { $grinder_model ne $settings(next_grinder_model) } {
 				set settings(next_grinder_model) $grinder_model
 				set ::settings(grinder_model) $grinder_model
+				::plugins::DYE::favorites::clear_selected_if_needed grinder_model
 				set needs_saving 1
 			}
 			if { [string is true $load_last_grinder_setting] && $last_grinder_setting ne {}} {
-
 				set settings(next_grinder_setting) $last_grinder_setting
 				set ::settings(grinder_setting) $last_grinder_setting
+				::plugins::DYE::favorites::clear_selected_if_needed grinder_setting
 			} elseif { $needs_saving } {
 				# Grinder changed, if we are not using the last setting, the default is loaded
 				set default_setting [::plugins::DYE::grinders::get_default_setting $grinder_model]
 
 				set settings(next_grinder_setting) $default_setting
 				set ::settings(grinder_setting) $default_setting
+				
 			}
 			
 			# ensure_valid_grinder_spec may modify the setting, so we tell it not to save 
@@ -1390,13 +1415,15 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			ensure_valid_grinder_spec 1 0
 			
 			if { $settings(next_grinder_setting) ne $orig_grinder_setting } {
+				::plugins::DYE::favorites::clear_selected_if_needed grinder_setting
 				set needs_saving 1
 			}
 		}
 
 		if { $needs_saving } {
 			::save_settings			
-			plugins::save_settings DYE
+			::plugins::save_settings DYE
+			::plugins::DYE::define_next_shot_desc
 		}
 	}
 	
@@ -1406,7 +1433,6 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		set page [lindex $::skin_home_pages 0]
 		set grinder $settings(next_grinder_model)
 		array set spec [::plugins::DYE::grinders::get_spec $grinder]
-msg "DYE ENSURE_VALID_GRINDER, grinder=$grinder, spec=[array get spec]"		
 		
 		if { [array size spec] == 0 } {
 			dui item disable $page wf_grinder_setting*
