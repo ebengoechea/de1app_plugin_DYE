@@ -840,7 +840,6 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			}
 			for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < 5} {incr i 1} {
 				dui item config $main_home_page dye_fav_$i -initial_state hidden
-				dui item config $main_home_page dye_fav_icon_$i -initial_state hidden
 			}
 			
 			dui item config $main_home_page {l_favs_number b_favs_number* bb_favs_number* } \
@@ -1594,6 +1593,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 
 		# Favorites bar on the right
 		set y -20
+		set x
 		for {set i 0} {$i < [::plugins::DYE::favorites::max_number]} {incr i 1} {
 			if { $i < $data(max_dsx2_home_visible_favs) } {
 				set target_pages [list $page dsx2_dye_edit_fav {*}$::skin_home_pages]
@@ -1601,22 +1601,21 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 				set target_pages [list $page dsx2_dye_edit_fav]
 			}
 			
-			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
+			dui add dbutton $target_pages [expr {$::skin(button_x_fav)-75}] [incr y 120] -bwidth [expr 360+150] \
 				-style dsx2 -tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
-				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_font_size 11 \
-				-label_width 450 -initial_state hidden
+				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] \
+				-label_font_size 11 -label_width 495 -label_pos {0.6 0.5} \
+				-label1variable [::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $i]] \
+				-label1_pos {50 0.5} -label1_anchor center -label1_justify center \
+				-label1_font_family [dui::aspect::get symbol font_family] -label1_font_size 18 \
+				-initial_state hidden
 			
-#			dui add dbutton $target_pages [expr $::skin(button_x_fav)-50] [incr y 120] -bwidth [expr 360+100] \
-#				-shape round_outline -bheight 100 -fill $::skin_forground_colour -outline $::skin_forground_colour \
-#				-tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
-#				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_font_size 11 -label_width 450 \
-#				-initial_state hidden
-			 
-			dui add symbol $target_pages [expr $::skin(button_x_fav)-50+460+20] [expr {$y+50}] \
-				-symbol [::plugins::DYE::favorites::fav_icon_symbol $i] -anchor w -font_size 11 \
-				-tags [list dye_fav_icon_$i dye_favs_icons] -initial_state hidden
+			dui add shape rect $target_pages [expr {$::skin(button_x_fav)+25}] [expr {$y+2}] \
+				[expr {$::skin(button_x_fav)+29}] [expr {$y+99}] -width 0 \
+				-fill $::skin_background_colour -tags [list dye_fav_l$i dye_fav_$i* dye_favs] \
+				-initial_state hidden
 
-			dui add dbutton $page [expr $::skin(button_x_fav)-150] $y -bwidth 100 -bheight 100 -shape "" \
+			dui add dbutton $page [expr $::skin(button_x_fav)-175] $y -bwidth 100 -bheight 100 -shape "" \
 				-fill $::skin_background_colour -tags [list dye_fav_edit_$i dye_fav_edits] \
 				-command [list ::dui::page::load dsx2_dye_edit_fav $i] \
 				-symbol pen -symbol_pos {0.5 0.5} -symbol_anchor center -symbol_justify center -symbol_font_size 20 \
@@ -1761,15 +1760,12 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 		# Show or hide DYE favorites
 		for {set i 0} {$i < $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {incr i 1} {
 			dui item config $main_home_page dye_fav_$i* -initial_state $dye_favs_state
-			dui item config $main_home_page dye_fav_icon_$i -initial_state $dye_favs_state
 			if { $are_favs_visible } {
 				dui item config $main_home_page dye_fav_$i* -state $dye_favs_state
-				dui item config $main_home_page dye_fav_icon_$i -state $dye_favs_state
 			}
 		}
 		for {set i $::plugins::DYE::settings(dsx2_n_visible_dye_favs)} {$i < $data(max_dsx2_home_visible_favs)} {incr i 1} {
 			dui item config $main_home_page dye_fav_$i* -initial_state hidden -state hidden
-			dui item config $main_home_page dye_fav_icon_$i -initial_state hidden -state hidden
 		}
 		
 		dui item config $main_home_page dye_fav_more* -initial_state $dye_favs_state
@@ -2119,9 +2115,9 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		variable data
 		
 		# Show only the fav button for the favorite being edited
-		dui item hide $page_to_show {dye_favs dye_favs_icons}
-		dui item show $page_to_show dye_fav_$data(fav_number)* 
-		dui item show $page_to_show dye_fav_icon_$data(fav_number)
+		dui item hide $page_to_show dye_favs
+		dui item show $page_to_show dye_fav_$data(fav_number)*
+		dui item show $page_to_show dye_fav_l$data(fav_number)
 		
 		# Move the bracket "index triangle" to point at the fav being edited
 		# BEWARE that dui::item::moveto doesn't work with polygons atm as it's restricted to 4 coordinates
@@ -2161,8 +2157,8 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 		foreach field_name $fav_fields {
 			set data(fav_$field_name) {}
 		}
-		
-		dui item config $page dye_fav_icon_$data(fav_number) -text \
+
+		dui item config $page dye_fav_$data(fav_number)-lbl1 -text \
 			[::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $data(fav_type)]]
 		
 		if {$data(fav_type) eq "n_recent"} {
