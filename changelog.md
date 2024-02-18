@@ -2,6 +2,18 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.42] - 2024-02-18
+
+### New
+ - DYE Favorites buttons on DSx2 now have the same aspect as DSx2 buttons: the Fav type icon has moved inside the button, and a vertical line separates the icon from the label text.
+ - Now when a favorite button is clicked, the color changes briefly to signal is has been clicked (like Streamline buttons).
+ - Now when a favorite is loaded, its icon changes color to flag it has been selected. It is deselected automatically if any relevant piece of data for the Next shot changes.
+ - Flush settings (time and flow) are now stored in Fixed favorites if "Workflow settings" are selected in "What to copy". Suggested by Matt Bower.
+ - Shots done with profiles having ``beverage_type`` "cleaning" or "calibrate" are ignored when querying the recent favorites.
+ 
+### Changed
+ - Requires DE1 app version >= 1.43.1
+ 
 ## [2.41] - 2024-02-16
 
 ### New

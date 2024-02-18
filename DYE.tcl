@@ -27,14 +27,14 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.41
+	variable version 2.42
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people. Also includes beans-based workflow, shot history management, and profile tools."]
 
 	# Dependece: 1.42.1.102 should contain SDB update to support favorites & workflow, 
 	#	and DUI update to support correct z-order in dui::page::add_items.
-	variable min_de1app_version {1.42.1.102}
+	variable min_de1app_version {1.43.1}
 	variable min_DSx_version {4.79}
 	variable debug_text {}	
 	
@@ -2206,6 +2206,7 @@ namespace eval ::plugins::DYE::favorites {
 	variable all_recent
 	array set all_recent {}
 	
+	# This signals select_profile_enter_hook that it can ignore profile changes while loading a fav
 	variable _is_loading 0
 	
 	proc max_number {} {
