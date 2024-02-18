@@ -54,11 +54,11 @@ namespace eval ::plugins::DYE {
 	# Note that steam_disabled is *always* imported and flush settings are *never* imported.
 	variable workflow_settings_vars
 	array set workflow_settings_vars {
-		espresso {steam_disabled}
-		latte {steam_timeout steam_disabled}
-		long {hotwater_flow water_temperature water_volume steam_disabled}
-		americano {hotwater_flow water_temperature water_volume steam_disabled}
-		none {steam_timeout hotwater_flow water_temperature water_volume steam_disabled}
+		espresso {steam_disabled flush_flow flush_seconds}
+		latte {steam_timeout steam_disabled flush_flow flush_seconds}
+		long {hotwater_flow water_temperature water_volume steam_disabled flush_flow flush_seconds}
+		americano {hotwater_flow water_temperature water_volume steam_disabled flush_flow flush_seconds}
+		none {steam_timeout hotwater_flow water_temperature water_volume steam_disabled flush_flow flush_seconds}
 	}
 	
 	variable profile_shot_extra_vars {profile profile_filename profile_to_save original_profile_title}
