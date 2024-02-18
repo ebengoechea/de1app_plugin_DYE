@@ -1853,7 +1853,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 			}
 			set sel_n_fav [::plugins::DYE::favorites::selected_n_fav]
 			if { $sel_n_fav > -1 } {
-				after 200 [namespace current]::change_selected_favorite
+				after 210 [namespace current]::change_selected_favorite
 			}
 		}
 		

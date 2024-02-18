@@ -168,7 +168,7 @@ proc ::plugins::DYE::main {} {
 	}
 
 	# Ensure DYE Favorites and next shot descriptions are updated when profile is modified
-	trace add execution ::select_profile leave ::plugins::DYE::select_profile_hook
+	trace add execution ::select_profile enter ::plugins::DYE::select_profile_enter_hook
 	
 	# Screensaver icon
 	dui page add_action saver show ::plugins::DYE::saver_page_onshow
@@ -737,10 +737,14 @@ proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 	::plugins::DYE::favorites::select_from_clock $::settings(espresso_clock)
 }
 
-proc ::plugins::DYE::select_profile_hook { args } {
-msg "DYE SELECT_PROFILE_HOOK"	
-	::plugins::DYE::favorites::clear_selected_if_needed profile_title
-	::plugins::DYE::define_next_shot_desc
+proc ::plugins::DYE::select_profile_enter_hook { select_profile_args args } {
+	if { $::plugins::DYE::favorites::_is_loading } { return }
+	set new_profile [lindex $select_profile_args 1]
+	if { $new_profile ne $::settings(profile_filename) } {
+msg "DYE SELECT_PROFILE_HOOK, profile changed from $::settings(profile_filename) to $new_profile"		
+		::plugins::DYE::favorites::clear_selected_if_needed profile_title
+		::plugins::DYE::define_next_shot_desc
+	}
 }
 
 proc ::plugins::DYE::saver_page_onshow { args } {
@@ -2202,6 +2206,8 @@ namespace eval ::plugins::DYE::favorites {
 	variable all_recent
 	array set all_recent {}
 	
+	variable _is_loading 0
+	
 	proc max_number {} {
 		return 12
 	}
@@ -2601,6 +2607,7 @@ namespace eval ::plugins::DYE::favorites {
 	}
 		
 	proc load { n_fav } {
+		variable _is_loading
 		if { ![is_valid_n_fav $n_fav] } { return 0 }
 		
 		array set fav_values [fav_values $n_fav]
@@ -2608,13 +2615,14 @@ namespace eval ::plugins::DYE::favorites {
 			return 0
 		}
 		
+		set _is_loading 1
 		if { [fav_type $n_fav] eq "n_recent" } {
 			if {[info exists fav_values(last_clock)]} {
 				set load_success [::plugins::DYE::load_next_from $fav_values(last_clock) \
 					{} $::plugins::DYE::settings(favs_n_recent_what_to_copy) $n_fav]
 				if { [string is true $load_success ] } {
 					dui say  [translate "Recent favorite loaded"]
-					
+					set _is_loading 0
 					return 1
 				} else {
 					dui say [translate "Error loading recent favorite"]
@@ -2634,12 +2642,14 @@ namespace eval ::plugins::DYE::favorites {
 			set load_success [::plugins::DYE::load_next_from {} fav_values $what_to_copy $n_fav]
 			if { [string is true $load_success] } {
 				dui say [translate "Fixed favorite loaded"]
+				set _is_loading 0
 				return 1
 			} else {
 				dui say [translate "Error loading fixed favorite"]
 			}
 		}
 		
+		set _is_loading 0
 		return 0
 	}
 	
