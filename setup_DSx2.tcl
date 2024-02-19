@@ -633,7 +633,7 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		dbutton.shape.dsx2 round
 		dbutton.bheight.dsx2 100
 		dbutton.fill.dsx2 $button_bg_c
-		dbutton.pressfill.dsx2 $button_label_c
+		dbutton.pressfill.dsx2 \{ $button_label_c 150 \}
 		dbutton.disabledfill.dsx2 $unselected_c		
 		
 		dbutton_label.pos.dsx2 {0.5 0.5}
@@ -641,7 +641,7 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		dbutton_label.anchor.dsx2 center	
 		dbutton_label.justify.dsx2 center
 		dbutton_label.fill.dsx2 $button_label_c
-		dbutton_label.pressfill.dsx2 $button_bg_c
+		dbutton_label.pressfill.dsx2 \{ $button_bg_c 150 \}
 		dbutton_label.disabledfill.dsx2 $disabled_c
 		
 		dbutton_label1.pos.dsx2 {0.5 0.8}
@@ -649,7 +649,7 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		dbutton_label1.anchor.dsx2 center
 		dbutton_label1.justify.dsx2 center
 		dbutton_label1.fill.dsx2 $button_label_c
-		dbutton_label1.pressfill.dsx2 $selected_c
+		dbutton_label1.pressfill.dsx2 \{ $selected_c 150 $selected_c \}
 		dbutton_label1.activefill.dsx2 $fill_and_insert_c
 		dbutton_label1.disabledfill.dsx2 $disabled_c
 		
@@ -1852,9 +1852,9 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 					-fill [::dui::aspect::get dbutton_label1 fill -style dsx2]  
 			}
 			set sel_n_fav [::plugins::DYE::favorites::selected_n_fav]
-			if { $sel_n_fav > -1 } {
-				after 210 [namespace current]::change_selected_favorite
-			}
+#			if { $sel_n_fav > -1 } {
+#				after 210 [namespace current]::change_selected_favorite
+#			}
 		}
 		
 		if { $current_page eq "dsx2_dye_favs" } {
