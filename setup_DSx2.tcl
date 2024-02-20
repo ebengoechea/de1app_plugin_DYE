@@ -722,7 +722,8 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		bind $::home_espresso_graph [platform_button_press] +{::dui::pages::dsx2_dye_home::press_graph_hook}
 		
 		blt::vector create src_elapsed src_pressure src_pressure_goal src_flow src_flow_goal \
-			src_flow_weight src_weight src_temperature src_temperature_goal src_resistance src_steps
+			src_flow_weight src_weight src_temperature src_temperature_goal src_resistance src_steps \
+			src_flow_2x src_flow_goal_2x src_weight_2x 
 		
 		if { [ifexists ::settings(espresso_clock) 0] > 0 && \
 				$::plugins::DYE::settings(next_src_clock) != $::settings(espresso_clock) && \
@@ -1508,14 +1509,24 @@ msg "DYE ADJUST_HOOK, args=$args"
 				$src_shot(graph_espresso_temperature_basket) {skin_temperature_units $x}]
 		set src_shot(graph_espresso_temperature_goal) [::struct::list mapfor x \
 				$src_shot(graph_espresso_temperature_goal) {skin_temperature_units $x}]
+		# Series for the graph view with a second Y axis
+		set src_shot(graph_espresso_flow_2x) [::struct::list mapfor x \
+				$src_shot(graph_espresso_flow) {round_to_two_digits [expr {2.0 * $x}]}]
+		set src_shot(graph_espresso_flow_goal_2x) [::struct::list mapfor x \
+				$src_shot(graph_espresso_flow_goal) {round_to_two_digits [expr {2.0 * $x}]}]
+		set src_shot(graph_espresso_flow_weight_2x) [::struct::list mapfor x \
+				$src_shot(graph_espresso_flow_weight) {round_to_two_digits [expr {2.0 * $x}]}]
 		
-		foreach lg {pressure_goal flow_goal temperature_goal pressure flow temperature_basket flow_weight resistance state_change} {
+		foreach lg {pressure_goal flow_goal temperature_goal pressure flow temperature_basket \
+					flow_weight resistance state_change flow_2x flow_goal_2x flow_weight_2x} {
 			if { $lg eq "temperature_basket" } {
 				set src_name temperature
 			} elseif { $lg eq "state_change" } {
 				set src_name steps
 			} elseif { $lg eq "flow_weight" } {
 				set src_name weight	
+			} elseif { $lg eq "flow_weight_2x" } {
+				set src_name weight_2x
 			} else {
 				set src_name $lg
 			}

@@ -10,7 +10,7 @@
 #set ::skindebug 1
 #plugins enable SDB
 #plugins enable DYE
-fconfigure $::logging::_log_fh -buffering line
+#fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
 package require http
