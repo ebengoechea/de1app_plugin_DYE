@@ -2,6 +2,15 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.43] - 2024-02-20
+
+### Changed
+ - Loading source shot graphs in DSx2 now works also for the alternate graph view with a second Y axis.
+ - Avoid icon flashing when Fav buttons are clicked.
+ - Shorter duration of Fav button color change when clicked, to try to make it work better in slower tablets.
+ - Last/Source and Next shot descriptions on DSx2 home page are no longer appearing/dissapearing briefly on settings page (such as when returning from grinder or bean selection dialog)
+ - Labels in DSx2 buttons for beans and grinder selection now should fit inside the button width (and can now wrap to 2 lines)
+
 ## [2.42] - 2024-02-18
 
 ### New
