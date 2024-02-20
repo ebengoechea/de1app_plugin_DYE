@@ -850,11 +850,18 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		}
 		
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-			$::home_espresso_graph configure -height $main_graph_height
+			$::home_espresso_graph configure -height $main_graph_height			
 			dui item config $::skin_home_pages live_graph_data -initial_state hidden
 			
 			# Updates e.g. the profile title in the next shot desc if coming from a profile switch
 			::plugins::DYE::define_next_shot_desc
+			
+			if { $::wf_espresso_set_showing || $::wf_flush_set_showing || \
+					$::wf_water_set_showing || $::wf_steam_set_showing } {
+				dui item hide $main_home_page {launch_dye_last* launch_dye_next*} -initial 1 -current 1
+			} else {
+				dui item show $main_home_page {launch_dye_last* launch_dye_next*} -initial 1 
+			}
 		}
 		
 		::dui::pages::dsx2_dye_home::compute_days_offroast
@@ -875,16 +882,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			::rest_fav_buttons
 		}
 		
-		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-			# If the graph is hidden, hide the shot desc texts too (this happens and is not
-			# captured elsewhere e.g. if entering a DYE favs page from a GHC settings "page"
-			# and coming back.
-			if { [[dui canvas] itemcget main_graph -state ] eq "hidden"} {
-				dui item config $main_home_page {launch_dye_last* launch_dye_next*} -state hidden
-			}
-		}
-		
-		if { [string is true $::wf_espresso_set_showing] } {
+		if { $::wf_espresso_set_showing } {
 			ensure_valid_grinder_spec
 		}
 	}
@@ -896,7 +894,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 			$::home_espresso_graph configure -height $main_graph_height
 			dui item config $page live_graph_data -initial_state hidden -state hidden
-			dui item show $page {launch_dye_last* launch_dye_next*}
+			dui item show $page {launch_dye_last* launch_dye_next*} -current 1 -initial 0
 			::plugins::DYE::define_next_shot_desc
 		}
 	}
@@ -909,7 +907,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 				-state hidden
 		}
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-			dui item hide $page {launch_dye_last* launch_dye_next*}
+			dui item hide $page {launch_dye_last* launch_dye_next*} -initial 1 -current 1
 		}
 	}
 	
