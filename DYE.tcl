@@ -7359,10 +7359,10 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		}
 		
 		slide $page_to_show [::round_to_integer $::dui::_base_screen_width] \
-				[::round_to_integer [expr {$::dui::_base_screen_width-$page_width}]] -100
+				[::round_to_integer [expr {$::dui::_base_screen_width-$page_width}]] -200
 	}
 
-	proc slide { page x x_end {x_incr 100} {end_cmd {}} } {	
+	proc slide { page x x_end {x_incr -200} {end_cmd {}} } {	
 		incr x $x_incr
 		if { ($x_incr > 0 && $x > $x_end) || ($x_incr < 0 && $x < $x_end) } {
 			set x $x_end
