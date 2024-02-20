@@ -774,16 +774,16 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		dui add dtext $page [expr {$x+580/2}] $y -tags wf_heading_beans -style dsx2_setting_heading \
 			-text [translate "Beans"] -initial_state hidden
 		dui add dbutton $page $x [expr {$y+40}] -style dsx2 -bwidth 580 -tags wf_dye_beans \
-			-labelvariable {[maxstring "$::plugins::DYE::settings(next_bean_brand) $::plugins::DYE::settings(next_bean_type)" 30]} \
-			-label_font [skin_font font 16] -initial_state hidden \
+			-labelvariable {[maxstring "$::plugins::DYE::settings(next_bean_brand) $::plugins::DYE::settings(next_bean_type)" 46]} \
+			-label_font [skin_font font 16] -label_width 575 -initial_state hidden \
 			-command [namespace current]::select_beans
 			
 		# Grinder model 200+580/2
 		dui add dtext $page [expr {$x+580/2}] [expr {$y+200}] -tags wf_heading_grinder \
 			-style dsx2_setting_heading -text [translate "Grinder"] -initial_state hidden
 		dui add dbutton $page $x [expr {$y+240}] -style dsx2 -bwidth 580 -tags wf_grinder \
-			-labelvariable {[maxstring "$::plugins::DYE::settings(next_grinder_model)" 30]} \
-			-label_font [skin_font font 16] -initial_state hidden \
+			-labelvariable {[maxstring "$::plugins::DYE::settings(next_grinder_model)" 46]} \
+			-label_font [skin_font font 16] -label_width 575 -initial_state hidden \
 			-command [namespace current]::select_grinder
 
 		# Roast date
