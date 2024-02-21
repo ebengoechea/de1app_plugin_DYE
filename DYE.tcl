@@ -147,8 +147,8 @@ proc ::plugins::DYE::main {} {
 	dui page add dye_profile_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_shot_select_dlg -namespace true -type dialog -bbox {100 160 2460 1550}
 	dui page add dye_item_select_dlg -namespace true -type dialog -bbox {0 0 900 1600} \
-		-bg_shape rect -fill $::skin_background_colour -width 2 -outline $::skin_forground_colour
-
+		-bg_shape rect -width 2 -outline [dui aspect get dtext fill]
+	
 	foreach page $::dui::pages::DYE_v3::pages {
 		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
 	}
@@ -7157,16 +7157,16 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		bind $widgets(filter_string) <KeyRelease> [namespace current]::apply_filter_string
 		
 		dui add dbutton $page [expr {$page_width-2}] [expr {$y1-50}] -bwidth 100 -bheight 100 -shape "" \
-			-tags clear_search_text -anchor e -fill $::skin_background_colour \
+			-tags clear_search_text -anchor e -fill [dui::aspect::get page bg_color] \
 			-symbol square-xmark -symbol_font_size 25 -symbol_pos {0.5 0.5} \
-			-symbol_fill $::skin_forground_colour -command clear_filter_string
+			-symbol_fill [dui::aspect::get dtext fill] -command clear_filter_string
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
 
 		set tw [dui add text $page 20 $y0 -tags items -canvas_width [expr {$page_width-40}] \
 			-canvas_height [expr {$y1-$y0-4}] -canvas_anchor nw -yscrollbar 0 -font_size 15 \
-			-highlightthickness 0 -initial_state disabled -foreground $::skin_forground_colour \
+			-highlightthickness 0 -initial_state disabled -foreground [dui::aspect::get dtext fill] \
 			-exportselection 0]	
 
 		set y0 $y1
@@ -7192,11 +7192,11 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		
 		dui add dbutton $page [expr {$page_width-100}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
 			-tags add_new_ok -symbol check -symbol_pos {0.5 0.5} -symbol_font_size 30 \
-			-symbol_fill $::skin_green -symbol_disabledfill [dui aspect get dtext disabledfill] \
+			-symbol_fill [value_or_default ::skin_green green] -symbol_disabledfill [dui aspect get dtext disabledfill] \
 			-command add_new_ok -initial_state hidden
 		
 #		dui add dbutton $page [expr {$page_width-100}] $yb -anchor w -bwidth 100 -bheight [expr {$y1-$y0}] \
-#			-symbol xmark -symbol_pos {0.5 0.5} -symbol_font_size 30 -symbol_fill $::skin_red \
+#			-symbol xmark -symbol_pos {0.5 0.5} -symbol_font_size 30 -symbol_fill [value_or_default ::skin_red red] \
 #			-command add_new_cancel
 		
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
