@@ -5762,8 +5762,8 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			-labels [list [translate "Last use"] [translate "Most used"] [translate "Title"]  [translate "Last edit"]]
 		
 		# RIGHT SIDE, info panel
-		dui add shape outline $page 1500 [incr y [expr {$vsep+30}]] 2300 1275 -tags info_box -width 2 -outline grey
-		dui add symbol $page 1530 [expr {$y+15}] -anchor nw -symbol info -tags info_icon -font_size 30 -fill grey
+		dui add shape outline $page 1500 [incr y [expr {$vsep+30}]] 2300 1215 -tags info_box -width 2 -outline grey
+		dui add symbol $page 1515 [expr {$y+15}] -anchor nw -symbol circle-info -tags info_icon -font_size 30 -fill grey
 		
 		set tw [dui add text $page 1605 [expr {$y+10}] -tags profile_info -canvas_width 675 -canvas_height [expr {1190-$y}] \
 			-yscrollbar no -highlightthickness 0 -initial_state disabled -font_size -2 -foreground "#7f879a" -exportselection 0]
@@ -6396,8 +6396,8 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 			-labels [list [translate "Date"] [translate "Enjoy"] [translate "EY"] [translate "Ratio"]]
 		
 		# RIGHT SIDE, info panel / preview graph
-		dui add shape outline $page 1500 [incr y [expr {$vsep+30}]] 2300 1275 -tags info_box -width 2 -outline grey
-		dui add symbol $page 1530 [expr {$y+15}] -anchor nw -symbol circle-info -tags info_icon -font_size 30 -fill grey
+		dui add shape outline $page 1500 [incr y [expr {$vsep+30}]] 2300 1215 -tags info_box -width 2 -outline grey
+		dui add symbol $page 1515 [expr {$y+15}] -anchor nw -symbol circle-info -tags info_icon -font_size 30 -fill grey
 		
 		set itw [dui add text $page 1605 154 -tags shot_info -canvas_width 675 -canvas_height 600 \
 			-yscrollbar no -highlightthickness 0 -initial_state hidden -font_size -2 -foreground "#7f879a" -exportselection 0]
