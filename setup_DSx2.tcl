@@ -871,16 +871,23 @@ namespace eval ::dui::pages::dsx2_dye_home {
 	}
 	
 	proc show { args } {
+		variable ::plugins::DYE::settings
 		set main_home_page [lindex $::skin_home_pages 0]
 		
 		# This call doesn't work on the page load event, so we need to put it here,
 		# but it produces a slight flickering effect as all DSx2 favs are first shown,
 		# then hidden
-		if { [string is true $::plugins::DYE::settings(dsx2_use_dye_favs)] } {
+		if { [string is true $settings(dsx2_use_dye_favs)] } {
 			dui item config $main_home_page {l_favs_number b_favs_number* bb_favs_number*} \
 				-state hidden
 		} else {
 			::rest_fav_buttons
+		}
+
+		# Coming back from a dialog may not execute the load proc, so we make sure again here
+		if { $settings(dsx2_show_shot_desc_on_home) && !$::wf_espresso_set_showing &&
+				!$::wf_flush_set_showing && !$::wf_water_set_showing && !$::wf_steam_set_showing } {
+			dui item show $main_home_page {launch_dye_last* launch_dye_next*}
 		}
 		
 		if { $::wf_espresso_set_showing } {
