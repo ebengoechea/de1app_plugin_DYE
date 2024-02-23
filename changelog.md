@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.44] - 2024-02-23
+
+### Changed
+ - Last/Source and Next shot descriptions on DSx2 home page would not show when back from DYE Favorites or other pages, after previous versions changed. Fixed. Reported by Matt Bower.
+ - Remove references to DSx2-only colors in page ```dye_item_select_dlg`` that could raise errors when activating DYE from other skins.
+ - Adjust shapes sizes in shot & profile selectors after a rescale fix in ``dui::add::shape``.
+
+
 ## [2.43] - 2024-02-20
 
 ### Changed
