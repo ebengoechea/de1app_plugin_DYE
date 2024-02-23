@@ -977,97 +977,98 @@ proc ::plugins::DYE::define_past_shot_desc2 { args } {
 # NOTE that since DYE favorites, this also formats the "SOURCE" shot description.
 proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_settings 0} args } {
 	variable settings
-	if { $settings(show_shot_desc_on_home) == 1 } {
-		set isDSx2 [is_DSx2] 
-		if { $isDSx2 } {			
-			set line_spec {profile beans {grind ratio}}
-			set max_line_chars 55
-		} else {
-			# Default as for DSx
-			set line_spec {beans {grind extraction} ratio}
-			set max_line_chars 55
-		}
+	if { ! $settings(show_shot_desc_on_home) } {
+		set settings(last_shot_desc) ""		
+		set settings(last_shot_header) ""
+		return
+	}
+	set isDSx2 [is_DSx2] 
+	if { $isDSx2 } {			
+		set line_spec {profile beans {grind ratio}}
+		set max_line_chars 55
+	} else {
+		# Default as for DSx
+		set line_spec {beans {grind extraction} ratio}
+		set max_line_chars 55
+	}
 
-		if { $last_shot_array_name eq {} } {
-			set settings(last_shot_header) [translate {LAST SHOT: }]
-			
-			if { [string is true $use_settings] } {	
-				if { $::settings(history_saved) == 1 } {
-					array set last_shot {}
-					foreach field [metadata fields -domain shot -category description] {
-						if { [info exists ::settings($field)] } {
-							set last_shot($field) $::settings($field)
-						}
+	if { $last_shot_array_name eq {} } {
+		set settings(last_shot_header) [translate {LAST SHOT: }]
+		
+		if { [string is true $use_settings] } {	
+			if { $::settings(history_saved) == 1 } {
+				array set last_shot {}
+				foreach field [metadata fields -domain shot -category description] {
+					if { [info exists ::settings($field)] } {
+						set last_shot($field) $::settings($field)
 					}
-					set last_shot(extraction_time) [espresso_elapsed_timer]	
-					set last_shot(profile_title) $::settings(profile_title)
-					if { $isDSx2 } {
-						set last_shot(workflow) [value_or_default ::skin(workflow) {}]
-						if { $last_shot(workflow) eq {} } {
-							set last_shot(workflow) [value_or_default ::settings(DSx2_workflow) {}]
-						}
-					} else {
-						set last_shot(workflow) {}
+				}
+				set last_shot(extraction_time) [espresso_elapsed_timer]	
+				set last_shot(profile_title) $::settings(profile_title)
+				if { $isDSx2 } {
+					set last_shot(workflow) [value_or_default ::skin(workflow) {}]
+					if { $last_shot(workflow) eq {} } {
+						set last_shot(workflow) [value_or_default ::settings(DSx2_workflow) {}]
 					}
+				} else {
+					set last_shot(workflow) {}
+				}
+				set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
+				
+				if { [ifexists ::settings(espresso_clock) 0] > 0 } {
+					append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
+				}
+				append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
+			} else {
+				set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
+			}
+		} else {
+			# Read last shot from the database
+			if { [ifexists ::settings(espresso_clock) 0] > 0 } {				
+				array set last_shot [::plugins::SDB::shots "*" 1 "clock=$::settings(espresso_clock)" 1]
+				if { [array size last_shot] == 0 } {						
+					set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
+				} else {
+					foreach field [array names last_shot] {
+						set last_shot($field) [lindex $last_shot($field) 0]
+					}
+
 					set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
 					
-					if { [ifexists ::settings(espresso_clock) 0] > 0 } {
+					if { $::settings(espresso_clock) > 0 } {
 						append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
 					}
 					append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
-				} else {
-					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
 				}
+				
 			} else {
-				# Read last shot from the database
-				if { [ifexists ::settings(espresso_clock) 0] > 0 } {				
-					array set last_shot [::plugins::SDB::shots "*" 1 "clock=$::settings(espresso_clock)" 1]
-					if { [array size last_shot] == 0 } {						
-						set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
-					} else {
-						foreach field [array names last_shot] {
-							set last_shot($field) [lindex $last_shot($field) 0]
-						}
-
-						set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
-						
-						if { $::settings(espresso_clock) > 0 } {
-							append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
-						}
-						append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
-					}
-					
-				} else {
-					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
-				}
+				set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
 			}
-		} else {
-			upvar $last_shot_array_name last_shot
-			set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
-			
-			if { [info exists last_shot(clock)] } {
-				if { $last_shot(clock) == $::settings(espresso_clock) } {
-					set settings(last_shot_header) [translate {LAST SHOT: }]
-				} else {
-					set settings(last_shot_header) [translate {SOURCE SHOT: }]
-				}
-				append settings(last_shot_header) [format_date $last_shot(clock) no]
-			} else {
-				set settings(last_shot_header) [translate {LAST SHOT: }]	
-			}
-
-			set workflow [value_or_default last_shot(workflow)]
-			if { $workflow eq {} } {
-				set workflow [value_or_default last_shot(DSx2_workflow) "no"]
-			}
-			append settings(last_shot_header) ", [translate $workflow] [translate {workflow}]"
 		}
-		
-		
 	} else {
-		set settings(last_shot_desc) ""		
-		set settings(last_shot_header) ""
+		upvar $last_shot_array_name last_shot
+		set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
+		
+		if { [info exists last_shot(clock)] } {
+			if { $last_shot(clock) == $::settings(espresso_clock) } {
+				set settings(last_shot_header) [translate {LAST SHOT: }]
+			} elseif { $last_shot(clock) == $settings(next_src_clock) } {
+				set settings(last_shot_header) [translate {SOURCE SHOT: }]
+			} else {
+				set settings(last_shot_header) [translate {BASE SHOT: }]
+			}
+			append settings(last_shot_header) [format_date $last_shot(clock) no]
+		} else {
+			set settings(last_shot_header) [translate {LAST SHOT: }]	
+		}
+
+		set workflow [value_or_default last_shot(workflow)]
+		if { $workflow eq {} } {
+			set workflow [value_or_default last_shot(DSx2_workflow) "no"]
+		}
+		append settings(last_shot_header) ", [translate $workflow] [translate {workflow}]"
 	}
+		
 }
 
 # Returns a string with the summary description of the next shot.
@@ -1079,41 +1080,49 @@ proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_sett
 proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
 	variable settings
 	
-	if { $settings(show_shot_desc_on_home) == 1 && [info exists settings(next_bean_brand)] } {
+	if { !$settings(show_shot_desc_on_home) || ![info exists settings(next_bean_brand)] } {
+		set settings(next_shot_desc) ""		
+		set settings(next_shot_header) ""
+		return
+	}
+			
+	if { $next_shot_array_name eq {} } {
+		array set next_shot [load_next_shot]
+	} else {
+		upvar $next_shot_array_name next_shot 
+	}
+	
+	if { [value_or_default next_shot(clock) 0] > 0 } {
+		set settings(next_shot_header) [translate {COMPARE SHOT: }]
+		append settings(next_shot_header) "[::plugins::DYE::format_date $next_shot(clock) no], "
+	} else {
 		set settings(next_shot_header) [translate {NEXT SHOT}]
 		if { $settings(next_modified) } { 
 			append settings(next_shot_header) "*: "
 		} else {
 			append settings(next_shot_header) ": "
 		}
-			
-		if { $next_shot_array_name eq {} } {
-			array set next_shot [load_next_shot]
-		} else {
-			upvar $next_shot_array_name next_shot 
-		}
+		
 		# Ensure variables that should be undefined on next shot are empty
 		foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds} {
 			set next_shot($field_name) 0
 		}
-			
-		if { [is_DSx2] } {
-			#set next_shot(workflow) [value_or_default ::skin(workflow) "none"]
-			set line_spec {profile beans {grind ratio}}
-			set max_line_chars 55
-			
-			append settings(next_shot_header) "[translate [value_or_default ::skin(workflow) {no}]] [translate {workflow}]" 
-		} else {
-			set line_spec {beans grind ratio}
-			set max_line_chars 55
-		}
-		
-		set desc [format_shot_description next_shot $line_spec $max_line_chars]
-		set settings(next_shot_desc) $desc
-	} else {
-		set settings(next_shot_desc) ""		
-		set settings(next_shot_header) ""
 	}
+	
+	if { [is_DSx2] } {
+		#set next_shot(workflow) [value_or_default ::skin(workflow) "none"]
+		set line_spec {profile beans {grind ratio}}
+		set max_line_chars 55
+		
+		append settings(next_shot_header) "[translate [value_or_default ::skin(workflow) {no}]] [translate {workflow}]" 
+	} else {
+		set line_spec {beans grind ratio}
+		set max_line_chars 55
+	}
+
+	
+	set desc [format_shot_description next_shot $line_spec $max_line_chars]
+	set settings(next_shot_desc) $desc
 }
 
 # Returns an array with the same structure as ::plugins::SDB::load_shot but with the data for next shot, taken from
@@ -8798,14 +8807,14 @@ proc ::dui::pages::DYE_settings2::dsx2_show_shot_desc_on_home_change {} {
 		} else {
 			::restore_live_graphs_default_vectors
 		}
-		::dui::pages::dsx2_dye_home::toggle_show_shot_desc
+		::plugins::DYE::pages::dsx2_dye_home::toggle_show_shot_desc
 	}
 	plugins save_settings DYE
 }
 
 proc ::dui::pages::DYE_settings2::dsx2_use_dye_favs_change {} {
 	if { [::plugins::DYE::is_DSx2 yes "Damian"] } {
-		::dui::pages::dsx2_dye_favs::show_or_hide_dye_favorites
+		::plugins::DYE::pages::dsx2_dye_favs::show_or_hide_dye_favorites
 	}
 	plugins save_settings DYE
 }

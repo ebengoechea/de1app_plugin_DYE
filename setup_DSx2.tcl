@@ -692,7 +692,7 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 # Note that we use this workspace to modify the existing DSx2 home page, but this
 # doesn't match a DUI page workspace.
 namespace eval ::plugins::DYE::pages::dsx2_dye_home {
-	variable main_graph_height
+	variable main_graph_height	
 	set main_graph_height [rescale_y_skin 840]
 	
 	variable data
@@ -702,7 +702,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 	
 	proc setup {} {
 		variable data
-		variable main_graph_height 
+		variable main_graph_height
+		variable ::plugins::DYE::settings
 		
 		set page [lindex $::skin_home_pages 0]
 		
@@ -728,43 +729,51 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			src_flow_2x src_flow_goal_2x src_weight_2x 
 		
 		if { [ifexists ::settings(espresso_clock) 0] > 0 && \
-				$::plugins::DYE::settings(next_src_clock) != $::settings(espresso_clock) && \
-				[string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)] && \
-				[string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
+				$settings(next_src_clock) != $::settings(espresso_clock) && \
+				[string is true $settings(dsx2_update_chart_on_copy)] && \
+				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
 			# Called proc already defines the source shot desc
-			load_home_graph_from $::plugins::DYE::settings(next_src_clock) 
+			load_home_graph_from $settings(next_src_clock) 
 		} else {
 			::plugins::DYE::define_last_shot_desc
 		}
 		::plugins::DYE::define_next_shot_desc
 		
 		# Add last/source & next shot description buttons to the home page
-		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
+		if { [string is true $settings(dsx2_show_shot_desc_on_home)] } {
 			set istate normal
 		} else {
 			set istate hidden
 		}
 		
-		dui add dbutton $page 50 1370 -bwidth 1000 -bheight 170 -anchor nw \
+		dui add dbutton [concat $page dsx2_dye_hv] 50 1370 -bwidth 850 -bheight 190 -anchor nw \
+			-shape rect -fill [dui::aspect::get page bg_color] \
 			-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} \
 			-label_pos {0.0 0.27} -label_anchor nw \
-			-label_justify left -label_font_size -4 -label_fill $::skin_text_colour -label_width 900 \
+			-label_justify left -label_font_size -4 -label_fill $::skin_text_colour -label_width 850 \
 			-label1variable {$::plugins::DYE::settings(last_shot_header)} -label1_font_family notosansuibold \
 			-label1_font_size -4 -label1_fill $::skin_text_colour \
-			-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 1000 \
-			-command [::list ::plugins::DYE::open -which_shot "source"] -tap_pad {50 20 0 25} \
+			-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 850 \
+			-command [::list [namespace current]::home_shot_desc_clicked left] -tap_pad {20 15 0 50} \
 			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
 			-initial_state $istate
 		
+		dui add dbutton $page 1000 1380 -bwidth 120 -bheight 180 -style dsx2 -anchor n \
+			-tags launch_dye_dsx2_hv -symbol clock-rotate-left -symbol_pos {0.5 0.3} \
+			-label [translate {history viewer}] -label_width 115 -label_pos {0.5 0.78} \
+			-label_anchor center -label_justify center -label_font_size 10 \
+			-tap_pad {20 40 20 40} -command {::dui::page::load dsx2_dye_hv}
+		
 		# -labelvariable {[::plugins::DYE::define_next_shot_desc]}
-		dui add dbutton $page 1950 1370 -bwidth 1000 -bheight 170 -anchor ne \
+		dui add dbutton [concat $page dsx2_dye_hv] 1950 1370 -bwidth 850 -bheight 190 -anchor ne \
+			-shape rect -fill [dui::aspect::get page bg_color] \
 			-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} \
 			-label_pos {1.0 0.27} -label_anchor ne \
-			-label_justify right -label_font_size -4 -label_fill $::skin_text_colour -label_width 1000 \
+			-label_justify right -label_font_size -4 -label_fill $::skin_text_colour -label_width 850 \
 			-label1variable {$::plugins::DYE::settings(next_shot_header)} -label1_font_family notosansuibold \
 			-label1_font_size -4 -label1_fill $::skin_text_colour \
-			-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 1000 \
-			-command [::list ::plugins::DYE::open -which_shot next] -tap_pad {0 20 75 25} \
+			-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 850 \
+			-command [::list [namespace current]::home_shot_desc_clicked right] -tap_pad {0 15 20 50} \
 			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se] \
 			-initial_state $istate
 	
@@ -861,9 +870,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			
 			if { $::wf_espresso_set_showing || $::wf_flush_set_showing || \
 					$::wf_water_set_showing || $::wf_steam_set_showing } {
-				dui item hide $main_home_page {launch_dye_last* launch_dye_next*} -initial 1 -current 1
+				dui item hide $main_home_page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} -initial 1 -current 1
 			} else {
-				dui item show $main_home_page {launch_dye_last* launch_dye_next*} -initial 1 
+				dui item show $main_home_page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} -initial 1 
 			}
 		}
 		
@@ -889,7 +898,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		# Coming back from a dialog may not execute the load proc, so we make sure again here
 		if { $settings(dsx2_show_shot_desc_on_home) && !$::wf_espresso_set_showing &&
 				!$::wf_flush_set_showing && !$::wf_water_set_showing && !$::wf_steam_set_showing } {
-			dui item show $main_home_page {launch_dye_last* launch_dye_next*}
+			dui item show $main_home_page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
 		}
 		
 		if { $::wf_espresso_set_showing } {
@@ -904,7 +913,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 			$::home_espresso_graph configure -height $main_graph_height
 			dui item config $page live_graph_data -initial_state hidden -state hidden
-			dui item show $page {launch_dye_last* launch_dye_next*} -current 1 -initial 0
+			dui item show $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} -current 1 -initial 0
 			::plugins::DYE::define_next_shot_desc
 		}
 	}
@@ -917,7 +926,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 				-state hidden
 		}
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-			dui item hide $page {launch_dye_last* launch_dye_next*} -initial 1 -current 1
+			dui item hide $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} -initial 1 -current 1
 		}
 	}
 	
@@ -928,10 +937,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
 			if { $::main_graph_height == [rescale_y_skin 1010] } {
 				$::home_espresso_graph configure -height $main_graph_height
-				dui item show $page {launch_dye_last* launch_dye_next*}
+				dui item show $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
 				dui item config $page live_graph_data -initial_state hidden -state hidden
 			} elseif { $::main_graph_height == $main_graph_height } {
-				dui item hide $page {launch_dye_last* launch_dye_next*}
+				dui item hide $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
 			}
 		}
 	}
@@ -973,7 +982,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 	
 		# Show or hide DYE launch button on the workflow GHC functions buttons row
 		if { [string is true $::plugins::DYE::settings(dsx2_show_shot_desc_on_home)] } {
-			dui item config $main_home_page {launch_dye_last* launch_dye_next*} \
+			dui item config $main_home_page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} \
 				-initial_state normal
 			dui item config $main_home_page live_graph_data -initial_state hidden
 			$::home_espresso_graph configure -height $main_graph_height
@@ -981,7 +990,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			dui item config $main_home_page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg launch_dye*} \
 				-initial_state hidden		
 		} else {
-			dui item config $main_home_page {launch_dye_last* launch_dye_next*} \
+			dui item config $main_home_page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} \
 				-initial_state hidden
 			
 			dui item config $::skin_home_pages live_graph_data -initial_state normal
@@ -995,7 +1004,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 	}
 	
 	proc adjust_hook { adjust_args args } {
-msg "DYE ADJUST_HOOK, args=$args"		
 		::plugins::DYE::define_next_shot_desc
 		
 		set adjust_var [lindex $adjust_args 1]
@@ -1007,6 +1015,23 @@ msg "DYE ADJUST_HOOK, args=$args"
 		::plugins::DYE::favorites::clear_selected_if_needed $adjust_var
 	}
 
+	proc home_shot_desc_clicked { side } {
+		set current_page [dui::page::current]
+		if { $side eq "left" } {
+			if { $current_page eq "dsx2_dye_hv" } {
+				::plugins::DYE::pages::dsx2_dye_hv::select_shot_side left
+			} else {
+				::plugins::DYE::open -which_shot "source"
+			}
+		} elseif { $side eq "right" } {
+			if { $current_page eq "dsx2_dye_hv" } {
+				::plugins::DYE::pages::dsx2_dye_hv::select_shot_side right
+			} else {
+				::plugins::DYE::open -which_shot "next"
+			}
+		}
+	}
+	
 	proc change_grinder_setting_entry { } {
 		set ::settings(grinder_setting) $::plugins::DYE::settings(next_grinder_setting)
 		plugins save_settings DYE
@@ -1489,24 +1514,25 @@ msg "DYE ADJUST_HOOK, args=$args"
 		::plugins::DYE::define_next_shot_desc
 	}
 	
+
 	# Modified from ::restore_live_graphs
-	proc load_home_graph_from { {src_clock {}} {src_array_name {}} } {
+	proc load_home_graph_from { {src_clock {}} {src_array_name {}} {reset_compare 1} } {
 		if { [string is integer $src_clock] && $src_clock > 0 } {
 			array set src_shot [::plugins::SDB::load_shot $src_clock 1 1 0 0]
 		} elseif { $src_array_name ne {} } {
 			upvar $src_array_name src_shot
 		} else {
-			msg -ERROR [namespace current] "DSx2_load_live_graphs_from: Invoked without input data"
+			msg -ERROR [namespace current] "load_home_graph_from: Invoked without input data"
 			return
 		}
 		
 		#set last_elapsed_time_index [expr {[espresso_elapsed length] - 1}]
 		if { ! [info exists src_shot(graph_espresso_elapsed)] } {
-			msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: source shot data doesn't include 'graph_espresso_elapsed'"
+			msg -WARNING [namespace current] "load_home_graph_from: source shot data doesn't include 'graph_espresso_elapsed'"
 			return
 		}
 		if {[llength $src_shot(graph_espresso_elapsed)] < 2} {
-			msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: source espresso_elapsed only has 0 or 1 elements"			
+			msg -WARNING [namespace current] "load_home_graph_from: source espresso_elapsed only has 0 or 1 elements"			
 			return
 		}
 		
@@ -1545,13 +1571,81 @@ msg "DYE ADJUST_HOOK, args=$args"
 				src_$src_name append $src_shot(graph_espresso_$lg)
 				$::home_espresso_graph element configure home_$src_name -xdata src_elapsed -ydata src_$src_name	
 			} else {
-				msg -WARNING [namespace current] "DSx2_load_live_graphs_from_shot: series '$lg' not found on shot file with clock '$src_clock"
+				msg -WARNING [namespace current] "load_home_graph_from: series '$lg' not found on shot file with clock '$src_clock"
 			}
+		}
+		
+		if { [string is true $reset_compare] } {
+			$::home_espresso_graph element configure compare_pressure -xdata src_elapsed \
+				-ydata src_pressure -linewidth 0
+			$::home_espresso_graph element configure compare_flow -xdata src_elapsed \
+				-ydata src_flow -linewidth 0
+			$::home_espresso_graph element configure compare_weight -xdata src_elapsed \
+				-ydata src_weight -linewidth 0
+			$::home_espresso_graph element configure compare_steps -xdata src_elapsed \
+				-ydata src_steps -linewidth 0
 		}
 		
 		::plugins::DYE::define_last_shot_desc src_shot
 	}
 		
+	proc load_home_graph_comp_from { {comp_clock {}} {comp_array_name {}} } {
+		if { [string is integer $comp_clock] && $comp_clock > 0 } {
+			array set comp_shot [::plugins::SDB::load_shot $comp_clock 1 1 0 0]
+		} elseif { $comp_array_name ne {} } {
+			upvar $comp_array_name comp_shot
+		} else {
+			msg -ERROR [namespace current] "load_home_graph_comp_from: Invoked without input data"
+			return
+		}
+		
+		if { ! [info exists comp_shot(graph_espresso_elapsed)] } {
+			msg -WARNING [namespace current] "load_home_graph_comp_from: comp shot data doesn't include 'graph_espresso_elapsed'"
+			return
+		}
+		if {[llength $comp_shot(graph_espresso_elapsed)] < 2} {
+			msg -WARNING [namespace current] "load_home_graph_comp_from: comp espresso_elapsed only has 0 or 1 elements"			
+			return
+		}
+		
+		compare_espresso_elapsed length 0
+		compare_espresso_elapsed set $comp_shot(graph_espresso_elapsed)
+		
+		# Apply the temp units transformation to all elements of the temps lists
+		set comp_shot(graph_espresso_temperature_basket) [::struct::list mapfor x \
+				$comp_shot(graph_espresso_temperature_basket) {skin_temperature_units $x}]
+		set comp_shot(graph_espresso_temperature_goal) [::struct::list mapfor x \
+				$comp_shot(graph_espresso_temperature_goal) {skin_temperature_units $x}]
+		# Series for the graph view with a second Y axis
+		set comp_shot(graph_espresso_flow_2x) [::struct::list mapfor x \
+				$comp_shot(graph_espresso_flow) {round_to_two_digits [expr {2.0 * $x}]}]
+		set comp_shot(graph_espresso_flow_goal_2x) [::struct::list mapfor x \
+				$comp_shot(graph_espresso_flow_goal) {round_to_two_digits [expr {2.0 * $x}]}]
+		set comp_shot(graph_espresso_flow_weight_2x) [::struct::list mapfor x \
+				$comp_shot(graph_espresso_flow_weight) {round_to_two_digits [expr {2.0 * $x}]}]
+		
+		compare_espresso_pressure length 0
+		compare_espresso_pressure append $comp_shot(graph_espresso_pressure)
+		$::home_espresso_graph element configure compare_pressure -linewidth [rescale_x_skin 4] \
+			-xdata compare_espresso_elapsed -ydata compare_espresso_pressure
+			
+		compare_espresso_flow length 0
+		compare_espresso_flow append $comp_shot(graph_espresso_flow)
+		$::home_espresso_graph element configure compare_flow -linewidth [rescale_x_skin 4] \
+			-xdata compare_espresso_elapsed -ydata compare_espresso_flow
+		
+		compare_espresso_flow_weight length 0
+		compare_espresso_flow_weight append $comp_shot(graph_espresso_flow_weight)
+		$::home_espresso_graph element configure compare_weight -linewidth [rescale_x_skin 4] \
+			-xdata compare_espresso_elapsed -ydata compare_espresso_flow_weight
+
+		compare_espresso_state_change length 0
+		compare_espresso_state_change append $comp_shot(graph_espresso_state_change)
+		$::home_espresso_graph element configure compare_steps -linewidth [rescale_x_skin 2] \
+			-xdata compare_espresso_elapsed -ydata compare_espresso_state_change
+		
+		::plugins::DYE::define_next_shot_desc comp_shot	
+	}
 }
 
 namespace eval ::plugins::DYE::pages::dsx2_dye_favs {
@@ -1577,7 +1671,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_favs {
 		variable widgets	
 		set page [namespace tail [namespace current]]
 		
-		dui::page::add_items $page headerbar
+		dui::page::add_items [concat $page dsx2_dye_edit_fav dsx2_dye_hv] headerbar
 		
 		dui add dtext $page 1000 175 -text [translate "DYE Favorites"] -tags dye_favs_title -style page_title 
 		
@@ -1680,8 +1774,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_favs {
 		dui add dbutton $page 800 1425 -bwidth 300 -bheight 100 -shape round -tags close_dye_edit_favs \
 			-label [translate "Back"] -label_pos {0.5 0.5} -label_justify center -command page_done
 		
-		#dui::page::add_items $page skin_version
-		dui add dtext [list $page dsx2_dye_edit_fav] 2540 1580 -tags plugin_version \
+		dui add dtext [list $page dsx2_dye_edit_fav dsx2_dye_hv] 2540 1580 -tags plugin_version \
 			-font [skin_font font 13] -fill $::skin_text_colour -anchor e -text "DYE v$::plugins::DYE::version"
 		
 		show_or_hide_dye_favorites
@@ -2035,7 +2128,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_edit_fav {
 		variable widgets	
 		set page [namespace tail [namespace current]]
 		
-		dui::page::add_items $page headerbar
+		#dui::page::add_items $page headerbar
 		
 		dui add variable $page 1000 175 -textvariable {page_title} -tags dye_edit_fav_title -style page_title 
 		
@@ -2715,28 +2808,489 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	array set widgets {}
 	
 	variable data
-	array set data {}
+	array set data {
+		selected_side "left"
+		left_clock 0
+		right_clock 0
+		
+		bean_brand ""
+		bean_type ""
+		profile_title ""
+		grinder_model ""
+		shown_indexes {}
+		filter_matching {beans}
+		filter_string ""
+		n_shots 0
+		n_matches_text ""
+		selected {}
+	}
 	
-	proc setup { page_to_hide page_to_show } {
+	variable shots
+	array set shots {}
+	
+	variable selected_shot
+	array set selected_shot {}
+	
+	proc setup { } {
 		variable data
 		variable widgets	
 		set page [namespace tail [namespace current]]
+
+		dui add dbutton $page 40 250 -bwidth 120 -bheight 140  -style dsx2 -anchor nw \
+			-tags launch_dye_dsx2_hv -symbol arrow-left-long -symbol_pos {0.5 0.4} \
+			-label [translate {back}] -label_width 115 -label_pos {0.5 0.8} \
+			-label_anchor center -label_justify center -label_font_size 10 \
+			-command [namespace current]::page_done
 		
-		dui::page::add_items $page headerbar		
+		# Beware correct sorting of legend items here is critical or they may have the wrong z-order 
+		dui page add_items $page [list $::home_espresso_graph graph_key_shape \
+			pressure_data pressure_text pressure_key_button \
+			flow_data flow_text flow_key_button weight_data weight_text weight_key_button \
+			temperature_data temperature_text temperature_key_button \
+			resistance_data resistance_text resistance_key_button \
+			steps_data steps_text steps_key_button \
+			main_graph_toggle_view_label main_graph_toggle_view_button]
+
+		# Right side panel
+		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1450 -tags right_panel_box \
+			-width 2 -outline [dui::aspect::get dtext fill]
+		
+		dui add dtext $page 2170 120 -anchor n -justify center -tags right_panel_title \
+			-width 690 -style menu_dlg_title -font_family notosansuibold \
+			-text [translate {Select left shot}]
+		
+		# 1850
+		dui add dtext $page 2170 190 -tags select_shot_label -font_size 10 -anchor n -justify center \
+			-text [translate {M A T C H   R I G H T   S H O T}] \
+			
+		dui add dselector $page 1850 225 -bwidth 640 -bheight 90 -tags filter_matching \
+			-values {beans profile grinder} -multiple yes -label_font_size -1 \
+			-labels [list [translate "Beans"] [translate "Profile"] [translate "Grinder"]] \
+			-command filter_shots 
+		
+		set tw [dui add text $page 1840 335 -tags shots -canvas_width 660 \
+			-canvas_height 1000 -canvas_anchor nw -yscrollbar 0 -font_size 12 \
+			-highlightthickness 0 -initial_state disabled -foreground [dui::aspect::get dtext fill] \
+			-exportselection 0]
+		
+		# Define Tk Text tag styles
+		$tw tag configure datetime -foreground brown -spacing3 -20
+		$tw tag configure shotsep -spacing1 [dui::platform::rescale_y 15]
+		$tw tag configure details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
+			-font [dui font get notosansuiregular 10] -spacing1 -20
+		$tw tag configure symbol -font [dui font get $::dui::symbol::font_filename 16]
+		
+		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
+		# when use_finger_down_for_tap=0. 
+		$tw tag bind shot <ButtonPress-1> [list + [namespace current]::click_shot_text %W %x %y %X %Y]
+		$tw tag bind shot <Double-Button-1> [namespace current]::page_done
 	}
 	
 	proc load { page_to_hide page_to_show args } {
-	
+		variable data 
+		variable src_elapsed_backup
+		variable ::plugins::DYE::settings
+		
+		# Modify home UI elements
+		$::home_espresso_graph configure -width [dui::platform::rescale_x 1750]
+		dui item moveto $page_to_show launch_dye_next* 900 1370
+		
+		# Initialize data
+		set data(n_shots) 0
+		set data(filter_string) ""
+		set data(bean_brand) $::settings(bean_brand)
+		set data(bean_type) $::settings(bean_type)
+		set data(profile_title) $::settings(profile_title)
+		set data(grinder_model) $::settings(grinder_model)
+		
+		set data(left_clock) $::plugins::DYE::settings(next_src_clock)
+		set data(right_clock) 0
+		set settings(next_shot_header) {}
+		set settings(next_shot_desc) "\[ [translate {Tap to select a shot to compare with}] \]"
+		filter_shots
+		select_shot_side "left"
+		
 		return 1
 	}
 	
-	proc show { page_to_hide page_to_show args } {
-		
+	proc show { page_to_hide page_to_show } {
+		$::home_espresso_graph configure -width [dui::platform::rescale_x 1750]
 	}
 	
+	proc hide { page_to_hide page_to_show } {
+		variable data
+		
+		select_shot_side none
+		$::home_espresso_graph configure -width [dui::platform::rescale_x 1950]
+		dui item moveto $page_to_show launch_dye_next* 1090 1370
+		
+		foreach curve {pressure weight flow steps} {
+			$::home_espresso_graph element configure compare_${curve} -linewidth 0
+		}
+		::plugins::DYE::define_next_shot_desc
+		
+		# Even if the source shot has not changed, as soon as it has been compared with another
+		# shot the X axis has been modified, and returning to the original is not trivial, so we
+		# just reload the source shot always.
+		::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from $::plugins::DYE::settings(next_src_clock)
+#		if { $data(left_clock) != $::plugins::DYE::settings(next_src_clock) && \
+#				$::plugins::DYE::settings(next_src_clock) > 0 } {
+#			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from $::plugins::DYE::settings(next_src_clock)
+#		} else {
+#			# Reset the X axis in case it was enlarged when comparing
+#			#$::home_espresso_graph element configure espresso_elapsed -xdata
+#			::plugins::DYE::pages::dsx2_dye_home::src_elapsed set $src_elapsed_backup
+#			
+#		}
+	}
 	
+	proc select_shot_side { side } {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { $side eq "left" } {
+			dui item config $page launch_dye_last-btn -fill [dui::aspect::get dbutton fill -style dsx2]
+			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dbutton_label fill -style dsx2]
+			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dbutton_label fill -style dsx2]
+			
+			dui item config $page launch_dye_next-btn -fill [dui::aspect::get page bg_color]
+			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dtext fill]
+			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dtext fill]
+			
+			set data(selected_side) "left"
+			dui item config $page right_panel_title -text [translate {Select base shot}]
+			dui item config $page select_shot_label -text [translate {M A T C H   C O M P A R E   S H O T}]
+			
+			shot_select $data(left_clock) 0
+		} elseif { $side eq "right" } {
+			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
+			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dtext fill]
+			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dtext fill]
+			
+			dui item config $page launch_dye_next-btn -fill [dui::aspect::get dbutton fill -style dsx2]
+			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dbutton_label fill -style dsx2]
+			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dbutton_label fill -style dsx2]
+			
+			set data(selected_side) "right"
+			dui item config $page right_panel_title -text [translate {Select compare shot}]
+			dui item config $page select_shot_label -text [translate {M A T C H   B A S E   S H O T}]
+			
+			shot_select $data(right_clock) 0
+		} else {
+			# Clear both
+			set data(selected_side) ""
+			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
+			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dtext fill]
+			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dtext fill]
+			
+			dui item config $page launch_dye_next-btn -fill [dui::aspect::get page bg_color]
+			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dtext fill]
+			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dtext fill]
+		}
+	}
 	
+	proc filter_shots {} {
+		variable data
+		variable shots
+		array set shots {}
+				
+		# BUILD THE QUERY
+		set filter ""
+		if { $data(filter_matching) ne {} } {
+			if { "beans" in $data(filter_matching) && ($data(bean_brand) ne "" || $data(bean_type) ne "") } {
+				if { $data(bean_brand) ne "" } { 
+					append filter "bean_brand=[::plugins::SDB::string2sql $data(bean_brand)] AND "
+				}
+				if { $data(bean_type) ne "" } {
+					append filter "bean_type=[::plugins::SDB::string2sql $data(bean_type)] AND "
+				}
+			}
+			if { "profile" in $data(filter_matching) && $data(profile_title) ne "" } {
+				append filter "profile_title=[::plugins::SDB::string2sql $data(profile_title)] AND "
+			}
+			if { "grinder" in $data(filter_matching) && $data(grinder_model) ne "" } {
+				append filter "grinder_model=[::plugins::SDB::string2sql $data(grinder_model)] AND "
+			}
+		}
+		
+#		# Order by
+#		if { $data(sort_by) eq "enjoyment" } {
+#			set sort_by "CASE WHEN espresso_enjoyment='' THEN 0 ELSE COALESCE(espresso_enjoyment,0) END DESC,clock DESC"
+#		} elseif { $data(sort_by) eq "ey" } {
+#			set sort_by "CASE WHEN drink_ey='' THEN 0 ELSE COALESCE(drink_ey,0) END DESC,clock DESC"
+#		} elseif { $data(sort_by) eq "ratio" } {
+#			set sort_by "CASE WHEN drink_weight='' OR drink_weight=0 OR grinder_dose_weight=0 OR grinder_dose_weight='' THEN 0 ELSE drink_weight/grinder_dose_weight END DESC,clock DESC"
+#		} else {
+#			set sort_by "clock DESC"
+#		}
+		set sort_by "clock DESC"
+		
+		# Case-insensitive search doesn't work on SQLite on Androwish "Eppur si Muove" (2019). Using COLLATE NOCASE does
+		# nothing, and doing LOWER(shot_desc) or UPPER(shot_desc) triggers a runtime error. So we apply the string
+		# filtering in Tcl instead.
+#		if { $data(filter_string) ne "" } {
+#			set filter "shot_desc LIKE '%[regsub -all {[[:space:]]} $data(filter_string) %]%' AND "
+#		}
+
+		if { $filter ne "" } {
+			set filter [string range $filter 0 end-5]
+		}
+		
+		# Search shots
+		set data(n_shots) [::plugins::SDB::shots count 1 $filter 1]
+		if { $data(n_shots) == 0 } {
+			set data(n_matches_text) [translate "No shots found"]
+		} else {
+			array set shots [::plugins::SDB::shots {clock filename shot_desc profile_title grinder_dose_weight drink_weight 
+				extraction_time bean_desc espresso_enjoyment grinder_model grinder_setting} 1 $filter 500 $sort_by]
+		}
+		
+		apply_string_filter
+	}
+	
+	proc apply_string_filter {} {
+		variable data
+		variable shots
+		
+		set data(show_indexes) {}
+		
+		if { $data(n_shots) == 0 || [array size shots] == 0 } {
+			# First install, no shots available yet
+			set data(n_matches_text) [translate "No shots found"]
+			fill_shots
+			return {}
+		} 
+		
+		if { [string length $data(filter_string)] > 0 } {
+			set filter "*[regsub -all {[[:space:]]} $data(filter_string) *]*"
+			set data(shown_indexes) [lsearch -all -nocase $shots(shot_desc) $filter]
+			
+			set n [llength $data(shown_indexes)] 
+			if { $n == 0 } {
+				set data(n_matches_text) [translate "No shots found"]
+			} else {
+				set data(n_matches_text) "$n [translate {shots found}]"
+			}
+		} else {
+			set data(shown_indexes) [lsequence 0 [expr {[llength $shots(shot_desc)]-1}]]
+
+			if { $data(n_shots) == 0 } {
+				set data(n_matches_text) [translate "No shots found"]
+			} else {
+				set data(n_matches_text) "$data(n_shots) [translate {shots found}]"
+				if { $data(n_shots) > 500 } {
+					append data(n_matches_text) ", [translate {showing first 500}]"
+				}
+			}
+		}
+		
+		fill_shots
+	}
+	
+
+	# Write the current filtered shot list into the Tk Text widget
+	proc fill_shots {} {
+		variable widgets
+		variable data
+		variable shots
+msg "FILLING SHOTS"		
+		set star [dui symbol get star]
+		set half_star [dui symbol get star-half]
+		
+		set tw $widgets(shots)
+		$tw configure -state normal
+		$tw delete 1.0 end
+
+		if { $data(n_shots) == 0 || [llength $data(shown_indexes)] == 0 } {
+			$tw insert insert [translate "No shots found"]
+			$tw configure -state disabled
+			return
+		}
+		
+		for { set i 0 } { $i < [llength $data(shown_indexes)] } { incr i } {
+			set idx [lindex $data(shown_indexes) $i]
+			
+			set shot_clock [lindex $shots(clock) $idx]
+			if { $shot_clock eq "" } {
+				msg -WARNING [namespace current] fill_shots: "empty clock"
+				continue
+			}
+			
+			set tags [list shot shot_$shot_clock]
+			set dtags [list shot shot_$shot_clock details]
+			if { $i == 0 } {
+				$tw insert insert "[::plugins::DYE::format_date $shot_clock]" [concat $tags datetime]
+			} else {
+				$tw insert insert "[::plugins::DYE::format_date $shot_clock]" [concat $tags datetime shotsep]
+			}
+			
+			set enjoy [lindex $shots(espresso_enjoyment) $idx]
+			if { $enjoy > 0 } {
+				set stars "\t"
+				for { set j 0 } { $j < int((($enjoy-1)/10 + 1)/2) } { incr j } {
+					append stars $star
+				}
+				if { int((($enjoy-1)/10 + 1))/2.0 > $j } {
+					append stars $half_star
+				}
+				$tw insert insert "\t $stars" [concat $tags symbol]
+			}			
+			$tw insert insert "\n" $tags
+			
+			$tw insert insert "[lindex $shots(profile_title) $idx]" [concat $dtags profile_title] ", " $tags
+			set dose [lindex $shots(grinder_dose_weight) $idx]
+			set yield [lindex $shots(drink_weight) $idx]
+			if { $dose > 0 || $yield > 0 } {
+				if { $dose == 0 || $dose eq {} } {
+					set dose "?"
+				}
+				$tw insert insert "[round_to_one_digits $dose]g:[round_to_one_digits $yield]g" [concat $dtags ratio]
+				if { $dose ne "?" && $yield > 0 } {
+					$tw insert insert " (1:[round_to_one_digits [expr {double($yield/$dose)}]])" [concat $dtags ratio]
+				}
+			}
+			$tw insert insert " in [expr {round([lindex $shots(extraction_time) $idx])}] sec" [concat $dtags ratio] "\n" $dtags
+			
+			if { [lindex $shots(bean_desc) $idx] ne {} } {
+				$tw insert insert "[lindex $shots(bean_desc) $idx]" [concat $dtags details beans]
+			}
+			
+			if { [lindex $shots(grinder_model) $idx] ne {} || [lindex $shots(grinder_setting) $idx] ne {} } {
+				if { [lindex $shots(grinder_model) $idx] ne {} } {
+					$tw insert insert ", [lindex $shots(grinder_model) $idx]" [concat $dtags grinder]
+				}
+				if { [lindex $shots(grinder_setting) $idx] ne {} } {
+					$tw insert insert " @ [lindex $shots(grinder_setting) $idx]" [concat $dtags gsetting]
+				}
+			}
+			$tw insert insert "\n" $dtags
+			
+		}
+
+		$tw configure -state disabled
+	}
+		
+	# Returns the index of the selected shot on the namespace 'shots' array, taking into account the active
+	# filter. Returns an empty string if either there's not a selected profile or there's no match.
+	proc selected_shot_data_index {} {
+		variable data
+		variable shots
+		
+		set idx ""
+		if { $data(selected) ne "" } {
+			set idx [lsearch -exact $shots(clock) $data(selected)]
+		}
+		if { [string is integer $idx] && $idx < 0 } {
+			set idx ""
+		}
+		return $idx
+	}
+	
+	proc click_shot_text { widget x y X Y } {
+		variable data
+	
+		set clicked_tags [$widget tag names @$x,$y]
+		
+		if { [llength $clicked_tags] > 1 } {
+			set shot_idx [lsearch $clicked_tags "shot_*"]
+			if { $shot_idx > -1 } {
+				set shot_tag [lindex $clicked_tags $shot_idx]
+				shot_select [string range $shot_tag 5 end]
+			}
+		}
+	}	
+	
+	proc shot_select { clock {load_shot 1} } {
+		variable data
+		variable widgets
+		variable shots
+		variable selected_shot
+
+		set widget $widgets(shots)
+		#set vectors_ns [namespace current]::vectors
+
+		if { $clock eq "" } {
+			if { $data(selected) ne "" } {
+				$widget tag configure shot_$data(selected) -background {} -foreground {}
+				set data(selected) ""
+			}
+			array set selected_shot {}
+#			# {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix temperature_goal state_change resistance}
+#			foreach sn {elapsed pressure flow flow_weight temperature_basket state_change} {
+#				${vectors_ns}::$sn set {}
+#			}
+			
+#			dui item disable [namespace tail [namespace current]] page_done*
+#			preview_shot_summary
+			return
+		} elseif { $data(selected) eq $clock } {
+			return
+		}
+
+		if { $data(selected) ne "" } {
+			$widget tag configure shot_$data(selected) -background {} -foreground {}
+		}
+		
+		set data(selected) $clock
+		#array set selected_shot {}
+				
+		$widget tag configure shot_$clock -background [dui::aspect::get dbutton fill -style dsx2] \
+				-foreground [dui::aspect::get dbutton_label fill -style dsx2]
+		#{*}[dui aspect list -type text_tag -style dyev3_field_highlighted -as_options yes]
+		
+		# if the tag can't be found in the widget, this fails, so embedded in catch
+		catch {
+			$widget see shot_${clock}.last
+			$widget see shot_${clock}.first
+		}
+		
+		if { $data(selected_side) eq "left" } {
+			if { [string is true $load_shot] && $data(left_clock) != $clock } {
+				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from $clock {} 0
+			}
+			set data(left_clock) $clock
+		} elseif { $data(selected_side) eq "right" } {
+			if { [string is true $load_shot] && $data(right_clock) != $clock } {
+				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from $clock
+			}
+			set data(right_clock) $clock
+		}
+		
+		#array set selected_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+		
+		# Shot may not be found if it was not saved to disk
+#		if { [array size selected_shot] == 0 } {
+#			load_home_graph_from $clock
+#			# {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix temperature_goal state_change resistance}
+##			foreach sn {elapsed pressure flow flow_weight temperature_basket state_change} {
+##				${vectors_ns}::$sn set {}
+##			}
+##			dui item disable [namespace tail [namespace current]] page_done*
+##			preview_shot_summary
+#			return
+#		}
+		
+#		# Update preview graph		
+#		foreach sn {elapsed temperature_basket pressure flow flow_weight state_change} {
+#			if { $sn eq "resistance" } {
+#				set varname $sn
+#			} else {
+#				set varname "espresso_$sn"
+#			}
+#			if { [info exists selected_shot(graph_$varname)] } {
+#				${vectors_ns}::$sn set $selected_shot(graph_$varname)
+#			} else {
+#				${vectors_ns}::$sn set {}
+#				msg -WARNING [namespace current] shot_select: "can't add chart series '$sn' of shot with clock '$clock'"
+#			}
+#		}
+#	
+#		dui item enable [namespace tail [namespace current]] page_done*
+#		preview_shot_summary 
+	}
+		
 	proc page_done {} {
+		dui page close_dialog
 	}
 }
 
