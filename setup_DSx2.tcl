@@ -13,14 +13,16 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	}
 
 	# NEW PAGES
-	dui page add dsx2_dye_favs -namespace true -type fpdialog
-	dui page add dsx2_dye_edit_fav -namespace true -type fpdialog
+	set pages_ns [namespace current]::pages
+	dui page add dsx2_dye_favs -namespace ${pages_ns}::dsx2_dye_favs -type fpdialog
+	dui page add dsx2_dye_edit_fav -namespace ${pages_ns}::dsx2_dye_edit_fav -type fpdialog
+	dui page add dsx2_dye_hv -namespace ${pages_ns}::dsx2_dye_hv -type fpdialog
 	
 	# Modify DSx2 home page(s) to adapt to DYE UI widgets and workflow
-	::dui::pages::dsx2_dye_home::setup
+	::plugins::DYE::pages::dsx2_dye_home::setup
 	
 	trace add variable ::plugins::DYE::settings(selected_n_fav) write \
-		::dui::pages::dsx2_dye_favs::change_selected_favorite
+		::plugins::DYE::pages::dsx2_dye_favs::change_selected_favorite
 	
 	# SCREENSAVER 
 	# Makes the left side of the app screensaver clickable so that you can describe your 
@@ -686,10 +688,10 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	
 }
 
-
+##### DYE DSx2 FAVORITES PAGES ##################################################################### 
 # Note that we use this workspace to modify the existing DSx2 home page, but this
 # doesn't match a DUI page workspace.
-namespace eval ::dui::pages::dsx2_dye_home {
+namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 	variable main_graph_height
 	set main_graph_height [rescale_y_skin 840]
 	
@@ -719,7 +721,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		trace add execution ::set_scale_weight_to_dose leave ${ns}::set_scale_weight_to_dose_hook
 		
 		# Main DSx2 graph
-		bind $::home_espresso_graph [platform_button_press] +{::dui::pages::dsx2_dye_home::press_graph_hook}
+		bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::pages::dsx2_dye_home::press_graph_hook}
 		
 		blt::vector create src_elapsed src_pressure src_pressure_goal src_flow src_flow_goal \
 			src_flow_weight src_weight src_temperature src_temperature_goal src_resistance src_steps \
@@ -796,7 +798,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 		bind $w <Leave> [list + [namespace current]::compute_days_offroast]
 		
 		dui add variable $page $x [expr {$y+140}] -tags wf_days_offroast -width 250 \
-			-textvariable {$::dui::pages::dsx2_dye_home::data(days_offroast_msg)} -font [skin_font font 16] \
+			-textvariable {$::plugins::DYE::pages::dsx2_dye_home::data(days_offroast_msg)} -font [skin_font font 16] \
 			-fill $::skin_text_colour -anchor n -justify center -initial_state hidden
 		
 		# Grinder setting
@@ -865,7 +867,7 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			}
 		}
 		
-		::dui::pages::dsx2_dye_home::compute_days_offroast
+		::plugins::DYE::pages::dsx2_dye_home::compute_days_offroast
 		
 		return 1
 	}
@@ -948,8 +950,8 @@ namespace eval ::dui::pages::dsx2_dye_home {
 			dui item show $page {bb_dye_bg* s_dye_bg* b_dye_bg* l_dye_bg li_dye_bg launch_dye*} \
 				-initial yes -current yes
 		}
-		::dui::pages::dsx2_dye_home::compute_days_offroast
-		::dui::pages::dsx2_dye_home::ensure_valid_grinder_spec
+		::plugins::DYE::pages::dsx2_dye_home::compute_days_offroast
+		::plugins::DYE::pages::dsx2_dye_home::ensure_valid_grinder_spec
 	}
 
 	proc hide_espresso_settings_hook { args } {
@@ -1552,7 +1554,7 @@ msg "DYE ADJUST_HOOK, args=$args"
 		
 }
 
-namespace eval ::dui::pages::dsx2_dye_favs {
+namespace eval ::plugins::DYE::pages::dsx2_dye_favs {
 	variable widgets
 	array set widgets {}
 	
@@ -1929,7 +1931,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 					! [string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)] } {
 				if { $data(dsx2_disable_dye_favs) == 0 && \
 						$::plugins::DYE::settings(next_src_clock) != [ifexists ::settings(espresso_clock) 0]} {
-					::dui::pages::dsx2_dye_home::load_home_graph_from $::plugins::DYE::settings(next_src_clock)
+					::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from $::plugins::DYE::settings(next_src_clock)
 				}
 				set ::plugins::DYE::settings(dsx2_update_chart_on_copy) 1
 				set favs_changed 1
@@ -1937,7 +1939,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 						[string is true $::plugins::DYE::settings(dsx2_update_chart_on_copy)] } {
 				if { $data(dsx2_disable_dye_favs) == 0 && \
 						$::plugins::DYE::settings(next_src_clock) != [ifexists ::settings(espresso_clock) 0]} {
-					::dui::pages::dsx2_dye_home::load_home_graph_from $::settings(espresso_clock)
+					::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from $::settings(espresso_clock)
 				}
 				set ::plugins::DYE::settings(dsx2_update_chart_on_copy) 0
 				set favs_changed 1
@@ -1960,7 +1962,7 @@ namespace eval ::dui::pages::dsx2_dye_favs {
 	}
 }
 
-namespace eval ::dui::pages::dsx2_dye_edit_fav {
+namespace eval ::plugins::DYE::pages::dsx2_dye_edit_fav {
 	variable widgets
 	array set widgets {}
 	
@@ -2705,3 +2707,36 @@ namespace eval ::dui::pages::dsx2_dye_edit_fav {
 	}
 	
 }
+
+##### DYE DSx2 HISTORY VIEWER ######################################################################
+
+namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
+	variable widgets
+	array set widgets {}
+	
+	variable data
+	array set data {}
+	
+	proc setup { page_to_hide page_to_show } {
+		variable data
+		variable widgets	
+		set page [namespace tail [namespace current]]
+		
+		dui::page::add_items $page headerbar		
+	}
+	
+	proc load { page_to_hide page_to_show args } {
+	
+		return 1
+	}
+	
+	proc show { page_to_hide page_to_show args } {
+		
+	}
+	
+	
+	
+	proc page_done {} {
+	}
+}
+

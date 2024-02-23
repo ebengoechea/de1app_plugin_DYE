@@ -1866,7 +1866,7 @@ proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_t
 		
 		if { $isDSx2 && [string is true $settings(dsx2_update_chart_on_copy)] &&
 				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
-			::dui::pages::dsx2_dye_home::load_home_graph_from {} src_shot 
+			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} src_shot 
 		}
 	} elseif { $src_array_name ne {} } {
 		upvar $src_array_name src_shot
