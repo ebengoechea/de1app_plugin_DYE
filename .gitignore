@@ -1,6 +1,5 @@
 .buildpath
 .project
 .dbeaver/*
-settings.tdb
+*.tdb
 *.db
-
