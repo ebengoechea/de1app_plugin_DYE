@@ -728,16 +728,21 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			src_flow_weight src_weight src_temperature src_temperature_goal src_resistance src_steps \
 			src_flow_2x src_flow_goal_2x src_weight_2x 
 		
-		if { [ifexists ::settings(espresso_clock) 0] > 0 && \
-				$settings(next_src_clock) != $::settings(espresso_clock) && \
-				[string is true $settings(dsx2_update_chart_on_copy)] && \
+#		if { [ifexists ::settings(espresso_clock) 0] > 0 && \
+#				$settings(next_src_clock) != $::settings(espresso_clock) && \
+#				[string is true $settings(dsx2_update_chart_on_copy)] && \
+#				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
+#			# Called proc already defines the source shot desc
+#			load_home_graph_from $settings(next_src_clock) 
+#		} else {
+#			::plugins::DYE::shots::define_last_desc
+#		}
+
+		if { [string is true $settings(dsx2_update_chart_on_copy)] && \
 				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
 			# Called proc already defines the source shot desc
-			load_home_graph_from $settings(next_src_clock) 
-		} else {
-			::plugins::DYE::shots::define_last_desc
-		}
-		::plugins::DYE::shots::define_next_desc
+			load_home_graph_from {} ::plugins::DYE::shots::src_shot 
+		} 
 		
 		# Add last/source & next shot description buttons to the home page
 		if { [string is true $settings(dsx2_show_shot_desc_on_home)] } {
@@ -873,7 +878,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			::plugins::DYE::shots::define_next_desc
 			
 			if { $::wf_espresso_set_showing || $::wf_flush_set_showing || \
-					$::wf_water_set_showing || $::wf_steam_set_showing } {
+					$::wf_water_set_showing || $::wf_steam_set_showing || $::graph_hidden } {
 				dui item hide $main_home_page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} -initial 1 -current 1
 			} else {
 				dui item show $main_home_page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} -initial 1 
@@ -901,7 +906,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 
 		# Coming back from a dialog may not execute the load proc, so we make sure again here
 		if { $settings(dsx2_show_shot_desc_on_home) && !$::wf_espresso_set_showing &&
-				!$::wf_flush_set_showing && !$::wf_water_set_showing && !$::wf_steam_set_showing } {
+				!$::wf_flush_set_showing && !$::wf_water_set_showing && !$::wf_steam_set_showing && 
+				!$::graph_hidden } {
 			dui item show $main_home_page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
 		}
 		
@@ -2868,7 +2874,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		
 		dui add dtext $page 2170 110 -anchor n -justify center -tags {search_shot_title search_shot_panel} \
 			-width 690 -style menu_dlg_title -font_family notosansuibold \
-			-text [translate {Select compare shot}]
+			-text [translate {Select comparison shot}]
 		
 		dui add dtext $page 2170 180 -tags {select_shot_label search_shot_panel} -font_size 10 \
 			-anchor n -justify center -text [translate {M A T C H   B A S E   S H O T}] \
@@ -2884,7 +2890,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			-exportselection 0]
 
 		dui add dbutton $page 1850 1330 -bwidth 640 -bheight 90 -tags {describe_shot search_shot_panel} \
-			-style dsx2 -symbol $::plugins::DYE::settings(describe_icon) -label [translate {Describe compare shot}] \
+			-style dsx2 -symbol $::plugins::DYE::settings(describe_icon) -label [translate {Describe comp. shot}] \
 			-symbol_font_size 20 -symbol_pos {50 0.5} -symbol_anchor center -symbol_justify center -label_pos {0.55 0.5} 
 
 		dui add dbutton $page 1850 1450 -bwidth 640 -bheight 90 -tags {copy_to_next search_shot_panel} \
@@ -2932,7 +2938,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	
 	proc load { page_to_hide page_to_show {base_clock 0} {comp_clock 0} args } {
 		variable data 
-		variable src_elapsed_backup
+		variable base_shot
+		variable comp_shot
 		variable ::plugins::DYE::settings
 		
 		# Modify home UI elements
@@ -2948,13 +2955,18 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		set data(grinder_model) $::settings(grinder_model)
 		
 		if { $base_clock <= 0 } {
-			set data(left_clock) $::plugins::DYE::settings(next_src_clock)
-		} else {
-			set data(left_clock) $base_clock
+			set $base_clock $settings(next_src_clock)
 		}
-		set data(right_clock) 0
-		set settings(next_shot_header) {}
-		set settings(next_shot_desc) "\[ [translate {Tap to select a shot to compare with}] \]"
+		shot_select $base_clock 1 left
+		
+		if { $comp_clock > 0 } {
+			shot_select $comp_clock 1 right
+		} else {
+			set data(right_clock) 0
+			array unset comp_shot
+			set settings(next_shot_header) {}
+			set settings(next_shot_desc) "\[ [translate {Tap to select a shot to compare with}] \]"
+		}
 		
 		filter_shots
 		select_shot_side "right"
@@ -2976,21 +2988,13 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		foreach curve {pressure weight flow steps} {
 			$::home_espresso_graph element configure compare_${curve} -linewidth 0
 		}
-		::plugins::DYE::shots::define_next_desc
 		
 		# Even if the source shot has not changed, as soon as it has been compared with another
 		# shot the X axis has been modified, and returning to the original is not trivial, so we
 		# just reload the source shot always.
-		::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from $::plugins::DYE::settings(next_src_clock)
-#		if { $data(left_clock) != $::plugins::DYE::settings(next_src_clock) && \
-#				$::plugins::DYE::settings(next_src_clock) > 0 } {
-#			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from $::plugins::DYE::settings(next_src_clock)
-#		} else {
-#			# Reset the X axis in case it was enlarged when comparing
-#			#$::home_espresso_graph element configure espresso_elapsed -xdata
-#			::plugins::DYE::pages::dsx2_dye_home::src_elapsed set $src_elapsed_backup
-#			
-#		}
+		::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} ::plugins::DYE::shots::src_shot
+		
+		::plugins::DYE::shots::define_next_desc		
 	}
 	
 	proc select_shot_side { side } {
@@ -3265,13 +3269,14 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		}
 	}	
 	
-	proc shot_select { clock {load_shot 1} } {
+	proc shot_select { clock {load_shot 1} {side {}} } {
 		variable data
 		variable widgets
 		variable shots
 		variable selected_shot
 		variable base_shot
 		variable comp_shot
+		variable ::plugins::DYE::settings
 
 		set widget $widgets(shots)
 		#set vectors_ns [namespace current]::vectors
@@ -3304,15 +3309,26 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			$widget see shot_${clock}.first
 		}
 		
-		if { $data(selected_side) eq "left" } {
+		if { $side eq {} } {
+			set side $data(selected_side) 
+		}
+		if { $side eq "left" } {
 			if { [string is true $load_shot] && $data(left_clock) != $clock } {
-				array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+				if { $clock == $settings(next_src_clock) } {
+					array set base_shot [array get ::plugins::DYE::shots::src_shot]
+				} else {
+					array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+				}
 				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
 			}
 			set data(left_clock) $clock
-		} elseif { $data(selected_side) eq "right" } {
+		} elseif { $side eq "right" } {
 			if { [string is true $load_shot] && $data(right_clock) != $clock } {
-				array set comp_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+				if { $clock == $settings(next_src_clock) } {
+					array set comp_shot [array get ::plugins::DYE::shots::src_shot]
+				} else {
+					array set comp_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+				}
 				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
 			}
 			set data(right_clock) $clock

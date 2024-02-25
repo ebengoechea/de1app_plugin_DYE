@@ -83,6 +83,8 @@ namespace eval ::plugins::DYE {
 # Startup the Describe Your Espresso plugin.
 proc ::plugins::DYE::main {} {
 	variable settings
+	variable ::plugins::DYE::shots::src_shot
+	
 	msg "Starting the 'Describe Your Espresso' plugin"
 	check_versions
 	
@@ -152,9 +154,11 @@ proc ::plugins::DYE::main {} {
 	#register_state_change_handler Espresso Idle ::plugins::SDB::save_espresso_to_history_hook
 	if { [plugins enabled visualizer_upload] } {
 		plugins load visualizer_upload
-		trace add execution ::plugins::visualizer_upload::uploadShotData leave ::plugins::DYE::save_espresso_to_history_hook
+		trace add execution ::plugins::visualizer_upload::uploadShotData leave \
+			::plugins::DYE::save_espresso_to_history_hook 
 	} else {
-		trace add execution ::plugins::SDB::save_espresso_to_history_hook leave ::plugins::DYE::save_espresso_to_history_hook
+		trace add execution ::plugins::SDB::save_espresso_to_history_hook leave \
+			::plugins::DYE::save_espresso_to_history_hook
 	}
 
 	# Ensure DYE Favorites and next shot descriptions are updated when profile is modified
@@ -166,6 +170,17 @@ proc ::plugins::DYE::main {} {
 	# Initialize favorites
 	favorites::update_recent
 	
+	# Initialize source shot and shot summaries
+	if { $settings(next_src_clock) > 0 } {
+		array set src_shot [::plugins::SDB::load_shot $settings(next_src_clock) 1 1 1 1]
+msg "DYE MAIN, src_shot(clock)=$src_shot(clock), src_shot(profile_title)=$src_shot(profile_title)"		
+		shots::define_last_desc src_shot
+	} else {
+		shots::define_last_desc
+	}
+	shots::define_next_desc
+	
+	# App window name when not on Android
 	if { [ifexists ::debugging 0] == 1 && $::android != 1 } {
 		ifexists ::debugging_window_title "Decent"
 		wm title . "$::debugging_window_title DYE v$::plugins::DYE::version"
@@ -737,7 +752,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	#define_last_desc
 	set settings(last_shot_header) [translate {ONGOING SHOT:}]
 	set settings(last_shot_desc) "\[ [translate {Please wait until saved}] \]"
-	define_next_desc
+	shots::define_next_desc
 	
 	# If on DSx2 with a source shot showing on the main graph, we need to point it again
 	# to last shot series
