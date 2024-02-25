@@ -76,16 +76,6 @@ namespace eval ::plugins::DYE {
 	
  	variable default_shot_desc_font_color {#206ad4}
 	
-	# These are calculated when entering DSx history viewer or when the user selects a 
-	# different shot, not saved on the settings 
-	# DSx History viewer left
-	variable past_shot_desc {}
-	# DSx History viewer full page chart left
-	variable past_shot_desc_one_line {}
-	# DSx History viewer right
-	variable past_shot_desc2 {}
-	# DSx History viewer full page chart right
-	variable past_shot_desc_one_line2 {}
 }
 
 ### PLUGIN WORKFLOW ###################################################################################################
@@ -149,9 +139,9 @@ proc ::plugins::DYE::main {} {
 	dui page add dye_item_select_dlg -namespace true -type dialog -bbox {0 0 900 1600} \
 		-bg_shape rect -width 2 -outline [dui aspect get dtext fill]
 	
-	foreach page $::dui::pages::DYE_v3::pages {
-		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
-	}
+#	foreach page $::dui::pages::DYE_v3::pages {
+#		dui page add $page -namespace ::dui::pages::DYE_v3 -type fpdialog
+#	}
 	
 	# Update/propagate the describe settings when the a shot is started 
 	trace add execution ::reset_gui_starting_espresso leave ::plugins::DYE::reset_gui_starting_espresso_leave_hook
@@ -203,6 +193,49 @@ proc ::plugins::DYE::preload {} {
 	return DYE_settings
 }
 
+proc ::plugins::DYE::open { args } {
+	variable settings
+	
+	if { [llength $args] == 1 } {
+		set use_dye_v3 0
+		set which_shot [lindex $args 0]
+		set args {}
+	} elseif { [llength $args] > 1 } {
+		if { [string range [lindex $args 0] 0 0] ne "-" } {
+			set which_shot [lindex $args 0]
+			set args [lrange $args 1 end]
+		} else {
+			set which_shot [dui::args::get_option -which_shot "default" 1]
+		}
+		set use_dye_v3 [string is true [dui::args::get_option -use_dye_v3 [value_or_default ::plugins::DYE::settings(use_dye_v3) 0] 1]]		 
+	}
+	
+	if { $which_shot eq {} || $which_shot eq "default" } {
+		set which_shot $settings(default_launch_action) 
+	}
+	
+	set dlg_coords [dui::args::get_option -coords {2400 975} 1]
+	set dlg_anchor [dui::args::get_option -anchor "e" 1]
+	
+	if { $use_dye_v3 } {	
+		dui page load DYE_v3 -which_shot $which_shot {*}$args 
+	} elseif { $which_shot eq "dialog" } {
+		dui page open_dialog dye_which_shot_dlg -coords $dlg_coords -anchor $dlg_anchor {*}$args
+	} else {
+		dui page load DYE $which_shot {*}$args
+	}
+}
+
+proc ::plugins::DYE::open_profile_tools { args } {
+	variable settings
+	
+	if { [llength $args] > 0 && [lindex $args 0] eq "viewer" } {
+		dui page open_dialog dye_profile_viewer_dlg "next" ""
+	} else {
+		dui page open_dialog dye_profile_select_dlg -selected $::settings(profile_filename) -change_settings_on_exit 1 \
+			-bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) -grinder_model $::settings(grinder_model)
+	}
+}
 proc ::plugins::DYE::msg { {flag ""} args } {
 	if { [string range $flag 0 0] eq "-" && [llength $args] > 0 } {
 		::logging::default_logger $flag "::plugins::DYE" {*}$args
@@ -343,10 +376,10 @@ proc ::plugins::DYE::check_settings {} {
 	
 	# Don't use ifexists for this, as it always evaluates the default value, inducing it to be changed
 	if { ![info exists settings(last_shot_desc)] } {
-		define_last_shot_desc
+		define_last_desc
 	}
 	if { ![info exists settings(next_shot_desc)] } {
-		define_next_shot_desc
+		define_next_desc
 	}
 	
 	# Propagation mechanism
@@ -701,10 +734,10 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 #		}
 #	}
 
-	#define_last_shot_desc
+	#define_last_desc
 	set settings(last_shot_header) [translate {ONGOING SHOT:}]
 	set settings(last_shot_desc) "\[ [translate {Please wait until saved}] \]"
-	define_next_shot_desc
+	define_next_desc
 	
 	# If on DSx2 with a source shot showing on the main graph, we need to point it again
 	# to last shot series
@@ -727,11 +760,11 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 }
 
 # Hook executed after save_espresso_rating_to_history
-# TBD: NO LONGER NEEDED? define_last_shot_desc ALREADY DONE in reset_gui_starting_espresso_leave_hook,
+# TBD: NO LONGER NEEDED? define_last_desc ALREADY DONE in reset_gui_starting_espresso_leave_hook,
 #	only useful if this is invoked from Insight's original Godshots/Describe Espresso pages.
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 	set isDSx2 [is_DSx2 1 "Damian"]
-	::plugins::DYE::define_last_shot_desc {} yes
+	::plugins::DYE::shots::define_last_desc {} yes
 	# Updating recent favorites saves DYE settings	
 	::plugins::DYE::favorites::update_recent
 	::plugins::DYE::favorites::select_from_clock $::settings(espresso_clock)
@@ -743,7 +776,7 @@ proc ::plugins::DYE::select_profile_enter_hook { select_profile_args args } {
 	if { $new_profile ne $::settings(profile_filename) } {
 msg "DYE SELECT_PROFILE_HOOK, profile changed from $::settings(profile_filename) to $new_profile"		
 		::plugins::DYE::favorites::clear_selected_if_needed profile_title
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_next_desc
 	}
 }
 
@@ -757,615 +790,10 @@ proc ::plugins::DYE::saver_page_onshow { args } {
 	}	
 }
 
-# Formats shot descriptions into multiple-line strings.
-# 'lines_spec' is a list of parts to include, with each list element being a line of what to include in that line,
-#	and can take values in {beans profile grind ratio extraction workflow}
-proc ::plugins::DYE::format_shot_description { values_array_name {lines_spec {beans profile {grind ratio}}} \
-		{max_line_chars 100} {default_if_empty "\[Tap to describe this shot\]"} } {
-	set shot_desc ""
-	upvar $values_array_name values
-	
-	if { [array size values] == 0 } {
-		return "\[[translate $default_if_empty]\]" 
-	}
-			
-	# Flatten lines spec
-	set what_items [list]
-	foreach item $lines_spec {
-		lappend what_items {*}$item 
-	}
-
-	if { "workflow" in $what_items } {
-		set workflow [value_or_default values(workflow)]
-		if { $workflow eq {} } {
-			set workflow [value_or_default values(DSx2_workflow)]
-		}
-	}
-	if { "profile" in $what_items } {
-		set profile [string trim [value_or_default values(profile_title)]]
-	}
-	if { "beans" in $what_items } {
-		set beans [string trim [join [list_remove_element [list [value_or_default values(bean_brand)] \
-				[value_or_default values(bean_type)] [value_or_default values(roast_date)]] ""]]]
-	}
-	if { "grind" in $what_items } { 
-		if { ![info exists values(grinder_setting)] ||$values(grinder_setting) == 0 } { 
-			set values(grinder_setting) {}
-		}
-		set grind [string trim [join [list_remove_element [list \
-				[value_or_default values(grinder_model)] $values(grinder_setting)] ""] " @ "]] 
-	}
-	if { "ratio" in $what_items } {
-		set dose [value_or_default values(grinder_dose_weight) 0]
-		set yield [value_or_default values(drink_weight)]
-		
-		if {$dose > 0 || $yield > 0} { 
-			set ratio "$dose[translate g] : $yield[translate g]"
-			if { $dose > 0 && $yield > 0 } {
-				append ratio " (1:[round_to_one_digits [expr {$yield * 1.0 / $dose}]])"
-			}
-		} else {
-			set ratio ""
-		}
-		set duration [value_or_default values(extraction_time)]
-		if {$duration > 0} {
-			append ratio " in [round_to_integer $duration][translate s]"
-		}
-	}
-	if {"extraction" in $what_items} {
-		set extraction_items {}
-		if {[value_or_default values(drink_tds) 0] > 0} { 
-			lappend extraction_items "[translate TDS] $values(drink_tds)\%" 
-		}
-		if {[value_or_default values(drink_ey) 0] > 0} { 
-			lappend extraction_items "[translate EY] $values(drink_ey)\%" }
-		if {[value_or_default espresso_enjoyment 0] > 0} { 
-			lappend extraction_items "[translate Enjoyment] $values(espresso_enjoyment)" 
-		}
-		set extraction [join $extraction_items ", "]
-	}
-		
-	set lines {}
-	foreach line $lines_spec {
-		set line_parts {}
-		foreach line_item $line {
-			if {[info exists $line_item] } {
-				lappend line_parts [subst \$$line_item]
-			} else {
-				lappend line_parts $line_item
-			}
-		}
-		lappend lines [maxstring [join [list_remove_element $line_parts {}] " - "] $max_line_chars]
-	}
-	
-	set lines [list_remove_element $lines {}]
-	if { [llength $lines] == 0 } {
-		return "[translate $default_if_empty]"
-	} else {
-		return [join $lines "\n"]
-	}
-} 
-
-# Returns a 2 or 3-lines formatted string with the summary of a shot description.
-# DEPRECATED!! USE format_shot_description instead
-proc ::plugins::DYE::shot_description_summary { {bean_brand {}} {bean_type {}} {roast_date {}} {grinder_model {}} \
-		{grinder_setting {}} {drink_tds 0} {drink_ey 0} {espresso_enjoyment 0} {lines 2} \
-		{default_if_empty "\[Tap to describe this shot\]"} {profile_title {}} {workflow {}} \
-		{grinder_dose_weight 0} {drink_weight 0} {extraction_time 0} } {
-	set shot_desc ""
-	set skin $::settings(skin)
-
-	set beans_items [list_remove_element [list $bean_brand $bean_type $roast_date] ""]
-	if { $grinder_setting == 0 } { set grinder_setting {}}
-	set grinder_items [list_remove_element [list $grinder_model $grinder_setting] ""]
-	
-	set extraction_items {}
-	if {$drink_tds > 0} { lappend extraction_items "[translate TDS] $drink_tds\%" }
-	if {$drink_ey > 0} { lappend extraction_items "[translate EY] $drink_ey\%" }
-	if {$espresso_enjoyment > 0} { lappend extraction_items "[translate Enjoyment] $espresso_enjoyment" }
-	
-	set ratio_text ""
-	if {$grinder_dose_weight > 0 || $drink_weight > 0} { 
-		set ratio_text "[value_or_default grinder_dose_weight {?}][translate g] : [value_or_default drink_weight {?}][translate g]"
-		if { $grinder_dose_weight > 0 && $drink_weight > 0 } {
-			append ratio_text " (1:[round_to_one_digits [expr $drink_weight / ($grinder_dose_weight + 0.001)]])"
-		}
-	}
-	if {$extraction_time > 0} {
-		append ratio_text " in [round_to_integer $extraction_time][translate s]"
-	}
-			
-	set each_line {}
-	if { [is_DSx2] } {
-		if { $lines == 3 } {
-			if { $profile_title ne "" } { lappend each_line $profile_title }
-			if { [llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
-			if { [llength $grinder_items] > 0 && $ratio_text ne "" } {
-				lappend each_line [string trim "[join $grinder_items { @ }], $ratio_text"]
-			} elseif { [llength $grinder_items] > 0 } {
-				lappend each_line [string trim [join $grinder_items " @ "]]
-			} elseif { $ratio_text ne "" } {
-				lappend each_line $ratio_text
-			}
-			if { $lines == 1 } {
-				set shot_desc [join $each_line " \- "]
-			} else {
-				set shot_desc [join $each_line "\n"]
-			}
-		}
-			
-	} else {
-		if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
-		if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " @ "]] }
-		if {[llength $extraction_items] > 0} { lappend each_line [string trim [join $extraction_items ", "]] }
-				
-		if { $lines == 1 } {
-			set shot_desc [join $each_line " \- "]
-		} elseif { $lines == 2 } {
-			if {[llength $each_line] == 3} {
-				set shot_desc "[lindex $each_line 0] \- [lindex $each_line 1]\n[lindex $each_line 2]"
-			} else {
-				set shot_desc [join $each_line "\n"] 
-			}
-		} else {
-			set shot_desc [join $each_line "\n"]
-		}
-	}
-			
-	if {$shot_desc eq ""} { 
-		set shot_desc "\[[translate $default_if_empty]\]" 
-	}
-	return $shot_desc
-}
-
-
-# Returns a string with the summary description of the shot selected on the left side of the DSx History Viewer.
-# Needs the { args } as this is being used in a trace add execution.
-proc ::plugins::DYE::define_past_shot_desc { args } {
-	variable past_shot_desc
-	variable past_shot_desc_one_line
-	
-	if { $::settings(skin) eq "DSx" && [info exists ::DSx_settings(past_bean_brand)] } {
-		set past_shot_desc [shot_description_summary $::DSx_settings(past_bean_brand) \
-			$::DSx_settings(past_bean_type) $::DSx_settings(past_roast_date) $::DSx_settings(past_grinder_model) \
-			$::DSx_settings(past_grinder_setting) $::DSx_settings(past_drink_tds) $::DSx_settings(past_drink_ey) \
-			$::DSx_settings(past_espresso_enjoyment)]
-		
-		set past_shot_desc_one_line [shot_description_summary $::DSx_settings(past_bean_brand) \
-			$::DSx_settings(past_bean_type) $::DSx_settings(past_roast_date) $::DSx_settings(past_grinder_model) \
-			$::DSx_settings(past_grinder_setting) $::DSx_settings(past_drink_tds) $::DSx_settings(past_drink_ey) \
-			$::DSx_settings(past_espresso_enjoyment) 1 ""]
-	} else {
-		set past_shot_desc ""
-		set past_shot_desc_one_line ""
-	}
-}
-
-# Returns a string with the summary description of the shot selected on the right side of the DSx History Viewer. 
-# Needs the { args } as this is being used in a trace add execution.
-proc ::plugins::DYE::define_past_shot_desc2 { args } {
-	variable past_shot_desc2
-	variable past_shot_desc_one_line2
-	
-	if { $::settings(skin) eq "DSx" } {
-		if {$::DSx_settings(history_godshots) == "history" && [info exists ::DSx_settings(past_bean_brand2)] } {
-			set past_shot_desc2 [shot_description_summary $::DSx_settings(past_bean_brand2) \
-				$::DSx_settings(past_bean_type2) $::DSx_settings(past_roast_date2) $::DSx_settings(past_grinder_model2) \
-				$::DSx_settings(past_grinder_setting2) $::DSx_settings(past_drink_tds2) $::DSx_settings(past_drink_ey2) \
-				$::DSx_settings(past_espresso_enjoyment2)]
-			
-			set past_shot_desc_one_line2 [shot_description_summary $::DSx_settings(past_bean_brand2) \
-				$::DSx_settings(past_bean_type2) $::DSx_settings(past_roast_date2) $::DSx_settings(past_grinder_model2) \
-				$::DSx_settings(past_grinder_setting2) $::DSx_settings(past_drink_tds2) $::DSx_settings(past_drink_ey2) \
-				$::DSx_settings(past_espresso_enjoyment2) 1 ""]
-		} else {
-			set past_shot_desc2 ""
-			set past_shot_desc_one_line2 ""
-		}
-	} else {
-		set past_shot_desc2 ""
-		set past_shot_desc_one_line2 ""
-	}
-}
-
-# Returns a string with the summary description of the current (last) shot.
-# This is the text that is shown on the home page of DSx and DSx2.
-# Needs the { args } as this is being used in a trace add execution.
-# BEWARE this should ONLY be invoked WITHOUT DEFINING last_shot_array_name and 
-#	using use_settings=1 just after finishing a shot, otherwise the settings 
-#	variables may contain the plan for the next shot instead of the last one.
-# NOTE that since DYE favorites, this also formats the "SOURCE" shot description.
-proc ::plugins::DYE::define_last_shot_desc { {last_shot_array_name {}} {use_settings 0} args } {
-	variable settings
-	if { ! $settings(show_shot_desc_on_home) } {
-		set settings(last_shot_desc) ""		
-		set settings(last_shot_header) ""
-		return
-	}
-	set isDSx2 [is_DSx2] 
-	if { $isDSx2 } {			
-		set line_spec {profile beans {grind ratio}}
-		set max_line_chars 55
-	} else {
-		# Default as for DSx
-		set line_spec {beans {grind extraction} ratio}
-		set max_line_chars 55
-	}
-
-	if { $last_shot_array_name eq {} } {
-		set settings(last_shot_header) [translate {LAST SHOT: }]
-		
-		if { [string is true $use_settings] } {	
-			if { $::settings(history_saved) == 1 } {
-				array set last_shot {}
-				foreach field [metadata fields -domain shot -category description] {
-					if { [info exists ::settings($field)] } {
-						set last_shot($field) $::settings($field)
-					}
-				}
-				set last_shot(extraction_time) [espresso_elapsed_timer]	
-				set last_shot(profile_title) $::settings(profile_title)
-				if { $isDSx2 } {
-					set last_shot(workflow) [value_or_default ::skin(workflow) {}]
-					if { $last_shot(workflow) eq {} } {
-						set last_shot(workflow) [value_or_default ::settings(DSx2_workflow) {}]
-					}
-				} else {
-					set last_shot(workflow) {}
-				}
-				set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
-				
-				if { [ifexists ::settings(espresso_clock) 0] > 0 } {
-					append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
-				}
-				append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
-			} else {
-				set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
-			}
-		} else {
-			# Read last shot from the database
-			if { [ifexists ::settings(espresso_clock) 0] > 0 } {				
-				array set last_shot [::plugins::SDB::shots "*" 1 "clock=$::settings(espresso_clock)" 1]
-				if { [array size last_shot] == 0 } {						
-					set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
-				} else {
-					foreach field [array names last_shot] {
-						set last_shot($field) [lindex $last_shot($field) 0]
-					}
-
-					set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
-					
-					if { $::settings(espresso_clock) > 0 } {
-						append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
-					}
-					append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
-				}
-				
-			} else {
-				set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
-			}
-		}
-	} else {
-		upvar $last_shot_array_name last_shot
-		set settings(last_shot_desc) [format_shot_description last_shot $line_spec $max_line_chars]
-		
-		if { [info exists last_shot(clock)] } {
-			if { $last_shot(clock) == $::settings(espresso_clock) } {
-				set settings(last_shot_header) [translate {LAST SHOT: }]
-			} elseif { $last_shot(clock) == $settings(next_src_clock) } {
-				set settings(last_shot_header) [translate {SOURCE SHOT: }]
-			} else {
-				set settings(last_shot_header) [translate {BASE SHOT: }]
-			}
-			append settings(last_shot_header) [format_date $last_shot(clock) no]
-		} else {
-			set settings(last_shot_header) [translate {LAST SHOT: }]	
-		}
-
-		set workflow [value_or_default last_shot(workflow)]
-		if { $workflow eq {} } {
-			set workflow [value_or_default last_shot(DSx2_workflow) "no"]
-		}
-		append settings(last_shot_header) ", [translate $workflow] [translate {workflow}]"
-	}
-		
-}
-
-# Returns a string with the summary description of the next shot.
-# This is the text that is shown on the home page of DSx and DSx2.
-# Needs the { args } as this is being used in a trace add execution.
-# When this is called from the DYE page after editing the next shot data,
-#	we pass the next_shot_name array name 'data' so we avoid recomputing all
-#	next data.
-proc ::plugins::DYE::define_next_shot_desc { {next_shot_array_name {}} args } {
-	variable settings
-	
-	if { !$settings(show_shot_desc_on_home) || ![info exists settings(next_bean_brand)] } {
-		set settings(next_shot_desc) ""		
-		set settings(next_shot_header) ""
-		return
-	}
-			
-	if { $next_shot_array_name eq {} } {
-		array set next_shot [load_next_shot]
-	} else {
-		upvar $next_shot_array_name next_shot 
-	}
-	
-	if { [value_or_default next_shot(clock) 0] > 0 } {
-		set settings(next_shot_header) [translate {COMPARE SHOT: }]
-		append settings(next_shot_header) "[::plugins::DYE::format_date $next_shot(clock) no], "
-	} else {
-		set settings(next_shot_header) [translate {NEXT SHOT}]
-		if { $settings(next_modified) } { 
-			append settings(next_shot_header) "*: "
-		} else {
-			append settings(next_shot_header) ": "
-		}
-		
-		# Ensure variables that should be undefined on next shot are empty
-		foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds} {
-			set next_shot($field_name) 0
-		}
-	}
-	
-	if { [is_DSx2] } {
-		#set next_shot(workflow) [value_or_default ::skin(workflow) "none"]
-		set line_spec {profile beans {grind ratio}}
-		set max_line_chars 55
-		
-		append settings(next_shot_header) "[translate [value_or_default ::skin(workflow) {no}]] [translate {workflow}]" 
-	} else {
-		set line_spec {beans grind ratio}
-		set max_line_chars 55
-	}
-
-	
-	set desc [format_shot_description next_shot $line_spec $max_line_chars]
-	set settings(next_shot_desc) $desc
-}
-
-# Returns an array with the same structure as ::plugins::SDB::load_shot but with the data for next shot, taken from
-# the global and DYE settings. Data that doesn't apply to a "next" shot gets an empty string as value, or 0.0 for series.
-# This is used so we can easily use the returned array as the source for DYE pages and procs like define_next_shot_desc.
-proc ::plugins::DYE::load_next_shot { } {
-	array set shot_data {
-		comes_from_archive 0
-		path {}
-		filename {}
-		file_modification_date {}
-		clock {}
-		date_time {}
-		local_time {}
-		espresso_elapsed {0.0}
-		extraction_time 0.0
-		espresso_pressure {0.0}
-		espresso_weight {0.0}
-		espresso_flow {0.0}
-		espresso_flow_weight {0.0} 
-		espresso_temperature_basket {0.0}
-		espresso_temperature_mix {0.0}
-		espresso_flow_weight_raw {0.0}
-		espresso_water_dispensed {0.0} 
-		espresso_temperature_goal {0.0}
-		espresso_pressure_goal {0.0}
-		espresso_flow_goal {0.0}
-		espresso_state_change {0.0}
-		repository_links {}
-	}
-	set skin $::settings(skin)
-	
-	# Copy profile & extra profile variables first as we risk John adding whatever here and
-	# overwritting our data...
-	foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
-		if { [info exists ::settings($fn)] } {
-			set shot_data($fn) $::settings($fn)
-		}
-	}
-	
-	#set text_fields [::plugins::SDB::field_names "category text long_text date" "shot"]
-	foreach field_name [metadata fields -domain shot -category description -data_type "category text long_text complex"] {
-		if { [info exists ::plugins::DYE::settings(next_$field_name)] } {
-			set shot_data($field_name) [string trim $::plugins::DYE::settings(next_$field_name)]
-		} else {
-			set shot_data($field_name) {}
-		}
-	}
-	#[::plugins::SDB::field_names "numeric" "shot"]
-	foreach field_name [metadata fields -domain shot -category description -data_type "number boolean"] {
-		if { [info exists ::plugins::DYE::settings(next_$field_name)] && $::plugins::DYE::settings(next_$field_name) > 0 } {
-			set shot_data($field_name) $::plugins::DYE::settings(next_$field_name)
-		} else {
-			# We use {} instead of 0 to get DB NULLs and empty values in entry textboxes
-			set shot_data($field_name) {}
-		}
-	}
-
-#msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
-#msg "DYE LOAD_NEXT_SHOT ::settings(final_desired_shot_volume_advanced)=$::settings(final_desired_shot_volume_advanced)"
-	# Variables that are often exposed in skin UIs, global settings variable takes precedence	
-	if { $::settings(grinder_dose_weight) > 0 } { 
-		set shot_data(grinder_dose_weight) $::settings(grinder_dose_weight)
-	}
-	
-	if { $skin eq "DSx" } {
-		if { [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
-			set shot_data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
-		}		
-	} elseif { $::settings(settings_profile_type) eq "settings_2c" } {
-		if { $::settings(final_desired_shot_weight_advanced) > 0 } { 
-			set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight_advanced)]
-		}			
-	} elseif { $::settings(final_desired_shot_weight) > 0 } { 
-		set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
-	}
-	
-	if { $::settings(grinder_setting) ne {} } { 
-		set shot_data(grinder_setting) $::settings(grinder_setting)
-	}
-		
-	if { [is_DSx2]} {
-		set shot_data(workflow) $::skin(workflow)
-	}
-
-#msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
-	# profile_title and beverage_type already in profile_vars above, removed
-	foreach field_name {app_version firmware_version_number enabled_plugins skin skin_version} {
-		if { [info exists ::settings($field_name)] } {
-			set shot_data($field_name) $::settings($field_name)
-		} else {
-			set shot_data($field_name) {}
-		}
-	}
-	
-	# Empty variables that should be undefined on next shot
-	foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds target_drink_weight} {
-		set shot_data($field_name) 0
-	}
-	
-#	if { $shot_data(grinder_dose_weight) eq "" } {
-#		if {[info exists file_sets(DSx_bean_weight)] == 1} {
-#			set shot_data(grinder_dose_weight) $file_sets(DSx_bean_weight)
-#		} elseif {[info exists file_sets(dsv4_bean_weight)] == 1} {
-#			set shot_data(grinder_dose_weight) $file_sets(dsv4_bean_weight)
-#		} elseif {[info exists file_sets(dsv3_bean_weight)] == 1} {
-#			set shot_data(grinder_dose_weight) $file_sets(dsv3_bean_weight)
-#		} elseif {[info exists file_sets(dsv2_bean_weight)] == 1} {
-#			set shot_data(grinder_dose_weight) $file_sets(dsv2_bean_weight)
-#		}
-#	}
-	
-	return [array get shot_data]
-}
 
 proc ::plugins::DYE::return_blank_if_zero {in} {
 	if {$in == 0} { return {} }
 	return $in
-}
-
-# Takes a shot (if the shot contents array is provided, use it, otherwise reads from disk from the filename parameter),
-# 	uploads it to visualizer, changes its repository_links settings if necessary, and persists the change to disk.
-# 'clock' can have any format supported by proc get_shot_file_path, though it is ignored if contents is provided.
-# Returns the repository link if successful, empty string otherwise
-proc ::plugins::DYE::upload_to_visualizer_and_save { clock } {
-	if { ! [plugins enabled visualizer_upload] } return
-	array set arr_changes {}
-	set content [::plugins::SDB::modify_shot_file $clock arr_changes 0 0]
-	if { $content eq "" } return
-	
-    set ::plugins::visualizer_upload::settings(last_action) "upload"
-	set ::plugins::visualizer_upload::settings(last_upload_shot) $clock
-	set ::plugins::visualizer_upload::settings(last_upload_result) ""
-	set ::plugins::visualizer_upload::settings(last_upload_id) ""
-    
-	set repo_link ""
-	set visualizer_id [::plugins::visualizer_upload::upload $content]
-	if { $visualizer_id ne "" } {
-		set link [::plugins::visualizer_upload::id_to_url $visualizer_id browse]
-		set repo_link "Visualizer $link"
-		if { [string match "*$repo_link*" $content] != 1 } {
-			set arr_changes(repository_links) $repo_link
-			::plugins::SDB::modify_shot_file $clock arr_changes
-		}
-	}
-	
-	return $repo_link
-}
-
-# Adapted from skin_directory_graphics in utils.tcl 
-proc ::plugins::DYE::plugin_directory_graphics {} {
-	global screen_size_width
-	global screen_size_height
-
-	set plugindir "[plugin_directory]"
-
-	set dir "$plugindir/DYE/${screen_size_width}x${screen_size_height}"
-
-	if {[info exists ::rescale_images_x_ratio] == 1} {
-		set dir "$plugindir/DYE/2560x1600"
-	}
-	
-	return $dir
-}
-
-proc ::plugins::DYE::page_skeleton { page {title {}} {titlevar {}} {done_button yes} {cancel_button yes} {buttons_loc right} \
-		{buttons_style dsx_done} } {
-	if { $title ne "" } {
-		dui add dtext $page 1280 60 -text $title -tags page_title -style page_title 
-	} elseif { $titlevar ne "" } {
-		dui add variable $page 1280 60 -textvariable $titlevar -tags page_title -style page_title
-	}
-
-	set done_button [string is true $done_button]
-	set cancel_button [string is true $cancel_button]
-	set button_width [dui aspect get dbutton bwidth -style $buttons_style -default 220]
-	
-	if { $buttons_loc eq "center" } {
-		if { $done_button && $cancel_button } {
-			set x_cancel [expr {1280-$button_width-75}]
-			set x_done [expr {1280+75}]
-		} elseif { $done_button } {
-			set x_done [expr {1280-$button_width/2}]
-		} elseif { $cancel_button } {
-			set x_cancel [expr {1280-$button_width/2}]
-		}
-	} elseif { $buttons_loc eq "left" } {
-		if { $done_button && $cancel_button } {
-			set x_cancel 100
-			set x_done 400
-		} elseif { $done_button } {
-			set x_done 100
-		} elseif { $cancel_button } {
-			set x_cancel 100
-		}
-	} else {
-		if { $done_button && $cancel_button } {
-			set x_cancel 1900
-			set x_done 2200
-		} elseif { $done_button } {
-			set x_done 2200
-		} elseif { $cancel_button } {
-			set x_cancel 2200
-		}
-	}
-
-	if { $buttons_style eq "insight_ok" } {
-		set y 1460
-	} else {
-		set y 1425
-	}
-	if { $cancel_button } {
-		dui add dbutton $page $x_cancel $y -label [translate Cancel] -tags page_cancel -style $buttons_style -tap_pad 20
-	}
-	if { $done_button } {
-		dui add dbutton $page $x_done $y -label [translate Ok] -tags page_done -style $buttons_style -tap_pad 20
-	}
-}
-
-proc ::plugins::DYE::import_profile_from_shot { shot_clock } {
-	::profile::import_legacy [::plugins::SDB::load_shot $shot_clock 0 0 1]
-}
-
-
-proc ::plugins::DYE::import_profile_from_visualizer { vis_shot } {
-	
-	if { ![dict exists $vis_shot profile] } {
-		msg -WARNING [namespace current] import_profile_from_visualizer: "'profile' field not found on downloaded shot"
-		return 0
-	}
-	
-	array set profile [dict get $vis_shot profile]
-	
-	set pparts [split $profile(profile_title) "/"]
-	if { [llength $pparts] == 1 } {
-		set profile(profile_title) "Visualizer/$profile(profile_title)"
-	} elseif { [lindex $pparts 1] ne "Visualizer" } {
-		set profile(profile_title) "Visualizer/[lindex $pparts end]"
-	}
-	
-	set profile(profile_filename) [profile::filename_from_title $profile(profile_title)]
-	
-	return [::profile::import_legacy [array get profile]]
 }
 
 proc ::plugins::DYE::singular_or_plural { value singular plural } {
@@ -1490,539 +918,1373 @@ proc ::plugins::DYE::roast_date_format {} {
 	}
 }
 
-proc ::plugins::DYE::setup_tk_text_profile_tags { widget {compact 0} } {
-	if { [string is true $compact] } {
-		$widget tag configure profile_title -font [dui font get notosansuibold 16] -spacing1 [dui::platform::rescale_y 15]
-		$widget tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-		$widget tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-		$widget tag configure step_line -lmargin2 [dui::platform::rescale_x 20]
-		$widget tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
-		$widget tag configure compvalue -foreground green
-		#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
-	} else {
-		$widget tag configure profile_title -font [dui font get notosansuibold 18] -spacing1 [dui::platform::rescale_y 20]
-		$widget tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-		$widget tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
-		$widget tag configure step_line {*}[dui aspect list -type text_tag -style dye_pv_step_line -as_options yes]
-		$widget tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
-		$widget tag configure compvalue -foreground green
-		#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
-	}
-	
-}
 
-# Inserts the text description of a profile textual dictionary in a Tk Text widget. 
-# Allows comparing to another profile, and optionally to only output the differences.
-#
-# If a comparison profile is given, counts and returns the number of differences between the profiles.
-# A profile is considered different from another if:
-#	1. It has a different settings_profile_type (flow / pressure / advanced); or
-#	2. It has a different number of steps; or
-#	3. Any user-definable value is different
-# Changes in text-only descriptive fields such as profile_title, beverage_type, profile_notes or step names are 
-#	not taken into account for difference considerations.
-proc ::plugins::DYE::insert_profile_in_tk_text { tw pdict {cdict {}} {show_diff_only 0} {insert_title 0} {insert_type 0} } {
-	set n_diffs 0
-	if { $cdict eq {} } {
-		set show_diff_only 0
-	} else {
-		set show_diff_only [string is true $show_diff_only]
-		if { [dict get $pdict 0 nsteps] != [dict get $cdict 0 nsteps] } {
-			incr n_diffs
+namespace eval ::plugins::DYE::ui {
+
+	# Adapted from skin_directory_graphics in utils.tcl 
+	proc plugin_directory_graphics {} {
+		global screen_size_width
+		global screen_size_height
+	
+		set plugindir "[plugin_directory]"
+	
+		set dir "$plugindir/DYE/${screen_size_width}x${screen_size_height}"
+	
+		if {[info exists ::rescale_images_x_ratio] == 1} {
+			set dir "$plugindir/DYE/2560x1600"
 		}
-		if { [dict get $pdict 0 type] ne [dict get $cdict 0 type] } {
-			incr n_diffs
+		
+		return $dir
+	}
+	
+	proc page_skeleton { page {title {}} {titlevar {}} {done_button yes} {cancel_button yes} {buttons_loc right} \
+			{buttons_style dsx_done} } {
+		if { $title ne "" } {
+			dui add dtext $page 1280 60 -text $title -tags page_title -style page_title 
+		} elseif { $titlevar ne "" } {
+			dui add variable $page 1280 60 -textvariable $titlevar -tags page_title -style page_title
 		}
-	}
 	
-	set start_state [$tw cget -state]
-	if { $start_state ne "normal" } {
-		$tw configure -state normal
-	}
-	
-	if { [string is true $insert_title] } {
-		insert_profile_item_in_tk_text $tw $pdict {0 title} profile_title "" "" "" $cdict compvalue $show_diff_only
-	}
-	if { [string is true $insert_type] } {
-		insert_profile_item_in_tk_text $tw $pdict {0 type} profile_type "" "" "" $cdict compvalue $show_diff_only
-	}
-	
-	# Output the textual description of the profile
-	incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 preheat} {} value "" "" $cdict compvalue $show_diff_only]
-	incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 limiter} {} value "" "" $cdict compvalue $show_diff_only]
-	incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 temp_steps} {} value "" "" $cdict compvalue $show_diff_only]
-	
-	for { set stepn 1 } { $stepn <= [dict get $pdict 0 nsteps] } { incr stepn } {
-		if { $show_diff_only && [is_profile_step_equal $pdict $cdict $stepn] } {
-			continue
-		} 
-		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn name] step value "[translate STEP] $stepn: " "" $cdict compvalue $show_diff_only 0]
-		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn track] step_line value "- " "" $cdict compvalue $show_diff_only]
-		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn temp] step_line value "- " "" $cdict compvalue $show_diff_only]
-		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn flow_or_pressure] step_line value "- " "" $cdict compvalue $show_diff_only]
-		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn max] step_line value "- " "" $cdict compvalue $show_diff_only]
-		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn exit_if] step_line value "- " "" $cdict compvalue $show_diff_only]
-	}
-	
-	# Extra steps in reference profile
-	if { $cdict ne {} && [dict get $cdict 0 nsteps] > [dict get $pdict 0 nsteps] } {
-		for { set stepn $stepn } { $stepn <= [dict get $cdict 0 nsteps] } { incr stepn } {
-			incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn name] [list step compvalue] compvalue "\[[translate STEP] ${stepn}\]: " "" "" "" $show_diff_only]
-			incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn track] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
-			incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn temp] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
-			incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn flow_or_pressure] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
-			incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn max] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
-			incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn exit_if] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
+		set done_button [string is true $done_button]
+		set cancel_button [string is true $cancel_button]
+		set button_width [dui aspect get dbutton bwidth -style $buttons_style -default 220]
+		
+		if { $buttons_loc eq "center" } {
+			if { $done_button && $cancel_button } {
+				set x_cancel [expr {1280-$button_width-75}]
+				set x_done [expr {1280+75}]
+			} elseif { $done_button } {
+				set x_done [expr {1280-$button_width/2}]
+			} elseif { $cancel_button } {
+				set x_cancel [expr {1280-$button_width/2}]
+			}
+		} elseif { $buttons_loc eq "left" } {
+			if { $done_button && $cancel_button } {
+				set x_cancel 100
+				set x_done 400
+			} elseif { $done_button } {
+				set x_done 100
+			} elseif { $cancel_button } {
+				set x_cancel 100
+			}
+		} else {
+			if { $done_button && $cancel_button } {
+				set x_cancel 1900
+				set x_done 2200
+			} elseif { $done_button } {
+				set x_done 2200
+			} elseif { $cancel_button } {
+				set x_cancel 2200
+			}
 		}
-	}
 	
-	if { [dict exists $pdict 0 stop_at] } {
-		if { !$show_diff_only  || ($show_diff_only && ![is_profile_step_line_equal $pdict $cdict 0 stop_at] ) } {
-			$tw insert insert "[translate {ENDING CRITERIA}]:" step "\n"
-			incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 stop_at} step_line value "" "" $cdict compvalue $show_diff_only]
+		if { $buttons_style eq "insight_ok" } {
+			set y 1460
+		} else {
+			set y 1425
 		}
-	} elseif { $cdict ne {} && [dict exists $cdict 0 stop_at] } {
-		incr n_diffs
-		$tw insert insert "\[[translate {ENDING CRITERIA}]\]:" [list step compvalue] "\n"
-		incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list 0 stop_at] [list step_line compvalue] compvalue "" "" "" $show_diff_only] 
-	}
-	
-	if { [dict exists $pdict 0 notes] } {
-		if { !$show_diff_only || ($show_diff_only && ![is_profile_step_line_equal $pdict $cdict 0 notes]) } {
-			$tw insert insert "[translate {PROFILE NOTES}]:" step "\n"
-			insert_profile_item_in_tk_text $tw $pdict {0 notes} {} {} "" ""
+		if { $cancel_button } {
+			dui add dbutton $page $x_cancel $y -label [translate Cancel] -tags page_cancel -style $buttons_style -tap_pad 20
+		}
+		if { $done_button } {
+			dui add dbutton $page $x_done $y -label [translate Ok] -tags page_done -style $buttons_style -tap_pad 20
 		}
 	}
-	if { $cdict ne {} && [dict exists $cdict 0 notes] && [dict get $cdict 0 notes] ne [dict get $pdict 0 notes] } {
-		$tw insert insert "\[[translate {PROFILE NOTES}]\]:" [list step compvalue] "\n"
-		insert_profile_item_in_tk_text $tw $cdict {0 notes} compvalue {} "" ""
-	}
-	
-	if { $show_diff_only && $n_diffs == 0 } {
-		$tw insert insert "No differences between the compared profiles\n"
-	}
-	
-	if { $start_state ne "normal" } {
-		$tw configure -state $start_state
-	}
-	
-	if { $cdict eq {} } {
+		
+	# Writes a shot textual description to a Tk Text widget, optionally comparing it to another
+	# shot, or only showing its differences.
+	# Named args:
+	#	-comp <array_name>
+	#	-show_diff_only <boolean>, default 0
+	#	-clear_text <boolean>, default 1
+	proc shot_to_tk_text { tw shot_arr_name args } {
+		upvar $shot_arr_name shot
+		if { [array size shot] == 0 } {
+			msg -WARNING [namespace current] "::shot_to_tk_text: shot array '$shot_arr_name' is empty"
+			return
+		}
+		
+		set show_diff_only [string is true [dui::args::get_option -show_diff_only 0]]
+		set comp_arr_name [dui::args::get_option -comp ""]
 		set n_diffs 0
-	}
-	return $n_diffs
-}
-
-proc ::plugins::DYE::insert_profile_item_in_tk_text { tw pdict keys {line_tags {}} {var_tags {}} {prefix {}} {suffix {}}
-		{cdict {}} {comp_var_tags {}} {show_diff_only 0} {check_diff_only 1} } {
-	set n_diffs 0
-	set line {}
-	if { [dict exists $pdict {*}$keys] } {
-		set line [dict get $pdict {*}$keys]
-	}
+		if { $comp_arr_name eq {} } {
+			set show_diff_only 0
+			set do_compare 0
+		} else {
+			upvar $comp_arr_name comp_shot
+			if { [array size comp_shot] == 0 } {
+				set show_diff_only 0
+				set do_compare 0
+			} else {
+				set do_compare 1
+				set show_diff_only [string is true $show_diff_only]
+			}
+		}
+			
+		set start_state [$tw cget -state]
+		if { $start_state ne "normal" } {
+			$tw configure -state normal
+		}
+		
+		if { [string is true [dui::args::get_option -clear_text 1]] } {
+			$tw delete 1.0 end
+		}
+		
+		$tw tag configure compare -elide [expr {!$do_compare}] 
+		set non_highlighted_aspects [dui aspect list -type text_tag -style dyev3_field_nonhighlighted -as_options yes]
+		
+		# Shot meta description
+		set sections [dict create beans:beans_desc Beans beans:beans_batch "Beans batch" equipment Equipment \
+			extraction Extraction people People beverage Beverage tasting Tasting]
+		#bean_batch "Beans batch"
+		
+		foreach section_key [dict keys $sections] {
+			set section_parts [split $section_key :]
+			if { [llength $section_parts] > 1 } {
+				set section [lindex $section_parts 0]
+				set subsection [lindex $section_parts 1]
+				set section_tag $subsection
+				set fields [metadata fields -domain shot -category description -section $section -subsection $subsection]
+			} else {
+				set section $section_key
+				set section_tag $section
+				set subsection ""
+				set fields [metadata fields -domain shot -category description -section $section]
+			}
+			$tw mark set $section_tag insert 
+			$tw mark gravity $section_tag left
+			$tw insert insert [translate [dict get $sections $section_key]] [list section $section_tag] "\n"
+			
+			foreach field $fields {
+				if { ![info exists shot($field)] } continue
+				# Just make sure we don't have any remaining highlighted field (sometimes happen!) 
+				$tw tag configure $field {*}$non_highlighted_aspects
+				
+				lassign [metadata get $field {name data_type n_decimals measure_unit}] \
+						name data_type n_decimals measure_unit
+				$tw insert insert "[translate $name]: " [list field $field ${field}:n] 
+				# ": " [list colon $field]
+				
+				if { $shot($field) eq "" } {
+					$tw insert insert " " [list value $field ${field}:v]
+				} else {
+					$tw insert insert $shot($field) [list value $field ${field}:v]
+					if { $measure_unit ne "" } {
+						$tw insert insert " $measure_unit" [list measure_unit $field ${field}:mu]
+					}
+				}
 	
-	if { [llength $line] == 0 || [lindex $line 0] eq "" } {
-		if { $cdict ne {} && [dict exists $cdict {*}$keys] } {
-			incr n_diffs
-			insert_profile_item_in_tk_text $tw $cdict $keys [list $line_tags $comp_var_tags] "" "${prefix}\[" "\]" 
+				if { $do_compare } {
+					set compare_text [field_compare_string $shot($field) [value_or_default comp_shot($field) ""] \
+						$field $data_type $n_decimals]
+					$tw insert insert $compare_text [list compare $field ${field}:c] "\n"
+				} else {
+					$tw insert insert "\n"
+				}
+	
+#				if { $target eq "edited" } {
+#					trace add variable ${ns}::edited_shot($field) write ${ns}::shot_variable_changed
+#				}
+			}
+			$tw mark set ${section_tag}:end insert
+			$tw mark gravity ${section_tag}:end left 
+		}
+			
+		
+		
+		
+		if { $start_state ne "normal" } {
+			$tw configure -state $start_state
+		}
+		
+		if { $comp_arr_name eq {} } {
+			set n_diffs 0
 		}
 		return $n_diffs
 	}
-			
-	set compline ""
-	set ncompvars 0
 	
-	if { $cdict eq {} } {
-		set show_diff_only 0
-	} elseif { [dict exists $cdict {*}$keys] } {
-		set compline [dict get $cdict {*}$keys]
-		set ncompvars [llength $compline]
-		if { [string is true $check_diff_only] && [string is true $show_diff_only] && $line == $compline } {
+	
+	proc field_compare_string { value compare {field {}} {data_type {}} {n_decimals {}} } {
+		#msg -INFO [namespace current] "COMPARING $value and $compare, field=$field, data_type=$data_type, n_dec=$n_decimals"	
+		if { [string trim $value] eq "" || [string trim $compare] eq "" } {
+			return " "
+		}
+	
+		if { $field ne "" && ($data_type eq "" || $n_decimals eq "") } {
+			lassign [metadata get $field {data_type n_decimals}] data_type n_decimals
+			if { $data_type eq "" } {
+				if { [string is double $value] && [string is double $compare] } {
+					set data_type "number"
+					if { [string is integer $value] && [string is integer $compare] } {
+						set n_decimals 0
+					} else {
+						set n_decimals 2
+					}
+				} else {
+					set data_type text
+				}
+			}
+		}
+		
+		if { $data_type eq "long_text" } {
+			set compare_text " "
+		} elseif { $data_type eq "number" } {
+			if { $value == $compare } {
+				set compare_text "  ="
+			} else {
+				set comparison [expr {$value-$compare}]
+				set compare_text [format "%.${n_decimals}f" $comparison]
+				if { $comparison > 0 } {
+					set compare_text "+$compare_text"
+				}
+			}
+		} else {
+			#{text category date boolean}
+			if { $value eq $compare } {
+				set compare_text "  ="
+			} else {
+				set compare_text "[translate was] \"$compare\""
+			}
+		}
+		
+		if { $compare_text ne "  =" && [string trim $compare_text] ne "" } {
+			set compare_text "  (${compare_text})"
+		}
+		return $compare_text
+	}
+	
+	proc setup_tk_text_profile_tags { widget {compact 0} } {
+		if { [string is true $compact] } {
+			$widget tag configure profile_title -font [dui font get notosansuibold 16] -spacing1 [dui::platform::rescale_y 15]
+			$widget tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+			$widget tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+			$widget tag configure step_line -lmargin2 [dui::platform::rescale_x 20]
+			$widget tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
+			$widget tag configure compvalue -foreground green
+			#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
+		} else {
+			$widget tag configure profile_title -font [dui font get notosansuibold 18] -spacing1 [dui::platform::rescale_y 20]
+			$widget tag configure profile_type {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+			$widget tag configure step {*}[dui aspect list -type text_tag -style dye_pv_step -as_options yes]
+			$widget tag configure step_line {*}[dui aspect list -type text_tag -style dye_pv_step_line -as_options yes]
+			$widget tag configure value {*}[dui aspect list -type text_tag -style dye_pv_value -as_options yes]
+			$widget tag configure compvalue -foreground green
+			#{*}[dui aspect list -type text_tag -style dye_pv_compvalue -as_options yes]
+		}
+		
+	}
+	
+	# Inserts the text description of a profile textual dictionary in a Tk Text widget. 
+	# Allows comparing to another profile, and optionally to only output the differences.
+	#
+	# If a comparison profile is given, counts and returns the number of differences between the profiles.
+	# A profile is considered different from another if:
+	#	1. It has a different settings_profile_type (flow / pressure / advanced); or
+	#	2. It has a different number of steps; or
+	#	3. Any user-definable value is different
+	# Changes in text-only descriptive fields such as profile_title, beverage_type, profile_notes or step names are 
+	#	not taken into account for difference considerations.
+	proc insert_profile_in_tk_text { tw pdict {cdict {}} {show_diff_only 0} {insert_title 0} {insert_type 0} } {
+		set n_diffs 0
+		if { $cdict eq {} } {
+			set show_diff_only 0
+		} else {
+			set show_diff_only [string is true $show_diff_only]
+			if { [dict get $pdict 0 nsteps] != [dict get $cdict 0 nsteps] } {
+				incr n_diffs
+			}
+			if { [dict get $pdict 0 type] ne [dict get $cdict 0 type] } {
+				incr n_diffs
+			}
+		}
+		
+		set start_state [$tw cget -state]
+		if { $start_state ne "normal" } {
+			$tw configure -state normal
+		}
+		
+		if { [string is true $insert_title] } {
+			insert_profile_item_in_tk_text $tw $pdict {0 title} profile_title "" "" "" $cdict compvalue $show_diff_only
+		}
+		if { [string is true $insert_type] } {
+			insert_profile_item_in_tk_text $tw $pdict {0 type} profile_type "" "" "" $cdict compvalue $show_diff_only
+		}
+		
+		# Output the textual description of the profile
+		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 preheat} {} value "" "" $cdict compvalue $show_diff_only]
+		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 limiter} {} value "" "" $cdict compvalue $show_diff_only]
+		incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 temp_steps} {} value "" "" $cdict compvalue $show_diff_only]
+		
+		for { set stepn 1 } { $stepn <= [dict get $pdict 0 nsteps] } { incr stepn } {
+			if { $show_diff_only && [is_profile_step_equal $pdict $cdict $stepn] } {
+				continue
+			} 
+			incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn name] step value "[translate STEP] $stepn: " "" $cdict compvalue $show_diff_only 0]
+			incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn track] step_line value "- " "" $cdict compvalue $show_diff_only]
+			incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn temp] step_line value "- " "" $cdict compvalue $show_diff_only]
+			incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn flow_or_pressure] step_line value "- " "" $cdict compvalue $show_diff_only]
+			incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn max] step_line value "- " "" $cdict compvalue $show_diff_only]
+			incr n_diffs [insert_profile_item_in_tk_text $tw $pdict [list $stepn exit_if] step_line value "- " "" $cdict compvalue $show_diff_only]
+		}
+		
+		# Extra steps in reference profile
+		if { $cdict ne {} && [dict get $cdict 0 nsteps] > [dict get $pdict 0 nsteps] } {
+			for { set stepn $stepn } { $stepn <= [dict get $cdict 0 nsteps] } { incr stepn } {
+				incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn name] [list step compvalue] compvalue "\[[translate STEP] ${stepn}\]: " "" "" "" $show_diff_only]
+				incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn track] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
+				incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn temp] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
+				incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn flow_or_pressure] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
+				incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn max] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
+				incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list $stepn exit_if] [list step_line compvalue] compvalue "- " "" "" "" $show_diff_only]
+			}
+		}
+		
+		if { [dict exists $pdict 0 stop_at] } {
+			if { !$show_diff_only  || ($show_diff_only && ![is_profile_step_line_equal $pdict $cdict 0 stop_at] ) } {
+				$tw insert insert "[translate {ENDING CRITERIA}]:" step "\n"
+				incr n_diffs [insert_profile_item_in_tk_text $tw $pdict {0 stop_at} step_line value "" "" $cdict compvalue $show_diff_only]
+			}
+		} elseif { $cdict ne {} && [dict exists $cdict 0 stop_at] } {
+			incr n_diffs
+			$tw insert insert "\[[translate {ENDING CRITERIA}]\]:" [list step compvalue] "\n"
+			incr n_diffs [insert_profile_item_in_tk_text $tw $cdict [list 0 stop_at] [list step_line compvalue] compvalue "" "" "" $show_diff_only] 
+		}
+		
+		if { [dict exists $pdict 0 notes] } {
+			if { !$show_diff_only || ($show_diff_only && ![is_profile_step_line_equal $pdict $cdict 0 notes]) } {
+				$tw insert insert "[translate {PROFILE NOTES}]:" step "\n"
+				insert_profile_item_in_tk_text $tw $pdict {0 notes} {} {} "" ""
+			}
+		}
+		if { $cdict ne {} && [dict exists $cdict 0 notes] && [dict get $cdict 0 notes] ne [dict get $pdict 0 notes] } {
+			$tw insert insert "\[[translate {PROFILE NOTES}]\]:" [list step compvalue] "\n"
+			insert_profile_item_in_tk_text $tw $cdict {0 notes} compvalue {} "" ""
+		}
+		
+		if { $show_diff_only && $n_diffs == 0 } {
+			$tw insert insert "No differences between the compared profiles\n"
+		}
+		
+		if { $start_state ne "normal" } {
+			$tw configure -state $start_state
+		}
+		
+		if { $cdict eq {} } {
+			set n_diffs 0
+		}
+		return $n_diffs
+	}
+	
+	proc insert_profile_item_in_tk_text { tw pdict keys {line_tags {}} {var_tags {}} {prefix {}} {suffix {}}
+			{cdict {}} {comp_var_tags {}} {show_diff_only 0} {check_diff_only 1} } {
+		set n_diffs 0
+		set line {}
+		if { [dict exists $pdict {*}$keys] } {
+			set line [dict get $pdict {*}$keys]
+		}
+		
+		if { [llength $line] == 0 || [lindex $line 0] eq "" } {
+			if { $cdict ne {} && [dict exists $cdict {*}$keys] } {
+				incr n_diffs
+				insert_profile_item_in_tk_text $tw $cdict $keys [list $line_tags $comp_var_tags] "" "${prefix}\[" "\]" 
+			}
 			return $n_diffs
 		}
-	}
-	
-	if { $prefix ne "" } {
-		$tw insert insert $prefix $line_tags
-	}
-	
-	set nvars [llength $line]
-	set char 0
-	set txt [translate [lindex $line 0]]
-	while { [regexp -indices {\\[0-9]+} $txt match_idx] } {
-		if { [lindex $match_idx 0] > 0 } {
-			$tw insert insert [string range $txt 0 [lindex $match_idx 0]-1] $line_tags
-		}
-		set varn [string range $txt [lindex $match_idx 0]+1 [lindex $match_idx 1]]
-		if { $varn <= $nvars } {
-			set var [lindex $line $varn]
-			if { ![string is double $var] } {
-				set var [translate $var]
+				
+		set compline ""
+		set ncompvars 0
+		
+		if { $cdict eq {} } {
+			set show_diff_only 0
+		} elseif { [dict exists $cdict {*}$keys] } {
+			set compline [dict get $cdict {*}$keys]
+			set ncompvars [llength $compline]
+			if { [string is true $check_diff_only] && [string is true $show_diff_only] && $line == $compline } {
+				return $n_diffs
 			}
-			$tw insert insert $var [list $line_tags $var_tags]
-			
-			if { $compline ne "" && $varn <= $ncompvars } {
-				set compvar [lindex $compline $varn]
-				if { $var ne $compvar } {
-					$tw insert insert " \[$compvar\]" [list $line_tags $comp_var_tags]
-					incr n_diffs
+		}
+		
+		if { $prefix ne "" } {
+			$tw insert insert $prefix $line_tags
+		}
+		
+		set nvars [llength $line]
+		set char 0
+		set txt [translate [lindex $line 0]]
+		while { [regexp -indices {\\[0-9]+} $txt match_idx] } {
+			if { [lindex $match_idx 0] > 0 } {
+				$tw insert insert [string range $txt 0 [lindex $match_idx 0]-1] $line_tags
+			}
+			set varn [string range $txt [lindex $match_idx 0]+1 [lindex $match_idx 1]]
+			if { $varn <= $nvars } {
+				set var [lindex $line $varn]
+				if { ![string is double $var] } {
+					set var [translate $var]
+				}
+				$tw insert insert $var [list $line_tags $var_tags]
+				
+				if { $compline ne "" && $varn <= $ncompvars } {
+					set compvar [lindex $compline $varn]
+					if { $var ne $compvar } {
+						$tw insert insert " \[$compvar\]" [list $line_tags $comp_var_tags]
+						incr n_diffs
+					}
+				}
+			} else {
+				msg -NOTICE [namespace current] insert_profile_item_in_tk_text: "no variable $varn in line $txt"
+			}
+		
+			set txt [string range $txt [lindex $match_idx 1]+1 end]
+		}
+		
+		$tw insert insert $txt $line_tags
+		
+		if { $cdict ne {} && ![dict exists $cdict {*}$keys] } {
+			$tw insert insert " \[NONE\]" $comp_var_tags
+			incr n_diffs
+		}
+		
+		if { $suffix ne "" } {
+			$tw insert insert $suffix $line_tags
+		} 
+		
+		$tw insert insert "\n"
+	
+		return $n_diffs
+	}
+	
+	proc is_profile_step_equal { pdict cdict stepn } {
+		if { [dict exists $pdict $stepn] && [dict exists $cdict $stepn] } {
+			foreach k {track temp flow_or_pressure max exit_if} {
+				if { ![is_profile_step_line_equal $pdict $cdict $stepn $k] } {
+					return 0
 				}
 			}
+	
+			return 1
 		} else {
-			msg -NOTICE [namespace current] insert_profile_item_in_tk_text: "no variable $varn in line $txt"
-		}
-	
-		set txt [string range $txt [lindex $match_idx 1]+1 end]
-	}
-	
-	$tw insert insert $txt $line_tags
-	
-	if { $cdict ne {} && ![dict exists $cdict {*}$keys] } {
-		$tw insert insert " \[NONE\]" $comp_var_tags
-		incr n_diffs
-	}
-	
-	if { $suffix ne "" } {
-		$tw insert insert $suffix $line_tags
-	} 
-	
-	$tw insert insert "\n"
-
-	return $n_diffs
-}
-
-proc ::plugins::DYE::is_profile_step_equal { pdict cdict stepn } {
-	if { [dict exists $pdict $stepn] && [dict exists $cdict $stepn] } {
-		foreach k {track temp flow_or_pressure max exit_if} {
-			if { ![is_profile_step_line_equal $pdict $cdict $stepn $k] } {
-				return 0
-			}
-		}
-
-		return 1
-	} else {
-		return 0
-	}
-}
-
-# Only compares the variables values, not the main text string 
-proc ::plugins::DYE::is_profile_step_line_equal { pdict cdict args } {
-	if { [dict exists $pdict {*}$args] ^ [dict exists $cdict {*}$args] } {
-		return 0
-	} elseif { [dict exists $pdict {*}$args] && [dict exists $cdict {*}$args] } {
-		# Compare only the variables values, not the text
-		set pdict_k [dict get $pdict {*}$args]
-		set cdict_k [dict get $cdict {*}$args]
-		if { [llength $pdict_k] != [llength $cdict_k] } {
 			return 0
 		}
-		for { set i 1 } { $i < [llength $pdict_k] } { incr i } {
-			if { [lindex $pdict_k $i] ne [lindex $cdict_k $i] } {
+	}
+	
+	# Only compares the variables values, not the main text string 
+	proc is_profile_step_line_equal { pdict cdict args } {
+		if { [dict exists $pdict {*}$args] ^ [dict exists $cdict {*}$args] } {
+			return 0
+		} elseif { [dict exists $pdict {*}$args] && [dict exists $cdict {*}$args] } {
+			# Compare only the variables values, not the text
+			set pdict_k [dict get $pdict {*}$args]
+			set cdict_k [dict get $cdict {*}$args]
+			if { [llength $pdict_k] != [llength $cdict_k] } {
 				return 0
 			}
-		}
-	}
-	
-	return 1
-}
-
-proc ::plugins::DYE::load_profile_from { target_array_name source_array_name } {
-	upvar target $target_array_name
-	upvar src $source_array_name
-	
-	foreach var [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
-		if { [info exists $src($var)] } {
-			set $target($var) $::dui::pages::DYE::src_data($var)
-		} else {
-			set $target($var) {} 
-		}
-	}
-
-	
-}
-
-proc ::plugins::DYE::open { args } {
-	variable settings
-	
-	if { [llength $args] == 1 } {
-		set use_dye_v3 0
-		set which_shot [lindex $args 0]
-		set args {}
-	} elseif { [llength $args] > 1 } {
-		if { [string range [lindex $args 0] 0 0] ne "-" } {
-			set which_shot [lindex $args 0]
-			set args [lrange $args 1 end]
-		} else {
-			set which_shot [dui::args::get_option -which_shot "default" 1]
-		}
-		set use_dye_v3 [string is true [dui::args::get_option -use_dye_v3 [value_or_default ::plugins::DYE::settings(use_dye_v3) 0] 1]]		 
-	}
-	
-	if { $which_shot eq {} || $which_shot eq "default" } {
-		set which_shot $settings(default_launch_action) 
-	}
-	
-	set dlg_coords [dui::args::get_option -coords {2400 975} 1]
-	set dlg_anchor [dui::args::get_option -anchor "e" 1]
-	
-	if { $use_dye_v3 } {	
-		dui page load DYE_v3 -which_shot $which_shot {*}$args 
-	} elseif { $which_shot eq "dialog" } {
-		dui page open_dialog dye_which_shot_dlg -coords $dlg_coords -anchor $dlg_anchor {*}$args
-	} else {
-		dui page load DYE $which_shot {*}$args
-	}
-}
-
-proc ::plugins::DYE::open_profile_tools { args } {
-	variable settings
-	
-	if { [llength $args] > 0 && [lindex $args 0] eq "viewer" } {
-		dui page open_dialog dye_profile_viewer_dlg "next" ""
-	} else {
-		dui page open_dialog dye_profile_select_dlg -selected $::settings(profile_filename) -change_settings_on_exit 1 \
-			-bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) -grinder_model $::settings(grinder_model)
-	}
-}
-
-# Used for copying data from a shot file "template" into the Next Shot definition.
-# This was created for loading DYE favorites, either from a saved shot 
-#	(recent-type favs, when src_clock is given), or from an array
-#	(fixed-type favs, when src_array_name is given, can be partial).
-proc ::plugins::DYE::load_next_from { {src_clock {}} {src_array_name {}} {what_to_copy {}} {n_fav -1} } {
-	variable data
-	variable src_data
-	variable settings 
-	
-	set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
-	set next_modified [string is true $settings(next_modified)]
-	set skin $::settings(skin)
-	set isDSx2 [::plugins::DYE::is_DSx2]
-	set settings_changed 0
-	# TBD: Unneeded? DYE settings are alwasys saved at the end
-	set dye_settings_changed 0
-	set dsx_settings_changed 0
-	set dsx2_settings_changed 0
-	
-	set load_workflow_settings 0
-	set load_full_profile 0
-	
-	###### PROCESS WHAT TO COPY
-	set desc_fields [concat [metadata fields -domain shot -category description -propagate 1] target_drink_weight espresso_notes]
-	if { $what_to_copy eq {} } {
-		# BEWARE: UNTESTED CASE
-		msg -WARNING [namespace current] "load_next_from: BEWARE 'what_to_copy' is empty, this is a NON-TESTED scenario"
-		set what_to_copy $desc_fields
-	} else {
-		#msg "DYE LOAD_NEXT_FROM initial what_to_copy=$what_to_copy"
-		set expanded [list]
-		foreach field $what_to_copy {
-			set matched 0 
-			if { $field in $desc_fields} {
-				lappend expanded $field
-				set matched 1
-			} elseif { $field in {workflow DSx2_workflow} } {
-				lappend expanded DSx2_workflow
-				set matched 1
-			} elseif { $field eq "workflow_settings" } {
-				if { [is_DSx2] } {
-					set load_workflow_settings 1
-				} else {
-					msg -INFO [namespace current] "load_next_from: workflow_settings not loaded if skin is not DSx2"
+			for { set i 1 } { $i < [llength $pdict_k] } { incr i } {
+				if { [lindex $pdict_k $i] ne [lindex $cdict_k $i] } {
+					return 0
 				}
-				set matched 1
-			} elseif { $field in {full_profile shot_profile} } {
-				set load_full_profile 1
-				set matched 1
-			} elseif { $field in {profile profile_title disk_profile} } {
-				lappend expanded profile
-				set matched 1
-			} elseif { $field eq "ratio" } {
-				lappend expanded grinder_dose_weight target_drink_weight
-				set matched 1
-			} elseif { $field eq "drink_weight" } {
-				lappend expanded target_drink_weight
-				set matched 1				
-			} elseif { $field eq "note" } {
-				lappend expanded espresso_notes
-				set matched 1
-			} else {
-				set section_fields [metadata fields -domain shot -section $field]
-				if { $section_fields ne {} } {
-					lappend expanded {*}$section_fields
-					set matched 1 
+			}
+		}
+		
+		return 1
+	}
+		
+}
+
+namespace eval ::plugins::DYE::shots {
+	# The Source Shot is the shot from which data is propagated to the Next shot.
+	# It's the last shot by default when a new shot is made. 
+	# 'src_shot' stores the full source shot array, so its data can be retrieved on different places
+	#	without having to re-read the file every time.
+	variable src_shot
+	array set src_shot {}
+	
+	# These are calculated when entering DSx history viewer or when the user selects a 
+	# different shot, not saved on the settings 
+	# DSx History viewer left
+	variable past_shot_desc {}
+	# DSx History viewer full page chart left
+	variable past_shot_desc_one_line {}
+	# DSx History viewer right
+	variable past_shot_desc2 {}
+	# DSx History viewer full page chart right
+	variable past_shot_desc_one_line2 {}
+
+	# Used for copying data from a shot file "template" into the Next Shot definition.
+	# This was created for loading DYE favorites, either from a saved shot 
+	#	(recent-type favs, when src_clock is given), or from an array
+	#	(fixed-type favs, when src_array_name is given, can be partial).
+	proc source_next_from { {src_clock {}} {src_array_name {}} {what_to_copy {}} {n_fav -1} } {
+		variable ::plugins::DYE::settings
+		variable src_shot
+		
+		set last_espresso_clock [value_or_default ::settings(espresso_clock) 0]
+		set next_modified [string is true $settings(next_modified)]
+		set skin $::settings(skin)
+		set isDSx2 [::plugins::DYE::is_DSx2]
+		set settings_changed 0
+		# TBD: Unneeded? DYE settings are alwasys saved at the end
+		set dye_settings_changed 0
+		set dsx_settings_changed 0
+		set dsx2_settings_changed 0
+		
+		set load_workflow_settings 0
+		set load_full_profile 0
+		
+		###### PROCESS WHAT TO COPY
+		set desc_fields [concat [metadata fields -domain shot -category description -propagate 1] target_drink_weight espresso_notes]
+		if { $what_to_copy eq {} } {
+			# BEWARE: UNTESTED CASE
+			msg -WARNING [namespace current] "source_next_from: BEWARE 'what_to_copy' is empty, this is a NON-TESTED scenario"
+			set what_to_copy $desc_fields
+		} else {
+			#msg "DYE source_next_from initial what_to_copy=$what_to_copy"
+			set expanded [list]
+			foreach field $what_to_copy {
+				set matched 0 
+				if { $field in $desc_fields} {
+					lappend expanded $field
+					set matched 1
+				} elseif { $field in {workflow DSx2_workflow} } {
+					lappend expanded DSx2_workflow
+					set matched 1
+				} elseif { $field eq "workflow_settings" } {
+					if { $isDSx2 } {
+						set load_workflow_settings 1
+					} else {
+						msg -INFO [namespace current] "source_next_from: workflow_settings not loaded if skin is not DSx2"
+					}
+					set matched 1
+				} elseif { $field in {full_profile shot_profile} } {
+					set load_full_profile 1
+					set matched 1
+				} elseif { $field in {profile profile_title disk_profile} } {
+					lappend expanded profile
+					set matched 1
+				} elseif { $field eq "ratio" } {
+					lappend expanded grinder_dose_weight target_drink_weight
+					set matched 1
+				} elseif { $field eq "drink_weight" } {
+					lappend expanded target_drink_weight
+					set matched 1				
+				} elseif { $field eq "note" } {
+					lappend expanded espresso_notes
+					set matched 1
 				} else {
-					set section_fields [metadata fields -domain shot -subsection $field]
+					set section_fields [metadata fields -domain shot -section $field]
 					if { $section_fields ne {} } {
 						lappend expanded {*}$section_fields
-						set matched 1
+						set matched 1 
+					} else {
+						set section_fields [metadata fields -domain shot -subsection $field]
+						if { $section_fields ne {} } {
+							lappend expanded {*}$section_fields
+							set matched 1
+						}
 					}
+				}
+				
+				if { !$matched } {
+					msg -NOTICE [namespace current] "source_next_from: what_to_copy field $field not recognized"
 				}
 			}
 			
-			if { !$matched } {
-				msg -NOTICE [namespace current] "load_next_from: what_to_copy field $field not recognized"
+			set what_to_copy [lsort -unique $expanded]
+		}
+		#msg "DYE source_next_from final what_to_copy=$what_to_copy"
+		
+		### GET THE SOURCE DATA
+		if { $src_clock ne {} } {
+			array set src_shot [::plugins::SDB::load_shot $src_clock 1 1 1 1]
+			set settings(next_src_clock) $src_clock
+			
+			if { $isDSx2 && [string is true $settings(dsx2_update_chart_on_copy)] &&
+					[string is true $settings(dsx2_show_shot_desc_on_home)] } {
+				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} src_shot 
 			}
-		}
-		
-		set what_to_copy [lsort -unique $expanded]
-	}
-	#msg "DYE LOAD_NEXT_FROM final what_to_copy=$what_to_copy"
-	
-	### GET THE SOURCE DATA
-	if { $src_clock ne {} } {
-		array set src_shot [::plugins::SDB::load_shot $src_clock 1 1 1 $load_workflow_settings]
-		set settings(next_src_clock) $src_clock
-		
-		if { $isDSx2 && [string is true $settings(dsx2_update_chart_on_copy)] &&
-				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
-			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} src_shot 
-		}
-	} elseif { $src_array_name ne {} } {
-		upvar $src_array_name src_shot
-		if { [value_or_default src_shot(clock) 0] > 0 } {
-			set settings(next_src_clock) $src_shot(clock)
-		}
-	} else {
-		msg -ERROR [namespace current] "load_next_from: Either 'src_clock' or 'src_array_name' have to be provided"
-		return 0
-	}
-	
-	if { [array size src_shot] == 0 } { 
-		msg -WARNING [namespace current] "load_next_from: Shot data is empty"
-		dui say [translate "Can't load shot, data is empty"]
-		return 0 
-	}
-	
-	# Update the selected favorite number, if the data comes from a DYE Favorite
-	if { $n_fav > 0 } {
-		if { $n_fav != $settings(selected_n_fav) } {
-			set settings(selected_n_fav) $n_fav
-			set dye_setttings_changed 1
-		}
-	} elseif { $settings(next_src_clock) > 0 } {
-		set n_fav [::plugins::DYE::favorites::select_from_clock $src_clock]
-	}
-	
-	### PUT THE DATA INTO THE "NEXT SHOT" DEFINITION (Distributed between DYE "next_*" variables
-	#	and global "$::settings" variables, depending on the variable)
-	# Load the profile before the fields, so if there are duplicate variables (e.g. dose, yield, 
-	# grinder settings) they can be overwritten if necessary by the actual past shot data. 
-	if { $load_full_profile } {
-		# Copy each and every profile variable from the source shot, which may not match the
-		# current profile (with the same title) definition
-		set profile_imported [::profile::import_legacy [array get src_shot]]
-	} elseif { "profile_title" in $what_to_copy || "profile" in $what_to_copy } {
-		# Load the current version of the same profile, if found
-		if { [info exists src_shot(profile_filename)] } {
-			::select_profile $src_shot(profile_filename)
+		} elseif { $src_array_name ne {} } {
+			upvar $src_array_name src_shot
+			if { [value_or_default src_shot(clock) 0] > 0 } {
+				set settings(next_src_clock) $src_shot(clock)
+			}
 		} else {
-			msg -WARNING [namespace current] "load_next_from: profile in 'what_to_copy', but profile_filename not found"
-			dui say [translate "Cannot propagate profile, filename not found"]
+			msg -ERROR [namespace current] "source_next_from: Either 'src_clock' or 'src_array_name' have to be provided"
+			return 0
 		}
-	}
+		
+		if { [array size src_shot] == 0 } { 
+			msg -WARNING [namespace current] "source_next_from: Shot data is empty"
+			dui say [translate "Can't load shot, data is empty"]
+			return 0 
+		}
+		
+		# Update the selected favorite number, if the data comes from a DYE Favorite
+		if { $n_fav > 0 } {
+			if { $n_fav != $settings(selected_n_fav) } {
+				set settings(selected_n_fav) $n_fav
+				set dye_setttings_changed 1
+			}
+		} elseif { $settings(next_src_clock) > 0 } {
+			set n_fav [::plugins::DYE::favorites::select_from_clock $src_clock]
+		}
+		
+		### PUT THE DATA INTO THE "NEXT SHOT" DEFINITION (Distributed between DYE "next_*" variables
+		#	and global "$::settings" variables, depending on the variable)
+		# Load the profile before the fields, so if there are duplicate variables (e.g. dose, yield, 
+		# grinder settings) they can be overwritten if necessary by the actual past shot data. 
+		if { $load_full_profile } {
+			# Copy each and every profile variable from the source shot, which may not match the
+			# current profile (with the same title) definition
+			set profile_imported [::profile::import_legacy [array get src_shot]]
+		} elseif { "profile_title" in $what_to_copy || "profile" in $what_to_copy } {
+			# Load the current version of the same profile, if found
+			if { [info exists src_shot(profile_filename)] } {
+				::select_profile $src_shot(profile_filename)
+			} else {
+				msg -WARNING [namespace current] "source_next_from: profile in 'what_to_copy', but profile_filename not found"
+				dui say [translate "Cannot propagate profile, filename not found"]
+			}
+		}
+		
+		foreach field $what_to_copy {
+			if { $field ne "drink_weight" && [info exists ::plugins::DYE::settings(next_$field)] } {
+				#msg "DYE source_next_from Copying next_$field='$src_shot($field)'"
+				set settings(next_$field) $src_shot($field)
+				
+				if { [info exists ::settings($field)] } {
+					if { $src_shot($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
+						if { $field ni {grinder_dose_weight grinder_setting} } {
+							set ::settings($field) 0
+						}
+					} else {
+						set ::settings($field) $src_shot($field)
+					}
+					set settings_changed 1
+				
+					if { $skin eq "DSx" && $field eq "grinder_dose_weight" && \
+							[return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
+						set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
+						set dsx_settings_changed 1
+					}			
+				}
+			}
+		}
+		
+		if { "drink_weight" in $what_to_copy || "target_drink_weight" in $what_to_copy } {
+			set target_weight {}
+			if { [info exists src_shot(target_drink_weight)] && $src_shot(target_drink_weight) > 0 } {
+				set target_weight $src_shot(target_drink_weight)
+			} elseif { [value_or_default src_shot(settings_profile_type)] eq "settings_2c" &&
+					[value_or_default src_shot(final_desired_shot_weight_advanced) 0] > 0 } {
+				set target_weight $src_shot(final_desired_shot_weight_advanced) 
 	
-	foreach field $what_to_copy {
-		if { $field ne "drink_weight" && [info exists ::plugins::DYE::settings(next_$field)] } {
-			#msg "DYE LOAD_NEXT_FROM Copying next_$field='$src_shot($field)'"
-			set ::plugins::DYE::settings(next_$field) $src_shot($field)
+			} elseif { [value_or_default src_shot(final_desired_shot_weight) 0] }  {
+				set target_weight $src_shot(final_desired_shot_weight)
+			} elseif { [info exists src_shot(drink_weight)] && $src_shot(drink_weight) > 0 } {
+				set target_weight $src_shot(drink_weight)
+			}
 			
-			if { [info exists ::settings($field)] } {
-				if { $src_shot($field) eq "" && ([metadata get $field data_type] eq "number" || $field eq "grinder_setting") } {
-					if { $field ni {grinder_dose_weight grinder_setting} } {
-						set ::settings($field) 0
+			if { [return_zero_if_blank $target_weight] > 0 } {
+				set settings(next_drink_weight) $target_weight
+				
+				if { $skin eq "DSx" } {
+					if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
+						set ::DSx_settings(saw) $src_shot(drink_weight) 
+						set dsx_settings_changed 1
 					}
 				} else {
-					set ::settings($field) $src_shot($field)
-				}
-				set settings_changed 1
-			
-				if { $skin eq "DSx" && $field eq "grinder_dose_weight" && \
-						[return_zero_if_blank $::settings(grinder_dose_weight)] > 0 } {
-					set ::DSx_settings(bean_weight) $::settings(grinder_dose_weight)
-					set dsx_settings_changed 1
-				}			
-			}
-		}
-	}
-	
-	if { "drink_weight" in $what_to_copy || "target_drink_weight" in $what_to_copy } {
-		set target_weight {}
-		if { [info exists src_shot(target_drink_weight)] && $src_shot(target_drink_weight) > 0 } {
-			set target_weight $src_shot(target_drink_weight)
-		} elseif { [value_or_default src_shot(settings_profile_type)] eq "settings_2c" &&
-				[value_or_default src_shot(final_desired_shot_weight_advanced) 0] > 0 } {
-			set target_weight $src_shot(final_desired_shot_weight_advanced) 
-
-		} elseif { [value_or_default src_shot(final_desired_shot_weight) 0] }  {
-			set target_weight $src_shot(final_desired_shot_weight)
-		} elseif { [info exists src_shot(drink_weight)] && $src_shot(drink_weight) > 0 } {
-			set target_weight $src_shot(drink_weight)
-		}
-		
-		if { [return_zero_if_blank $target_weight] > 0 } {
-			set ::plugins::DYE::settings(next_drink_weight) $target_weight
-			
-			if { $skin eq "DSx" } {
-				if { [return_zero_if_blank $src_shot(drink_weight)] > 0 } {
-					set ::DSx_settings(saw) $src_shot(drink_weight) 
-					set dsx_settings_changed 1
-				}
-			} else {
-				# TBD: Flag the profile as modified?
-				if {$::settings(settings_profile_type) eq "settings_2c"} {
-					set ::settings(final_desired_shot_weight_advanced) $target_weight
-				} else {
-					set ::settings(final_desired_shot_weight) $target_weight
-				}
-				set settings_changed 1
-			}
-		}
-	}
-	
-	if { "DSx2_workflow" in $what_to_copy || "workflow" in $what_to_copy || $load_workflow_settings } {
-		set workflow "none"
-		if { [info exists src_shot(DSx2_workflow)] && $src_shot(DSx2_workflow) ne {} } {
-			set workflow $src_shot(DSx2_workflow)
-		} elseif { [info exists src_shot(workflow)] && $src_shot(workflow) ne {} } {
-			set workflow $src_shot(workflow)
-		}
-		if { $workflow ni [array names ::plugins::DYE::workflow_settings_vars]} {
-			msg -WARNING [namespace current] "load_next_from: workflow value '$workflow' not recognized"
-			dui say "[translate {Cannot propagate unrecognized workflow value}]: $workflow"
-			set workflow "none"
-		}
-		::workflow $workflow
-	}
-	# On a NEXT shot, the drink_weight IS the target_drink_weight (SAW)
-	#set src_shot(target_drink_weight) 0.0
-	
-	if { $load_workflow_settings } {
-		if { $::settings(steam_disabled) != $src_shot(steam_disabled) } {
-			::toggle_steam_heater
-			set settings_changed 1
-		}
-		
-		foreach field $::plugins::DYE::workflow_settings_vars($workflow) {
-			if { [info exists src_shot($field)] } {
-				if { [value_or_default ::settings($field)] != $src_shot($field) } {
-					set ::settings($field) $src_shot($field)
+					# TBD: Flag the profile as modified?
+					if {$::settings(settings_profile_type) eq "settings_2c"} {
+						set ::settings(final_desired_shot_weight_advanced) $target_weight
+					} else {
+						set ::settings(final_desired_shot_weight) $target_weight
+					}
 					set settings_changed 1
 				}
 			}
 		}
+		
+		if { "DSx2_workflow" in $what_to_copy || "workflow" in $what_to_copy || $load_workflow_settings } {
+			set workflow "none"
+			if { [info exists src_shot(DSx2_workflow)] && $src_shot(DSx2_workflow) ne {} } {
+				set workflow $src_shot(DSx2_workflow)
+			} elseif { [info exists src_shot(workflow)] && $src_shot(workflow) ne {} } {
+				set workflow $src_shot(workflow)
+			}
+			if { $workflow ni [array names ::plugins::DYE::workflow_settings_vars]} {
+				msg -WARNING [namespace current] "source_next_from: workflow value '$workflow' not recognized"
+				dui say "[translate {Cannot propagate unrecognized workflow value}]: $workflow"
+				set workflow "none"
+			}
+			::workflow $workflow
+		}
+		# On a NEXT shot, the drink_weight IS the target_drink_weight (SAW)
+		#set src_shot(target_drink_weight) 0.0
+		
+		if { $load_workflow_settings } {
+			if { $::settings(steam_disabled) != $src_shot(steam_disabled) } {
+				::toggle_steam_heater
+				set settings_changed 1
+			}
+			
+			foreach field $::plugins::DYE::workflow_settings_vars($workflow) {
+				if { [info exists src_shot($field)] } {
+					if { [value_or_default ::settings($field)] != $src_shot($field) } {
+						set ::settings($field) $src_shot($field)
+						set settings_changed 1
+					}
+				}
+			}
+		}
+	
+		if { $settings_changed } {
+			::save_settings
+		}	
+		if { $dsx_settings_changed } {
+			::save_DSx_settings
+		}
+		
+		set settings(next_modified) 1	
+		define_next_desc
+		plugins save_settings DYE
+		return 1
 	}
 
-	if { $settings_changed } {
-		::save_settings
-	}	
-	if { $dsx_settings_changed } {
-		::save_DSx_settings
+	# Returns an array with the same structure as ::plugins::SDB::load_shot but with the data for next shot, taken from
+	# the global and DYE settings. Data that doesn't apply to a "next" shot gets an empty string as value, or 0.0 for series.
+	# This is used so we can easily use the returned array as the source for DYE pages and procs like define_next_desc.
+	proc get_next { } {
+		array set shot_data {
+			comes_from_archive 0
+			path {}
+			filename {}
+			file_modification_date {}
+			clock {}
+			date_time {}
+			local_time {}
+			espresso_elapsed {0.0}
+			extraction_time 0.0
+			espresso_pressure {0.0}
+			espresso_weight {0.0}
+			espresso_flow {0.0}
+			espresso_flow_weight {0.0} 
+			espresso_temperature_basket {0.0}
+			espresso_temperature_mix {0.0}
+			espresso_flow_weight_raw {0.0}
+			espresso_water_dispensed {0.0} 
+			espresso_temperature_goal {0.0}
+			espresso_pressure_goal {0.0}
+			espresso_flow_goal {0.0}
+			espresso_state_change {0.0}
+			repository_links {}
+		}
+		set skin $::settings(skin)
+		
+		# Copy profile & extra profile variables first as we risk John adding whatever here and
+		# overwritting our data...
+		foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+			if { [info exists ::settings($fn)] } {
+				set shot_data($fn) $::settings($fn)
+			}
+		}
+		
+		#set text_fields [::plugins::SDB::field_names "category text long_text date" "shot"]
+		foreach field_name [metadata fields -domain shot -category description -data_type "category text long_text complex"] {
+			if { [info exists ::plugins::DYE::settings(next_$field_name)] } {
+				set shot_data($field_name) [string trim $::plugins::DYE::settings(next_$field_name)]
+			} else {
+				set shot_data($field_name) {}
+			}
+		}
+		#[::plugins::SDB::field_names "numeric" "shot"]
+		foreach field_name [metadata fields -domain shot -category description -data_type "number boolean"] {
+			if { [info exists ::plugins::DYE::settings(next_$field_name)] && $::plugins::DYE::settings(next_$field_name) > 0 } {
+				set shot_data($field_name) $::plugins::DYE::settings(next_$field_name)
+			} else {
+				# We use {} instead of 0 to get DB NULLs and empty values in entry textboxes
+				set shot_data($field_name) {}
+			}
+		}
+	
+	#msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
+	#msg "DYE LOAD_NEXT_SHOT ::settings(final_desired_shot_volume_advanced)=$::settings(final_desired_shot_volume_advanced)"
+		# Variables that are often exposed in skin UIs, global settings variable takes precedence	
+		if { $::settings(grinder_dose_weight) > 0 } { 
+			set shot_data(grinder_dose_weight) $::settings(grinder_dose_weight)
+		}
+		
+		if { $skin eq "DSx" } {
+			if { [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
+				set shot_data(drink_weight) [round_to_one_digits $::DSx_settings(saw)]
+			}		
+		} elseif { $::settings(settings_profile_type) eq "settings_2c" } {
+			if { $::settings(final_desired_shot_weight_advanced) > 0 } { 
+				set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight_advanced)]
+			}			
+		} elseif { $::settings(final_desired_shot_weight) > 0 } { 
+			set shot_data(drink_weight) [round_to_one_digits $::settings(final_desired_shot_weight)]
+		}
+		
+		if { $::settings(grinder_setting) ne {} } { 
+			set shot_data(grinder_setting) $::settings(grinder_setting)
+		}
+			
+		if { [::plugins::DYE::is_DSx2]} {
+			set shot_data(workflow) $::skin(workflow)
+		}
+	
+	#msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
+		# profile_title and beverage_type already in profile_vars above, removed
+		foreach field_name {app_version firmware_version_number enabled_plugins skin skin_version} {
+			if { [info exists ::settings($field_name)] } {
+				set shot_data($field_name) $::settings($field_name)
+			} else {
+				set shot_data($field_name) {}
+			}
+		}
+		
+		# Empty variables that should be undefined on next shot
+		foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds target_drink_weight} {
+			set shot_data($field_name) 0
+		}
+		
+	#	if { $shot_data(grinder_dose_weight) eq "" } {
+	#		if {[info exists file_sets(DSx_bean_weight)] == 1} {
+	#			set shot_data(grinder_dose_weight) $file_sets(DSx_bean_weight)
+	#		} elseif {[info exists file_sets(dsv4_bean_weight)] == 1} {
+	#			set shot_data(grinder_dose_weight) $file_sets(dsv4_bean_weight)
+	#		} elseif {[info exists file_sets(dsv3_bean_weight)] == 1} {
+	#			set shot_data(grinder_dose_weight) $file_sets(dsv3_bean_weight)
+	#		} elseif {[info exists file_sets(dsv2_bean_weight)] == 1} {
+	#			set shot_data(grinder_dose_weight) $file_sets(dsv2_bean_weight)
+	#		}
+	#	}
+		
+		return [array get shot_data]
 	}
 	
-	set ::plugins::DYE::settings(next_modified) 1	
-	define_next_shot_desc
-	plugins save_settings DYE
-	return 1
+	# Formats shot descriptions into multiple-line strings.
+	# 'lines_spec' is a list of parts to include, with each list element being a line of what to include in that line,
+	#	and can take values in {beans profile grind ratio extraction workflow}
+	proc format_description { values_array_name {lines_spec {beans profile {grind ratio}}} \
+			{max_line_chars 100} {default_if_empty "\[Tap to describe this shot\]"} } {
+		set shot_desc ""
+		upvar $values_array_name values
+		
+		if { [array size values] == 0 } {
+			return "\[[translate $default_if_empty]\]" 
+		}
+				
+		# Flatten lines spec
+		set what_items [list]
+		foreach item $lines_spec {
+			lappend what_items {*}$item 
+		}
+	
+		if { "workflow" in $what_items } {
+			set workflow [value_or_default values(workflow)]
+			if { $workflow eq {} } {
+				set workflow [value_or_default values(DSx2_workflow)]
+			}
+		}
+		if { "profile" in $what_items } {
+			set profile [string trim [value_or_default values(profile_title)]]
+		}
+		if { "beans" in $what_items } {
+			set beans [string trim [join [list_remove_element [list [value_or_default values(bean_brand)] \
+					[value_or_default values(bean_type)] [value_or_default values(roast_date)]] ""]]]
+		}
+		if { "grind" in $what_items } { 
+			if { ![info exists values(grinder_setting)] ||$values(grinder_setting) == 0 } { 
+				set values(grinder_setting) {}
+			}
+			set grind [string trim [join [list_remove_element [list \
+					[value_or_default values(grinder_model)] $values(grinder_setting)] ""] " @ "]] 
+		}
+		if { "ratio" in $what_items } {
+			set dose [value_or_default values(grinder_dose_weight) 0]
+			set yield [value_or_default values(drink_weight)]
+			
+			if {$dose > 0 || $yield > 0} { 
+				set ratio "$dose[translate g] : $yield[translate g]"
+				if { $dose > 0 && $yield > 0 } {
+					append ratio " (1:[round_to_one_digits [expr {$yield * 1.0 / $dose}]])"
+				}
+			} else {
+				set ratio ""
+			}
+			set duration [value_or_default values(extraction_time)]
+			if {$duration > 0} {
+				append ratio " in [round_to_integer $duration][translate s]"
+			}
+		}
+		if {"extraction" in $what_items} {
+			set extraction_items {}
+			if {[value_or_default values(drink_tds) 0] > 0} { 
+				lappend extraction_items "[translate TDS] $values(drink_tds)\%" 
+			}
+			if {[value_or_default values(drink_ey) 0] > 0} { 
+				lappend extraction_items "[translate EY] $values(drink_ey)\%" }
+			if {[value_or_default espresso_enjoyment 0] > 0} { 
+				lappend extraction_items "[translate Enjoyment] $values(espresso_enjoyment)" 
+			}
+			set extraction [join $extraction_items ", "]
+		}
+			
+		set lines {}
+		foreach line $lines_spec {
+			set line_parts {}
+			foreach line_item $line {
+				if {[info exists $line_item] } {
+					lappend line_parts [subst \$$line_item]
+				} else {
+					lappend line_parts $line_item
+				}
+			}
+			lappend lines [maxstring [join [list_remove_element $line_parts {}] " - "] $max_line_chars]
+		}
+		
+		set lines [list_remove_element $lines {}]
+		if { [llength $lines] == 0 } {
+			return "[translate $default_if_empty]"
+		} else {
+			return [join $lines "\n"]
+		}
+	} 
+	
+	# Returns a 2 or 3-lines formatted string with the summary of a shot description.
+	# DEPRECATED!! USE format_description instead
+	proc description_summary { {bean_brand {}} {bean_type {}} {roast_date {}} {grinder_model {}} \
+			{grinder_setting {}} {drink_tds 0} {drink_ey 0} {espresso_enjoyment 0} {lines 2} \
+			{default_if_empty "\[Tap to describe this shot\]"} {profile_title {}} {workflow {}} \
+			{grinder_dose_weight 0} {drink_weight 0} {extraction_time 0} } {
+		set shot_desc ""
+		set skin $::settings(skin)
+	
+		set beans_items [list_remove_element [list $bean_brand $bean_type $roast_date] ""]
+		if { $grinder_setting == 0 } { set grinder_setting {}}
+		set grinder_items [list_remove_element [list $grinder_model $grinder_setting] ""]
+		
+		set extraction_items {}
+		if {$drink_tds > 0} { lappend extraction_items "[translate TDS] $drink_tds\%" }
+		if {$drink_ey > 0} { lappend extraction_items "[translate EY] $drink_ey\%" }
+		if {$espresso_enjoyment > 0} { lappend extraction_items "[translate Enjoyment] $espresso_enjoyment" }
+		
+		set ratio_text ""
+		if {$grinder_dose_weight > 0 || $drink_weight > 0} { 
+			set ratio_text "[value_or_default grinder_dose_weight {?}][translate g] : [value_or_default drink_weight {?}][translate g]"
+			if { $grinder_dose_weight > 0 && $drink_weight > 0 } {
+				append ratio_text " (1:[round_to_one_digits [expr $drink_weight / ($grinder_dose_weight + 0.001)]])"
+			}
+		}
+		if {$extraction_time > 0} {
+			append ratio_text " in [round_to_integer $extraction_time][translate s]"
+		}
+				
+		set each_line {}
+		if { [::plugins::DYE::is_DSx2] } {
+			if { $lines == 3 } {
+				if { $profile_title ne "" } { lappend each_line $profile_title }
+				if { [llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
+				if { [llength $grinder_items] > 0 && $ratio_text ne "" } {
+					lappend each_line [string trim "[join $grinder_items { @ }], $ratio_text"]
+				} elseif { [llength $grinder_items] > 0 } {
+					lappend each_line [string trim [join $grinder_items " @ "]]
+				} elseif { $ratio_text ne "" } {
+					lappend each_line $ratio_text
+				}
+				if { $lines == 1 } {
+					set shot_desc [join $each_line " \- "]
+				} else {
+					set shot_desc [join $each_line "\n"]
+				}
+			}
+				
+		} else {
+			if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
+			if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " @ "]] }
+			if {[llength $extraction_items] > 0} { lappend each_line [string trim [join $extraction_items ", "]] }
+					
+			if { $lines == 1 } {
+				set shot_desc [join $each_line " \- "]
+			} elseif { $lines == 2 } {
+				if {[llength $each_line] == 3} {
+					set shot_desc "[lindex $each_line 0] \- [lindex $each_line 1]\n[lindex $each_line 2]"
+				} else {
+					set shot_desc [join $each_line "\n"] 
+				}
+			} else {
+				set shot_desc [join $each_line "\n"]
+			}
+		}
+				
+		if {$shot_desc eq ""} { 
+			set shot_desc "\[[translate $default_if_empty]\]" 
+		}
+		return $shot_desc
+	}
+	
+	
+	# Returns a string with the summary description of the shot selected on the left side of the DSx History Viewer.
+	# Needs the { args } as this is being used in a trace add execution.
+	proc define_past_shot_desc { args } {
+		variable past_shot_desc
+		variable past_shot_desc_one_line
+		
+		if { $::settings(skin) eq "DSx" && [info exists ::DSx_settings(past_bean_brand)] } {
+			set past_shot_desc [description_summary $::DSx_settings(past_bean_brand) \
+				$::DSx_settings(past_bean_type) $::DSx_settings(past_roast_date) $::DSx_settings(past_grinder_model) \
+				$::DSx_settings(past_grinder_setting) $::DSx_settings(past_drink_tds) $::DSx_settings(past_drink_ey) \
+				$::DSx_settings(past_espresso_enjoyment)]
+			
+			set past_shot_desc_one_line [description_summary $::DSx_settings(past_bean_brand) \
+				$::DSx_settings(past_bean_type) $::DSx_settings(past_roast_date) $::DSx_settings(past_grinder_model) \
+				$::DSx_settings(past_grinder_setting) $::DSx_settings(past_drink_tds) $::DSx_settings(past_drink_ey) \
+				$::DSx_settings(past_espresso_enjoyment) 1 ""]
+		} else {
+			set past_shot_desc ""
+			set past_shot_desc_one_line ""
+		}
+	}
+	
+	# Returns a string with the summary description of the shot selected on the right side of the DSx History Viewer. 
+	# Needs the { args } as this is being used in a trace add execution.
+	proc define_past_shot_desc2 { args } {
+		variable past_shot_desc2
+		variable past_shot_desc_one_line2
+		
+		if { $::settings(skin) eq "DSx" } {
+			if {$::DSx_settings(history_godshots) == "history" && [info exists ::DSx_settings(past_bean_brand2)] } {
+				set past_shot_desc2 [description_summary $::DSx_settings(past_bean_brand2) \
+					$::DSx_settings(past_bean_type2) $::DSx_settings(past_roast_date2) $::DSx_settings(past_grinder_model2) \
+					$::DSx_settings(past_grinder_setting2) $::DSx_settings(past_drink_tds2) $::DSx_settings(past_drink_ey2) \
+					$::DSx_settings(past_espresso_enjoyment2)]
+				
+				set past_shot_desc_one_line2 [description_summary $::DSx_settings(past_bean_brand2) \
+					$::DSx_settings(past_bean_type2) $::DSx_settings(past_roast_date2) $::DSx_settings(past_grinder_model2) \
+					$::DSx_settings(past_grinder_setting2) $::DSx_settings(past_drink_tds2) $::DSx_settings(past_drink_ey2) \
+					$::DSx_settings(past_espresso_enjoyment2) 1 ""]
+			} else {
+				set past_shot_desc2 ""
+				set past_shot_desc_one_line2 ""
+			}
+		} else {
+			set past_shot_desc2 ""
+			set past_shot_desc_one_line2 ""
+		}
+	}
+	
+	# Returns a string with the summary description of the current (last) shot.
+	# This is the text that is shown on the home page of DSx and DSx2.
+	# Needs the { args } as this is being used in a trace add execution.
+	# BEWARE this should ONLY be invoked WITHOUT DEFINING last_shot_array_name and 
+	#	using use_settings=1 just after finishing a shot, otherwise the settings 
+	#	variables may contain the plan for the next shot instead of the last one.
+	# NOTE that since DYE favorites, this also formats the "SOURCE" shot description.
+	proc define_last_desc { {last_shot_array_name {}} {use_settings 0} args } {
+		variable ::plugins::DYE::settings
+		if { ! $settings(show_shot_desc_on_home) } {
+			set settings(last_shot_desc) ""		
+			set settings(last_shot_header) ""
+			return
+		}
+		set isDSx2 [::plugins::DYE::is_DSx2] 
+		if { $isDSx2 } {			
+			set line_spec {profile beans {grind ratio}}
+			set max_line_chars 55
+		} else {
+			# Default as for DSx
+			set line_spec {beans {grind extraction} ratio}
+			set max_line_chars 55
+		}
+	
+		if { $last_shot_array_name eq {} } {
+			set settings(last_shot_header) [translate {LAST SHOT: }]
+			
+			if { [string is true $use_settings] } {	
+				if { $::settings(history_saved) == 1 } {
+					array set last_shot {}
+					foreach field [metadata fields -domain shot -category description] {
+						if { [info exists ::settings($field)] } {
+							set last_shot($field) $::settings($field)
+						}
+					}
+					set last_shot(extraction_time) [espresso_elapsed_timer]	
+					set last_shot(profile_title) $::settings(profile_title)
+					if { $isDSx2 } {
+						set last_shot(workflow) [value_or_default ::skin(workflow) {}]
+						if { $last_shot(workflow) eq {} } {
+							set last_shot(workflow) [value_or_default ::settings(DSx2_workflow) {}]
+						}
+					} else {
+						set last_shot(workflow) {}
+					}
+					set settings(last_shot_desc) [format_description last_shot $line_spec $max_line_chars]
+					
+					if { [ifexists ::settings(espresso_clock) 0] > 0 } {
+						append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
+					}
+					append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
+				} else {
+					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
+				}
+			} else {
+				# Read last shot from the database
+				if { [ifexists ::settings(espresso_clock) 0] > 0 } {				
+					array set last_shot [::plugins::SDB::shots "*" 1 "clock=$::settings(espresso_clock)" 1]
+					if { [array size last_shot] == 0 } {						
+						set settings(last_shot_desc) "\[ [translate {Last shot not found on database}] \]"
+					} else {
+						foreach field [array names last_shot] {
+							set last_shot($field) [lindex $last_shot($field) 0]
+						}
+	
+						set settings(last_shot_desc) [format_description last_shot $line_spec $max_line_chars]
+						
+						if { $::settings(espresso_clock) > 0 } {
+							append settings(last_shot_header) [::plugins::DYE::format_date $::settings(espresso_clock) no]
+						}
+						append settings(last_shot_header) ", [translate [value_or_default last_shot(workflow) no]] [translate {workflow}]"
+					}
+					
+				} else {
+					set settings(last_shot_desc) "\[ [translate {Shot not saved to history}] \]"
+				}
+			}
+		} else {
+			upvar $last_shot_array_name last_shot
+			set settings(last_shot_desc) [format_description last_shot $line_spec $max_line_chars]
+			
+			if { [info exists last_shot(clock)] } {
+				if { $last_shot(clock) == $::settings(espresso_clock) } {
+					set settings(last_shot_header) [translate {LAST SHOT: }]
+				} elseif { $last_shot(clock) == $settings(next_src_clock) } {
+					set settings(last_shot_header) [translate {SOURCE SHOT: }]
+				} else {
+					set settings(last_shot_header) [translate {BASE SHOT: }]
+				}
+				append settings(last_shot_header) [::plugins::DYE::format_date $last_shot(clock) no]
+			} else {
+				set settings(last_shot_header) [translate {LAST SHOT: }]	
+			}
+	
+			set workflow [value_or_default last_shot(workflow)]
+			if { $workflow eq {} } {
+				set workflow [value_or_default last_shot(DSx2_workflow) "no"]
+			}
+			append settings(last_shot_header) ", [translate $workflow] [translate {workflow}]"
+		}
+			
+	}
+	
+	# Returns a string with the summary description of the next shot.
+	# This is the text that is shown on the home page of DSx and DSx2.
+	# Needs the { args } as this is being used in a trace add execution.
+	# When this is called from the DYE page after editing the next shot data,
+	#	we pass the next_shot_name array name 'data' so we avoid recomputing all
+	#	next data.
+	proc define_next_desc { {next_shot_array_name {}} args } {
+		variable ::plugins::DYE::settings
+		
+		if { !$settings(show_shot_desc_on_home) || ![info exists settings(next_bean_brand)] } {
+			set settings(next_shot_desc) ""		
+			set settings(next_shot_header) ""
+			return
+		}
+				
+		if { $next_shot_array_name eq {} } {
+			array set next_shot [get_next]
+		} else {
+			upvar $next_shot_array_name next_shot 
+		}
+		
+		if { [value_or_default next_shot(clock) 0] > 0 } {
+			set settings(next_shot_header) [translate {COMPARE SHOT: }]
+			append settings(next_shot_header) "[::plugins::DYE::format_date $next_shot(clock) no], "
+		} else {
+			set settings(next_shot_header) [translate {NEXT SHOT}]
+			if { $settings(next_modified) } { 
+				append settings(next_shot_header) "*: "
+			} else {
+				append settings(next_shot_header) ": "
+			}
+			
+			# Ensure variables that should be undefined on next shot are empty
+			foreach field_name {extraction_time espresso_enjoyment drink_ey drink_tds} {
+				set next_shot($field_name) 0
+			}
+		}
+		
+		if { [::plugins::DYE::is_DSx2] } {
+			#set next_shot(workflow) [value_or_default ::skin(workflow) "none"]
+			set line_spec {profile beans {grind ratio}}
+			set max_line_chars 55
+			
+			append settings(next_shot_header) "[translate [value_or_default ::skin(workflow) {no}]] [translate {workflow}]" 
+		} else {
+			set line_spec {beans grind ratio}
+			set max_line_chars 55
+		}
+	
+		set desc [format_description next_shot $line_spec $max_line_chars]
+		set settings(next_shot_desc) $desc
+	}
+	
+	# Takes a shot (if the shot contents array is provided, use it, otherwise reads from disk from the filename parameter),
+	# 	uploads it to visualizer, changes its repository_links settings if necessary, and persists the change to disk.
+	# 'clock' can have any format supported by proc get_shot_file_path, though it is ignored if contents is provided.
+	# Returns the repository link if successful, empty string otherwise
+	proc upload_to_visualizer_and_save { clock } {
+		if { ! [plugins enabled visualizer_upload] } return
+			
+		array set arr_changes {}
+		set content [::plugins::SDB::modify_shot_file $clock arr_changes 0 0]
+		if { $content eq "" } return
+		
+		variable ::plugins::visualizer_upload::settings
+		set settings(last_action) "upload"
+		set settings(last_upload_shot) $clock
+		set settings(last_upload_result) ""
+		set settings(last_upload_id) ""
+	
+		set repo_link ""
+		set visualizer_id [::plugins::visualizer_upload::upload $content]
+		if { $visualizer_id ne "" } {
+			set link [::plugins::visualizer_upload::id_to_url $visualizer_id browse]
+			set repo_link "Visualizer $link"
+			if { [string match "*$repo_link*" $content] != 1 } {
+				set arr_changes(repository_links) $repo_link
+				::plugins::SDB::modify_shot_file $clock arr_changes
+			}
+		}
+		
+		return $repo_link
+	}
+}
+
+namespace eval ::plugins::DYE::profiles {
+	
+
+	proc load_from { target_array_name source_array_name } {
+		upvar target $target_array_name
+		upvar src $source_array_name
+		
+		foreach var [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
+			if { [info exists $src($var)] } {
+				set $target($var) $::dui::pages::DYE::src_data($var)
+			} else {
+				set $target($var) {} 
+			}
+		}
+	
+	}
+	
+	proc import_from_shot { shot_clock } {
+		::profile::import_legacy [::plugins::SDB::load_shot $shot_clock 0 0 1]
+	}
+		
+	proc import_from_visualizer { vis_shot } {
+		
+		if { ![dict exists $vis_shot profile] } {
+			msg -WARNING [namespace current] import_from_visualizer: "'profile' field not found on downloaded shot"
+			return 0
+		}
+		
+		array set profile [dict get $vis_shot profile]
+		
+		set pparts [split $profile(profile_title) "/"]
+		if { [llength $pparts] == 1 } {
+			set profile(profile_title) "Visualizer/$profile(profile_title)"
+		} elseif { [lindex $pparts 1] ne "Visualizer" } {
+			set profile(profile_title) "Visualizer/[lindex $pparts end]"
+		}
+		
+		set profile(profile_filename) [profile::filename_from_title $profile(profile_title)]
+		
+		return [::profile::import_legacy [array get profile]]
+	}
+		
+	# Returns a list of key-value pairs (which can be casted to an array) with keys 'filename', 'path', 
+	#	'title', 'group', 'author', 'hide', 'type', 'bev_type', and, if argument $file_stats is 1, 
+	#	also 'ctime' and 'mtime'. 
+	# Each value is a list of equal length.
+	# TBD: Should this be ::profile::saved_profiles_list instead (original, until 25/2/24)?
+	proc saved_list { {file_stats 1} } {
+		set file_stats [string is true $file_stats]
+		set files [lsort -dictionary [glob -nocomplain -directory "[homedir]/profiles/" *.tcl]]
+		
+		set filename {}
+		set fullpath {}
+		set title {}
+		set group {}
+		set hide {}
+		set type {}
+		set bev_type {}
+		set ctime {}
+		set mtime {}
+		
+		foreach fn $files {
+			unset -nocomplain profile
+			try {
+				array set profile [encoding convertfrom utf-8 [read_binary_file $fn]]
+			} on error err {
+				msg -ERROR [namespace current] list:: "can't read profile file '$fn': $err"
+				continue
+			}
+			
+			set rootname [file tail [file rootname $fn]]
+			if { $rootname eq "CVS" || $rootname eq "example" } {
+				continue
+			}		
+			
+			if { ![info exists profile(profile_title)] } {
+				msg -ERROR [namespace current] list:: "corrupt profile file '$fn': $err"
+				continue
+			}
+			
+			lappend filename $rootname
+			lappend fullpath "$fn"
+			lappend title $profile(profile_title)
+			
+			set parts [split $profile(profile_title) /]
+			if {[llength $parts] > 1} {
+				lappend group [lindex $parts 0]
+			} else {
+				lappend group ""
+			}
+			
+			lappend hide [value_or_default profile(profile_hide) 0]
+			lappend type [::profile::fix_profile_type [value_or_default profile(settings_profile_type) {}]]
+			# Found some profiles like "beverage_type {pourover}" and "beverage_type 0", so we explicitly handle those cases 
+			set this_bev_type [value_or_default [lindex profile(beverage_type) 0] {}]
+			if { $this_bev_type == 0 } {
+				set this_bev_type ""
+			}
+			lappend bev_type $this_bev_type
+			lappend author [value_or_default profile(author) {}]
+			
+			if { $file_stats } {
+				file stat $fn fstats
+				lappend ctime $fstats(ctime)
+				lappend mtime $fstats(mtime)
+			}
+		}
+		
+		set result [list \
+			filename $filename \
+			path $fullpath \
+			title $title \
+			group $group \
+			author $author \
+			hide $hide \
+			type $type \
+			bev_type $bev_type
+		]
+		if { $file_stats } {
+			lappend result ctime $ctime mtime $mtime
+		}
+		
+		return $result
+	}
 }
 
 namespace eval ::plugins::DYE::grinders {
@@ -2432,7 +2694,7 @@ namespace eval ::plugins::DYE::favorites {
 #				}
 #			}
 	
-			set fav_title [::plugins::DYE::format_shot_description fav_values $lines_spec $max_title_chars \
+			set fav_title [::plugins::DYE::shots::format_description fav_values $lines_spec $max_title_chars \
 				[maxstring "<[translate {Recent}] #$recent_number,\n[translate {no grouping data}]>" [expr $max_title_chars*2]]]		
 		} else {
 			set fav_title [maxstring "<[translate {Recent}] #$recent_number,\n[translate {no data yet}]>" [expr $max_title_chars*2]]
@@ -2628,7 +2890,7 @@ namespace eval ::plugins::DYE::favorites {
 		set _is_loading 1
 		if { [fav_type $n_fav] eq "n_recent" } {
 			if {[info exists fav_values(last_clock)]} {
-				set load_success [::plugins::DYE::load_next_from $fav_values(last_clock) \
+				set load_success [::plugins::DYE::shots::source_next_from $fav_values(last_clock) \
 					{} $::plugins::DYE::settings(favs_n_recent_what_to_copy) $n_fav]
 				if { [string is true $load_success ] } {
 					dui say  [translate "Recent favorite loaded"]
@@ -2649,7 +2911,7 @@ namespace eval ::plugins::DYE::favorites {
 				set what_to_copy [array names fav_values]
 			}
 			
-			set load_success [::plugins::DYE::load_next_from {} fav_values $what_to_copy $n_fav]
+			set load_success [::plugins::DYE::shots::source_next_from {} fav_values $what_to_copy $n_fav]
 			if { [string is true $load_success] } {
 				dui say [translate "Fixed favorite loaded"]
 				set _is_loading 0
@@ -2729,7 +2991,7 @@ proc ::dui::pages::DYE::setup {} {
 	regsub -all { } $::settings(skin) "_" skin
 	if { [::plugins::DYE::is_DSx2] } { set skin "DSx" }
 	
-	#::plugins::DYE::page_skeleton $page "" "" yes no center insight_ok
+	#::plugins::DYE::ui::page_skeleton $page "" "" yes no center insight_ok
 	dui add variable $page 1280 60 -tags page_title -style page_title -command {%NS::toggle_title}
 	
 	dui add variable $page 1280 125 -textvariable {[::dui::pages::DYE::propagate_state_msg]} -tags propagate_state_msg \
@@ -3498,7 +3760,7 @@ proc ::dui::pages::DYE::read_from { {what previous} {apply_to {}} } {
 			}
 			
 			if { $data(describe_which_shot) eq "next" && "profile" in $apply_to } {
-				::plugins::DYE::import_profile_from_shot $last_shot(clock)
+				::plugins::DYE::profiles::import_from_shot $last_shot(clock)
 				load_next_profile
 			}
 			
@@ -3520,7 +3782,7 @@ proc ::dui::pages::DYE::select_read_from_shot_callback { {shot_clock {}} {shot_f
 	
 	if { $shot_clock ne "" } {
 		if { $data(describe_which_shot) eq "next" } {
-			::plugins::DYE::load_next_from $shot_clock {} $data(apply_action_to)
+			::plugins::DYE::shots::source_next_from $shot_clock {} $data(apply_action_to)
 			load_description
 		} else {
 			set read_fields [concat [metadata fields -domain shot -category description -propagate 1] drink_weight espresso_notes]
@@ -3571,7 +3833,7 @@ proc ::dui::pages::DYE::load_description {} {
 	
 	if { $data(describe_which_shot) eq "next" } {
 		set src_next_modified $::plugins::DYE::settings(next_modified)
-		array set shot [::plugins::DYE::load_next_shot]
+		array set shot [::plugins::DYE::shots::get_next]
 		set data(path) {}
 	} else {
 		set src_next_modified {}		
@@ -3621,7 +3883,7 @@ proc ::dui::pages::DYE::load_description {} {
 		
 	}
 	
-	# OLD CODE, the code for loading the next shot was duplicated with ::plugins::DYE::load_next_shot, so now
+	# OLD CODE, the code for loading the next shot was duplicated with ::plugins::DYE::shots::get_next, so now
 	#	we use a single source.
 #	if { $data(describe_which_shot) eq "next" } {
 #		#set data(clock) {}
@@ -3821,7 +4083,7 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 		}
 		
 		::plugins::DYE::favorites::clear_selected_if_needed [array names changes]
-		::plugins::DYE::define_next_shot_desc data
+		::plugins::DYE::shots::define_next_desc data
 		set dye_settings_changed 1
 	} elseif { $data(path) eq {} } {
 		# Past shot not properly saved to history folder
@@ -3844,10 +4106,10 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 				}
 			}
 			
-			::plugins::DYE::define_last_shot_desc data 
+			::plugins::DYE::shots::define_last_desc data 
 			if { $dye_settings_changed } {
 				# Change also next shot desc (due to propagation)
-				::plugins::DYE::define_next_shot_desc data
+				::plugins::DYE::shots::define_next_desc data
 			}
 			set dye_settings_changed 1
 			
@@ -3866,7 +4128,7 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 			}
 		} elseif { $data(describe_which_shot) eq "past" || \
 					$data(clock) == $::plugins::DYE::settings(next_src_clock) } {
-			::plugins::DYE::define_last_shot_desc data
+			::plugins::DYE::shots::define_last_desc data
 #			TBD: Propagate changes to next shot, if it has not been modified??
 #				Not clear, as the source shot may be partial... 
 			set dye_settings_changed 1
@@ -3901,9 +4163,9 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 					}
 				}
 			
-				set ::plugins::DYE::past_shot_desc [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
+				set ::plugins::DYE::past_shot_desc [::plugins::DYE::shots::description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
 					$data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
-				set ::plugins::DYE::past_shot_desc_one_line [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
+				set ::plugins::DYE::past_shot_desc_one_line [::plugins::DYE::shots::description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
 					$data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment) 1 ""]
 			}
 			
@@ -3926,9 +4188,9 @@ proc ::dui::pages::DYE::save_description { {force_save_all 0} } {
 					}
 				}
 				
-				set ::plugins::DYE::past_shot_desc2 [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
+				set ::plugins::DYE::past_shot_desc2 [::plugins::DYE::shots::description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
 					$data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment)]
-				set ::plugins::DYE::past_shot_desc_one_line2 [::plugins::DYE::shot_description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
+				set ::plugins::DYE::past_shot_desc_one_line2 [::plugins::DYE::shots::description_summary $data(bean_brand) $data(bean_type) $data(roast_date) \
 					$data(grinder_model) $data(grinder_setting) $data(drink_tds) $data(drink_ey) $data(espresso_enjoyment) 1 ""]
 			}
 		}
@@ -4108,7 +4370,7 @@ proc  ::dui::pages::DYE::copy_to_next { } {
 	if { [needs_saving] == 1 } {
 		save_description
 	}
-	::plugins::DYE::load_next_from $data(clock) {} $data(apply_action_to)
+	::plugins::DYE::shots::source_next_from $data(clock) {} $data(apply_action_to)
 	
 	dui say [translate "Data copied to next shot plan"]
 }
@@ -4388,7 +4650,7 @@ proc ::dui::pages::DYE::process_visualizer_dlg { {repo_link {}} {downloaded_shot
 		}
 		
 		if { $data(describe_which_shot) eq "next" && "profile" in $apply_download_to } {
-			::plugins::DYE::import_profile_from_visualizer $downloaded_shot
+			::plugins::DYE::profiles::import_from_visualizer $downloaded_shot
 			load_next_profile
 		}
 		
@@ -4896,7 +5158,7 @@ namespace eval ::dui::pages::dye_visualizer_dlg {
 		
 		dui item config $page upload-lbl1 -fill [dui aspect get dtext fill -theme [dui page theme $page]]
 		set data(upload_status_msg) "[translate Uploading]..."
-		set new_repo_link [::plugins::DYE::upload_to_visualizer_and_save $data(shot_clock)]
+		set new_repo_link [::plugins::DYE::shots::upload_to_visualizer_and_save $data(shot_clock)]
 
 		if { $new_repo_link eq "" } {
 			dui item config $page upload-lbl1 -fill [dui aspect get dtext fill -theme [dui page theme $page] -style error]
@@ -5256,8 +5518,8 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 	proc load { page_to_hide page_to_show args } {
 		variable data
 		
-		array set next_shot [::plugins::DYE::load_next_shot]
-		set data(next_shot_summary) [::plugins::DYE::format_shot_description next_shot \
+		array set next_shot [::plugins::DYE::shots::get_next]
+		set data(next_shot_summary) [::plugins::DYE::shots::format_description next_shot \
 			{profile beans {grind ratio}} 45 "Next shot undefined"]
 		if { [ifexists ::settings(espresso_clock) 0] == 0 } {
 			set data(last_shot_date) [translate {No shot}]
@@ -5273,59 +5535,13 @@ namespace eval ::dui::pages::dye_which_shot_dlg {
 				foreach field [array names shot] {
 					set shot($field) [lindex $shot($field) 0]
 				}
-				set data(last_shot_summary) [::plugins::DYE::format_shot_description shot \
+				set data(last_shot_summary) [::plugins::DYE::shots::format_description shot \
 					{profile beans {grind ratio}} 45 "Not saved to history"]
 			}
 		}
 		
 		return 1
 	}
-	
-	# Returns a 2 or 3-lines formatted string with the summary of a shot description.
-	# OBSOLETE! Use ::plugins::DYE::format_shot_description instead.
-#	proc format_shot_description { {profile_title {}} {dose {}} {yield {}} {time {}} {bean_brand {}} {bean_type {}} \
-#			{roast_date {}} {grinder_model {}} {grinder_setting {}} {enjoyment 0} {default_if_empty "No description" }} {
-#		set shot_desc ""
-#	
-#		set ratio {}
-#		if { $dose ne {} || $yield ne {} || $time ne {} } {
-#			if { $dose eq {} || ![string is double $dose] } { 
-#				set dose "?" 
-#			} else {
-#				set dose [round_to_one_digits $dose]
-#			}
-#			if { $yield eq {} || ![string is double $yield] } { 
-#				set yield "?" 			
-#			} else {
-#				set yield [round_to_one_digits $yield]
-#			}
-#			append ratio "${dose}[translate g] [translate in]:${yield}[translate g] [translate out]"
-#			if { $dose ne "?" && $yield ne "?" } {
-#				append ratio " (1:[round_to_one_digits [expr {$yield*1.0/$dose}]])"
-#			}
-#			if { $time ne {} && [string is double $time] } {
-#				append ratio " [translate in] [expr {int(${time})}][translate s]"
-#			}
-#		}
-#		
-#		set beans_items [list_remove_element [list {*}$profile_title - {*}$bean_brand {*}$bean_type {*}$roast_date] ""]
-#		set grinder_items [list_remove_element [list {*}$grinder_model {*}$grinder_setting] ""]
-#		if { $enjoyment > 0} { 
-#			lappend grinder_items "[translate Enjoyment] $espresso_enjoyment" 
-#		}
-#		
-#		set each_line {}
-#		if {[string length $ratio] > 0} { lappend each_line $ratio }
-#		if {[llength $beans_items] > 0} { lappend each_line [string trim [join $beans_items " "]] }
-#		if {[llength $grinder_items] > 0} { lappend each_line [string trim [join $grinder_items " \@ "]] }
-#				
-#		set shot_desc [join $each_line "\n"]
-#	
-#		if {$shot_desc eq ""} { 
-#			set shot_desc "\[[translate $default_if_empty]\]" 
-#		}
-#		return $shot_desc
-#	}	
 	
 	proc plan_next {} {
 		dui page close_dialog
@@ -5437,7 +5653,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 			-symbol arrow-right-arrow-left -label [translate "Change profile"] -label_width 375
 		
 		# Define Tk Text tag styles
-		::plugins::DYE::setup_tk_text_profile_tags $widgets(profile_desc) 0
+		::plugins::DYE::ui::setup_tk_text_profile_tags $widgets(profile_desc) 0
 	}
 	
 	# source_type = Those acepted by ::profile::read_legacy (settings/next, shot_file, profile_file, or list)
@@ -5610,7 +5826,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		$tw configure -state normal
 		$tw delete 1.0 end
 		
-		set n_diffs [::plugins::DYE::insert_profile_in_tk_text $tw $pdict $cdict $show_diff_only]
+		set n_diffs [::plugins::DYE::ui::insert_profile_in_tk_text $tw $pdict $cdict $show_diff_only]
 		
 		$tw configure -state disabled
 	}
@@ -5706,10 +5922,11 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		bind $widgets(profiles) <Double-Button-1> [namespace current]::page_done
 
 		# Hidden beverage type selector
-		dui add dselector $page 240 400 -bwidth 600 -bheight 600 -tags selected_bev_type -initial_state hidden -orient vertical \
+		dui add dselector $page [expr {$x+4}] 400 -bwidth 600 -bheight 600 -tags selected_bev_type -orient vertical \
 			-values {espresso pourover tea_portafilter manual cleaning calibrate} -command selected_bev_type_change \
 			-labels [list [translate "Espresso"] [translate "Pour over"] [translate "Tea portafilter"] \
-				[translate "GHC manual control"] [translate "Cleaning"] [translate "Calibration"]]
+				[translate "GHC manual control"] [translate "Cleaning"] [translate "Calibration"]] 
+			#-initial_state hidden
 		
 		# LEFT SIDE, utility buttons, starting by bottom
 		set x 70; set y 600; set bheight 130; set vsep 155;
@@ -5785,7 +6002,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		dui add dbutton $page 1330 [expr {$page_height-140}] -anchor nw -tags page_done -style insight_ok -command page_done -label [translate Select]
 		
 		# Define Tk Text tag styles
-		::plugins::DYE::setup_tk_text_profile_tags $tw 1
+		::plugins::DYE::ui::setup_tk_text_profile_tags $tw 1
 	}
 	
 	# Page loading names options:
@@ -5848,7 +6065,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		
 		dui item config $page_to_show page_title -text [translate [::dui::args::get_option -page_title "Select a saved profile"]]
 			
-		array set profiles [::profile::saved_profiles_list]
+		array set profiles [::plugins::DYE::profiles::saved_list]
 		
 		# Add profile stats info from database
 		set default_list [lrepeat [llength $profiles(title)] 0]
@@ -5888,8 +6105,6 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		
 		$widgets(profile_info) configure -state disabled
 		
-		# This shouldn't be necessary, but -initial_state hidden is not working for dselectors
-		dui item hide $page_to_show selected_bev_type*
 		if { !$data(enable_open_pv) } {
 			dui item disable $page_to_show open_profile_viewer*
 		}
@@ -6094,7 +6309,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 				set profile [profile::read_legacy profile_file $filename]
 				if { [llength profile] > 0 } {
 					set pdict [::profile::legacy_to_textual $profile]
-					::plugins::DYE::insert_profile_in_tk_text $widgets(profile_info) $pdict {} 0
+					::plugins::DYE::ui::insert_profile_in_tk_text $widgets(profile_info) $pdict {} 0
 				} else {
 					msg -INFO [namespace current] profile_select: "empty profile file '$filename'" 
 				}
@@ -6135,13 +6350,11 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 		if { $idx eq {} } {
 			return
 		}
-				
-		if { [dui item cget $page selected_bev_type_1 -state] eq "hidden" } {
+
+		if { [[dui canvas] itemcget profiles -state] eq "normal" } {
 			dui item hide $page profiles*
-			dui item show $page selected_bev_type*
 		} else {
 			dui item show $page profiles*
-			dui item hide $page selected_bev_type*
 		}
 	}
 
@@ -6164,7 +6377,6 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 			fill_profiles
 
 			dui item show $page profiles*
-			dui item hide $page selected_bev_type*
 		}
 	}
 	
@@ -6244,7 +6456,7 @@ namespace eval ::dui::pages::dye_profile_select_dlg {
 				set profile [profile::read_legacy profile_file $data(selected)]
 				if { [llength profile] > 0 } {
 					set pdict [::profile::legacy_to_textual $profile]
-					::plugins::DYE::insert_profile_in_tk_text $widgets(profile_info) $pdict {} 0
+					::plugins::DYE::ui::insert_profile_in_tk_text $widgets(profile_info) $pdict {} 0
 				}
 			}
 						
@@ -6444,7 +6656,7 @@ namespace eval ::dui::pages::dye_shot_select_dlg {
 		$tw tag bind nav_cat <ButtonPress-1> [list + [namespace current]::click_nav_cat_text %W %x %y %X %Y]
 		#$tw tag bind <Double-Button-1> [namespace current]::page_done
 		
-		::plugins::DYE::setup_tk_text_profile_tags $itw 1
+		::plugins::DYE::ui::setup_tk_text_profile_tags $itw 1
 		$itw tag configure field -foreground brown
 		#{*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
 		
@@ -6929,7 +7141,7 @@ FROM V_shot WHERE removed=0 "
 		}
 		
 		set pdict [::profile::legacy_to_textual [array get selected_shot]]
-		::plugins::DYE::insert_profile_in_tk_text $tw $pdict {} 0 1 1
+		::plugins::DYE::ui::insert_profile_in_tk_text $tw $pdict {} 0 1 1
 			
 		$tw configure -state disabled
 	}
@@ -7707,7 +7919,7 @@ proc ::dui::pages::DYE_fsh::setup {} {
 	variable data
 	set page [namespace tail [namespace current]]
 	
-	::plugins::DYE::page_skeleton $page "" page_title yes yes center
+	::plugins::DYE::ui::page_skeleton $page "" page_title yes yes center
 	
 	# Categories1 listbox
 	set x_left 60; set y 120
@@ -8543,8 +8755,8 @@ proc ::dui::pages::DYE_settings::show { page_to_hide page_to_show } {
 
 proc ::dui::pages::DYE_settings::show_shot_desc_on_home_change {} {
 	if { $::plugins::DYE::settings(show_shot_desc_on_home) } {
-		::plugins::DYE::define_last_shot_desc
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_last_desc
+		::plugins::DYE::shots::define_next_desc
 	}
 	plugins save_settings DYE
 }
@@ -8571,7 +8783,7 @@ proc ::dui::pages::DYE_settings::propagate_previous_shot_desc_change {} {
 		dui item enable $page reset_next_plan*
 	}
 	
-	::plugins::DYE::define_next_shot_desc
+	::plugins::DYE::shots::define_next_desc
 	plugins save_settings DYE
 }
 	
@@ -8802,8 +9014,8 @@ proc ::dui::pages::DYE_settings2::load { page_to_hide page_to_show args } {
 proc ::dui::pages::DYE_settings2::dsx2_show_shot_desc_on_home_change {} {
 	if { [::plugins::DYE::is_DSx2 yes "Damian"] } {
 		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-			::plugins::DYE::define_last_shot_desc
-			::plugins::DYE::define_next_shot_desc
+			::plugins::DYE::shots::define_last_desc
+			::plugins::DYE::shots::define_next_desc
 		} else {
 			::restore_live_graphs_default_vectors
 		}
@@ -9423,7 +9635,7 @@ proc ::dui::pages::DYE_v3::load { page_to_hide page_to_show args } {
 			msg -ERROR [namespace current] "shot file '$which_shot' not found"
 			return 0
 		}
-		set shot_list [::plugins::DYE::load_next_shot]
+		set shot_list [::plugins::DYE::shots::get_next]
 	} else {
 		set shot_list [::plugins::SDB::load_shot $data(path)]
 	}
@@ -9708,7 +9920,7 @@ proc ::dui::pages::DYE_v3::shot_to_text { {target edited} } {
 	}
 	#$tw delete chart:end end
 
-	# Tag styles
+	# Tag styles 
 	$tw tag configure section {*}[dui aspect list -type text_tag -style dyev3_section -as_options yes]
 	$tw tag configure field {*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
 	$tw tag configure value {*}[dui aspect list -type text_tag -style dyev3_value -as_options yes]
@@ -10379,7 +10591,7 @@ proc ::dui::pages::DYE_v3::save_description {} {
 			}
 		}
 		plugins save_settings DYE
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_next_desc
 	} else {
 		if { $data(which_shot) eq "last" } {
 			foreach field [array names changes] {
@@ -10388,7 +10600,7 @@ proc ::dui::pages::DYE_v3::save_description {} {
 				}
 			}
 			::save_settings
-			::plugins::DYE::define_last_shot_desc
+			::plugins::DYE::shots::define_last_desc
 		}
 		
 		::plugins::SDB::modify_shot_file $data(path) changes
@@ -10465,83 +10677,3 @@ foreach fn "drinker_name repository_links" {
 }
 
 
-# Returns a list of key-value pairs (which can be casted to an array) with keys 'filename', 'path', 'title', 'group', 'author',
-#	'hide', 'type', 'bev_type', and, if argument $file_stats is 1, also 'ctime' and 'mtime'. 
-# Each value is a list of equal length.
-proc ::profile::saved_profiles_list { {file_stats 1} } {
-	set file_stats [string is true $file_stats]
-	set files [lsort -dictionary [glob -nocomplain -directory "[homedir]/profiles/" *.tcl]]
-	
-	set filename {}
-	set fullpath {}
-	set title {}
-	set group {}
-	set hide {}
-	set type {}
-	set bev_type {}
-	set ctime {}
-	set mtime {}
-	
-	foreach fn $files {
-		unset -nocomplain profile
-		try {
-			array set profile [encoding convertfrom utf-8 [read_binary_file $fn]]
-		} on error err {
-			msg -ERROR [namespace current] list:: "can't read profile file '$fn': $err"
-			continue
-		}
-		
-		set rootname [file tail [file rootname $fn]]
-		if { $rootname eq "CVS" || $rootname eq "example" } {
-			continue
-		}		
-		
-		if { ![info exists profile(profile_title)] } {
-			msg -ERROR [namespace current] list:: "corrupt profile file '$fn': $err"
-			continue
-		}
-		
-		lappend filename $rootname
-		lappend fullpath "$fn"
-		lappend title $profile(profile_title)
-		
-		set parts [split $profile(profile_title) /]
-		if {[llength $parts] > 1} {
-			lappend group [lindex $parts 0]
-		} else {
-			lappend group ""
-		}
-		
-		lappend hide [value_or_default profile(profile_hide) 0]
-		lappend type [fix_profile_type [value_or_default profile(settings_profile_type) {}]]
-		# Found some profiles like "beverage_type {pourover}" and "beverage_type 0", so we explicitly handle those cases 
-		set this_bev_type [value_or_default [lindex profile(beverage_type) 0] {}]
-		if { $this_bev_type == 0 } {
-			set this_bev_type ""
-		}
-		lappend bev_type $this_bev_type
-		lappend author [value_or_default profile(author) {}]
-		
-		if { $file_stats } {
-			file stat $fn fstats
-			lappend ctime $fstats(ctime)
-			lappend mtime $fstats(mtime)
-		}
-	}
-	
-	set result [list \
-		filename $filename \
-		path $fullpath \
-		title $title \
-		group $group \
-		author $author \
-		hide $hide \
-		type $type \
-		bev_type $bev_type
-	]
-	if { $file_stats } {
-		lappend result ctime $ctime mtime $mtime
-	}
-	
-	return $result
-}

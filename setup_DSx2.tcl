@@ -605,14 +605,14 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		dbutton_label.width.dyev3_action_half [expr {$half_button_width-75}]
 		
 		#text_tag.foregroud.which_shot $background_c
-		text_tag.font.dyev3_which_shot "[dui font get $font 15]"
+		text_tag.font.dyev3_which_shot "[dui font get $font 13]"
 		text_tag.justify.dyev3_which_shot center
 		
 		text_tag.justify.dyev3_profile_title center
 		
 		text_tag.foreground.dyev3_section $text_c
-		text_tag.font.dyev3_section "[dui font get $font 17]" 
-		text_tag.spacing1.dyev3_section [dui platform rescale_y 20]
+		text_tag.font.dyev3_section "[dui font get $font 12]" 
+		text_tag.spacing1.dyev3_section [dui platform rescale_y 15]
 		
 		text_tag.foreground.dyev3_field $text_c 
 		text_tag.lmargin1.dyev3_field [dui platform rescale_x 35] 
@@ -622,9 +622,9 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		
 		text_tag.foreground.dyev3_compare grey
 		
-		text_tag.font.dyev3_field_highlighted "[dui font get $font 15]"
+		text_tag.font.dyev3_field_highlighted "[dui font get $font 10]"
 		text_tag.background.dyev3_field_highlighted darkgrey
-		text_tag.font.dyev3_field_nonhighlighted "[dui font get $font 15]"
+		text_tag.font.dyev3_field_nonhighlighted "[dui font get $font 10]"
 		text_tag.background.dyev3_field_nonhighlighted {}	
 	}]	
 	
@@ -735,9 +735,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			# Called proc already defines the source shot desc
 			load_home_graph_from $settings(next_src_clock) 
 		} else {
-			::plugins::DYE::define_last_shot_desc
+			::plugins::DYE::shots::define_last_desc
 		}
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_next_desc
 		
 		# Add last/source & next shot description buttons to the home page
 		if { [string is true $settings(dsx2_show_shot_desc_on_home)] } {
@@ -758,13 +758,17 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
 			-initial_state $istate
 		
-		dui add dbutton $page 1000 1380 -bwidth 120 -bheight 180 -style dsx2 -anchor n \
+		set dbu [dui add dbutton $page 1000 1380 -bwidth 120 -bheight 180 -style dsx2 -anchor n \
 			-tags launch_dye_dsx2_hv -symbol clock-rotate-left -symbol_pos {0.5 0.3} \
 			-label [translate {history viewer}] -label_width 115 -label_pos {0.5 0.78} \
 			-label_anchor center -label_justify center -label_font_size 10 \
-			-tap_pad {20 40 20 40} -command {::dui::page::load dsx2_dye_hv}
+			-tap_pad {20 40 20 40} -command {::dui::page::load dsx2_dye_hv}]
+
+		# A try to rebind clicks on the main graph, but can't make it work
+#		bindtags $::home_espresso_graph [concat [dui::canvas].launch_dye_dsx2_hv \
+#				[list_remove_element [bindtags $::home_espresso_graph] $::home_espresso_graph]]
 		
-		# -labelvariable {[::plugins::DYE::define_next_shot_desc]}
+		# -labelvariable {[::plugins::DYE::shots::define_next_desc]}
 		dui add dbutton [concat $page dsx2_dye_hv] 1950 1370 -bwidth 850 -bheight 190 -anchor ne \
 			-shape rect -fill [dui::aspect::get page bg_color] \
 			-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} \
@@ -866,7 +870,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			dui item config $::skin_home_pages live_graph_data -initial_state hidden
 			
 			# Updates e.g. the profile title in the next shot desc if coming from a profile switch
-			::plugins::DYE::define_next_shot_desc
+			::plugins::DYE::shots::define_next_desc
 			
 			if { $::wf_espresso_set_showing || $::wf_flush_set_showing || \
 					$::wf_water_set_showing || $::wf_steam_set_showing } {
@@ -914,7 +918,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			$::home_espresso_graph configure -height $main_graph_height
 			dui item config $page live_graph_data -initial_state hidden -state hidden
 			dui item show $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*} -current 1 -initial 0
-			::plugins::DYE::define_next_shot_desc
+			::plugins::DYE::shots::define_next_desc
 		}
 	}
 	
@@ -931,6 +935,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 	}
 	
 	proc press_graph_hook { args } {
+msg "DYE PRESS_GRAPH_HOOK"		
 		variable main_graph_height
 		set page [lindex $::skin_home_pages 0]
 		
@@ -1004,7 +1009,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 	}
 	
 	proc adjust_hook { adjust_args args } {
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_next_desc
 		
 		set adjust_var [lindex $adjust_args 1]
 		if { $adjust_var eq "dose" } {
@@ -1036,7 +1041,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		set ::settings(grinder_setting) $::plugins::DYE::settings(next_grinder_setting)
 		plugins save_settings DYE
 		::save_settings
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_next_desc
 	}
 
 	# change needs to be one of plus_small, plus_big, minus_small or minus_big.
@@ -1122,7 +1127,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		}
 		
 		::plugins::DYE::favorites::clear_selected_if_needed grinder_setting
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_next_desc
 	}	
 	
 	proc select_beans {} {
@@ -1182,7 +1187,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			::plugins::DYE::open -which_shot next
 		} elseif { $bean_desc ne "" } {
 			if { [string is true $load_last_shot_into_next] && [return_zero_if_blank $last_clock] > 0 } {
-				set load_success [::plugins::DYE::load_next_from $last_clock {} \
+				set load_success [::plugins::DYE::shots::source_next_from $last_clock {} \
 					$::plugins::DYE::settings(favs_n_recent_what_to_copy)]
 				if { [string is true $load_success] } {
 					dui say [translate "Last shot with selected beans copied to next"] 
@@ -1208,7 +1213,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 				::save_settings
 				
 				::plugins::DYE::favorites::clear_selected_if_needed bean_type
-				::plugins::DYE::define_next_shot_desc
+				::plugins::DYE::shots::define_next_desc
 			}
 			compute_days_offroast
 		} else {
@@ -1456,7 +1461,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		if { $needs_saving } {
 			::save_settings			
 			::plugins::save_settings DYE
-			::plugins::DYE::define_next_shot_desc
+			::plugins::DYE::shots::define_next_desc
 		}
 	}
 	
@@ -1511,7 +1516,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 	}
 	
 	proc set_scale_weight_to_dose_hook { args } {
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_next_desc
 	}
 	
 
@@ -1586,7 +1591,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 				-ydata src_steps -linewidth 0
 		}
 		
-		::plugins::DYE::define_last_shot_desc src_shot
+		::plugins::DYE::shots::define_last_desc src_shot
 	}
 		
 	proc load_home_graph_comp_from { {comp_clock {}} {comp_array_name {}} } {
@@ -1644,7 +1649,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		$::home_espresso_graph element configure compare_steps -linewidth [rescale_x_skin 2] \
 			-xdata compare_espresso_elapsed -ydata compare_espresso_state_change
 		
-		::plugins::DYE::define_next_shot_desc comp_shot	
+		::plugins::DYE::shots::define_next_desc comp_shot	
 	}
 }
 
@@ -2159,8 +2164,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_edit_fav {
 			-text [translate "Favorite type"] 
 		dui add dselector $page [expr $x+300] $y -bwidth 800 -anchor nw -tags {fav_type fav_editing} \
 			-variable fav_type -values {n_recent fixed} -command change_fav_type \
-			-labels [list [translate "Recent"] [translate "Fixed"]] \
-			-initial_state hidden
+			-labels [list [translate "Recent"] [translate "Fixed"]]
 		# Temporal text
 #		dui add dtext $page [expr {$x+300}] [expr {$y+25}] -width 800 -text [translate "Recent beans"] \
 #			-font_size +2 -font_family notosansuibold
@@ -2823,6 +2827,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		n_shots 0
 		n_matches_text ""
 		selected {}
+		show_diff_only 0
 	}
 	
 	variable shots
@@ -2830,6 +2835,12 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	
 	variable selected_shot
 	array set selected_shot {}
+	
+	variable base_shot
+	array set base_shot {}
+	
+	variable comp_shot
+	array set comp_shot {}
 	
 	proc setup { } {
 		variable data
@@ -2851,29 +2862,53 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			steps_data steps_text steps_key_button \
 			main_graph_toggle_view_label main_graph_toggle_view_button]
 
-		# Right side panel
-		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1450 -tags right_panel_box \
+		# Right side panel, Search shot mode
+		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1210 -tags {search_shot_box search_shot_panel} \
 			-width 2 -outline [dui::aspect::get dtext fill]
 		
-		dui add dtext $page 2170 120 -anchor n -justify center -tags right_panel_title \
+		dui add dtext $page 2170 110 -anchor n -justify center -tags {search_shot_title search_shot_panel} \
 			-width 690 -style menu_dlg_title -font_family notosansuibold \
-			-text [translate {Select left shot}]
+			-text [translate {Select compare shot}]
 		
-		# 1850
-		dui add dtext $page 2170 190 -tags select_shot_label -font_size 10 -anchor n -justify center \
-			-text [translate {M A T C H   R I G H T   S H O T}] \
+		dui add dtext $page 2170 180 -tags {select_shot_label search_shot_panel} -font_size 10 \
+			-anchor n -justify center -text [translate {M A T C H   B A S E   S H O T}] \
 			
-		dui add dselector $page 1850 225 -bwidth 640 -bheight 90 -tags filter_matching \
+		dui add dselector $page 1850 215 -bwidth 640 -bheight 90 -tags {filter_matching search_shot_panel} \
 			-values {beans profile grinder} -multiple yes -label_font_size -1 \
 			-labels [list [translate "Beans"] [translate "Profile"] [translate "Grinder"]] \
 			-command filter_shots 
 		
-		set tw [dui add text $page 1840 335 -tags shots -canvas_width 660 \
-			-canvas_height 1000 -canvas_anchor nw -yscrollbar 0 -font_size 12 \
+		set tw [dui add text $page 1840 325 -tags {shots search_shot_panel} -canvas_width 660 \
+			-canvas_height 955 -canvas_anchor nw -yscrollbar 0 -font_size 12 \
 			-highlightthickness 0 -initial_state disabled -foreground [dui::aspect::get dtext fill] \
 			-exportselection 0]
+
+		dui add dbutton $page 1850 1330 -bwidth 640 -bheight 90 -tags {describe_shot search_shot_panel} \
+			-style dsx2 -symbol $::plugins::DYE::settings(describe_icon) -label [translate {Describe compare shot}] \
+			-symbol_font_size 20 -symbol_pos {50 0.5} -symbol_anchor center -symbol_justify center -label_pos {0.55 0.5} 
+
+		dui add dbutton $page 1850 1450 -bwidth 640 -bheight 90 -tags {copy_to_next search_shot_panel} \
+			-style dsx2 -symbol file-export -label [translate {Copy comp. shot to Next}] \
+			-symbol_font_size 20 -symbol_pos {50 0.5} -symbol_anchor center -symbol_justify center -label_pos {0.55 0.5}
 		
-		# Define Tk Text tag styles
+		# Right side panel, Compare mode
+		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1460 -tags {compare_box compare_panel} \
+			-width 2 -outline [dui::aspect::get dtext fill] -initial_state hidden
+		
+		dui add dtext $page 2170 110 -anchor n -justify center -tags {compare_title compare_panel} \
+			-width 690 -style menu_dlg_title -font_family notosansuibold \
+			-text [translate {Shots comparison}] -initial_state hidden
+
+		dui add dtoggle $page 1850 200 -tags {show_diff_only compare_panel} -initial_state hidden
+		dui add dtext $page 1980 204 -tags {diff_only_label compare_panel} \
+			-text [translate {Show only differences}] -initial_state hidden
+		
+		set ctw [dui add text $page 1840 290 -tags {compare compare_panel} -canvas_width 660 \
+			-canvas_height 1180 -canvas_anchor nw -yscrollbar 0 -font_size 11 \
+			-highlightthickness 1 -initial_state hidden -foreground [dui::aspect::get dtext fill] \
+			-exportselection 0]
+
+		# Define Tk Text tag styles for shot selection
 		$tw tag configure datetime -foreground brown -spacing3 -20
 		$tw tag configure shotsep -spacing1 [dui::platform::rescale_y 15]
 		$tw tag configure details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
@@ -2883,10 +2918,19 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
 		# when use_finger_down_for_tap=0. 
 		$tw tag bind shot <ButtonPress-1> [list + [namespace current]::click_shot_text %W %x %y %X %Y]
-		$tw tag bind shot <Double-Button-1> [namespace current]::page_done
+		$tw tag bind shot <Double-Button-1> [list [namespace current]::select_shot_side none]
+		
+		# Define Tk Text tag styles for shot comparison (TEMPORAL, TODO change styles)
+		# TODO: dui aspect text_tags $ctw -tag section -style dyev3_section field dyev3_field		
+		$ctw tag configure section {*}[dui aspect list -type text_tag -style dyev3_section -as_options yes]
+		$ctw tag configure field {*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
+		$ctw tag configure value {*}[dui aspect list -type text_tag -style dyev3_value -as_options yes]
+		$ctw tag configure measure_unit {*}[dui aspect list -type text_tag -style dyev3_measure_unit -as_options yes]
+		$ctw tag configure compare -elide 1 {*}[dui aspect list -type text_tag -style dyev3_compare -as_options yes]
+		#set non_highlighted_aspects [dui aspect list -type text_tag -style dyev3_field_nonhighlighted -as_options yes]				
 	}
 	
-	proc load { page_to_hide page_to_show args } {
+	proc load { page_to_hide page_to_show {base_clock 0} {comp_clock 0} args } {
 		variable data 
 		variable src_elapsed_backup
 		variable ::plugins::DYE::settings
@@ -2903,12 +2947,17 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		set data(profile_title) $::settings(profile_title)
 		set data(grinder_model) $::settings(grinder_model)
 		
-		set data(left_clock) $::plugins::DYE::settings(next_src_clock)
+		if { $base_clock <= 0 } {
+			set data(left_clock) $::plugins::DYE::settings(next_src_clock)
+		} else {
+			set data(left_clock) $base_clock
+		}
 		set data(right_clock) 0
 		set settings(next_shot_header) {}
 		set settings(next_shot_desc) "\[ [translate {Tap to select a shot to compare with}] \]"
+		
 		filter_shots
-		select_shot_side "left"
+		select_shot_side "right"
 		
 		return 1
 	}
@@ -2922,12 +2971,12 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		
 		select_shot_side none
 		$::home_espresso_graph configure -width [dui::platform::rescale_x 1950]
-		dui item moveto $page_to_show launch_dye_next* 1090 1370
+		dui item moveto $page_to_hide launch_dye_next* 1090 1370
 		
 		foreach curve {pressure weight flow steps} {
 			$::home_espresso_graph element configure compare_${curve} -linewidth 0
 		}
-		::plugins::DYE::define_next_shot_desc
+		::plugins::DYE::shots::define_next_desc
 		
 		# Even if the source shot has not changed, as soon as it has been compared with another
 		# shot the X axis has been modified, and returning to the original is not trivial, so we
@@ -2948,7 +2997,13 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable data
 		set page [namespace tail [namespace current]]
 		
+		if { $data(selected_side) eq $side } {
+			set side ""
+		}
+		
 		if { $side eq "left" } {
+			dui item hide $page compare_panel
+			dui item show $page search_shot_panel
 			dui item config $page launch_dye_last-btn -fill [dui::aspect::get dbutton fill -style dsx2]
 			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dbutton_label fill -style dsx2]
 			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dbutton_label fill -style dsx2]
@@ -2959,10 +3014,14 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			
 			set data(selected_side) "left"
 			dui item config $page right_panel_title -text [translate {Select base shot}]
-			dui item config $page select_shot_label -text [translate {M A T C H   C O M P A R E   S H O T}]
+			#dui item config $page select_shot_label -text [translate {M A T C H   C O M P A R E   S H O T}]
+			dui item config $page describe_shot-lbl -text [translate {Describe base shot}]
+			dui item config $page copy_to_next-lbl -text [translate {Copy base shot to Next}]
 			
 			shot_select $data(left_clock) 0
 		} elseif { $side eq "right" } {
+			dui item hide $page compare_panel
+			dui item show $page search_shot_panel
 			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
 			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dtext fill]
 			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dtext fill]
@@ -2973,12 +3032,15 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			
 			set data(selected_side) "right"
 			dui item config $page right_panel_title -text [translate {Select compare shot}]
-			dui item config $page select_shot_label -text [translate {M A T C H   B A S E   S H O T}]
+			#dui item config $page select_shot_label -text [translate {M A T C H   B A S E   S H O T}]
+			dui item config $page describe_shot-lbl -text [translate {Describe compare shot}]
+			dui item config $page copy_to_next-lbl -text [translate {Copy comp. shot to Next}]
 			
 			shot_select $data(right_clock) 0
 		} else {
-			# Clear both
-			set data(selected_side) ""
+			# Clear both			
+			dui item hide $page search_shot_panel
+			dui item show $page compare_panel
 			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
 			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dtext fill]
 			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dtext fill]
@@ -2986,6 +3048,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			dui item config $page launch_dye_next-btn -fill [dui::aspect::get page bg_color]
 			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dtext fill]
 			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dtext fill]
+			
+			set data(selected_side) ""
+			fill_comparison
 		}
 	}
 	
@@ -3093,7 +3158,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable widgets
 		variable data
 		variable shots
-msg "FILLING SHOTS"		
+		
 		set star [dui symbol get star]
 		set half_star [dui symbol get star-half]
 		
@@ -3205,6 +3270,8 @@ msg "FILLING SHOTS"
 		variable widgets
 		variable shots
 		variable selected_shot
+		variable base_shot
+		variable comp_shot
 
 		set widget $widgets(shots)
 		#set vectors_ns [namespace current]::vectors
@@ -3215,13 +3282,6 @@ msg "FILLING SHOTS"
 				set data(selected) ""
 			}
 			array set selected_shot {}
-#			# {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix temperature_goal state_change resistance}
-#			foreach sn {elapsed pressure flow flow_weight temperature_basket state_change} {
-#				${vectors_ns}::$sn set {}
-#			}
-			
-#			dui item disable [namespace tail [namespace current]] page_done*
-#			preview_shot_summary
 			return
 		} elseif { $data(selected) eq $clock } {
 			return
@@ -3246,49 +3306,29 @@ msg "FILLING SHOTS"
 		
 		if { $data(selected_side) eq "left" } {
 			if { [string is true $load_shot] && $data(left_clock) != $clock } {
-				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from $clock {} 0
+				array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
 			}
 			set data(left_clock) $clock
 		} elseif { $data(selected_side) eq "right" } {
 			if { [string is true $load_shot] && $data(right_clock) != $clock } {
-				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from $clock
+				array set comp_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
 			}
 			set data(right_clock) $clock
 		}
-		
-		#array set selected_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
-		
-		# Shot may not be found if it was not saved to disk
-#		if { [array size selected_shot] == 0 } {
-#			load_home_graph_from $clock
-#			# {elapsed pressure_goal pressure flow_goal flow flow_weight weight temperature_basket temperature_mix temperature_goal state_change resistance}
-##			foreach sn {elapsed pressure flow flow_weight temperature_basket state_change} {
-##				${vectors_ns}::$sn set {}
-##			}
-##			dui item disable [namespace tail [namespace current]] page_done*
-##			preview_shot_summary
-#			return
-#		}
-		
-#		# Update preview graph		
-#		foreach sn {elapsed temperature_basket pressure flow flow_weight state_change} {
-#			if { $sn eq "resistance" } {
-#				set varname $sn
-#			} else {
-#				set varname "espresso_$sn"
-#			}
-#			if { [info exists selected_shot(graph_$varname)] } {
-#				${vectors_ns}::$sn set $selected_shot(graph_$varname)
-#			} else {
-#				${vectors_ns}::$sn set {}
-#				msg -WARNING [namespace current] shot_select: "can't add chart series '$sn' of shot with clock '$clock'"
-#			}
-#		}
-#	
-#		dui item enable [namespace tail [namespace current]] page_done*
-#		preview_shot_summary 
 	}
+	
+	proc fill_comparison {} {
+		variable widgets
+		variable data
+		variable base_shot
+		variable comp_shot
 		
+		::plugins::DYE::ui::shot_to_tk_text $widgets(compare) base_shot -comp comp_shot \
+			-show_diff_only $data(show_diff_only) -clear_text 1
+	}
+	
 	proc page_done {} {
 		dui page close_dialog
 	}

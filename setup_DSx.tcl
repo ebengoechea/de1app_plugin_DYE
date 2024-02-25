@@ -605,20 +605,20 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 	### HISTORY VIEWER PAGE ###
 	# Show espresso summary description (beans, grind, TDS, EY and enjoyment), and make it clickable to show to full
 	# espresso description.
-	dui add dbutton DSx_past 40 850 1125 975 -tags dsx_past_launch_dye -labelvariable {$::plugins::DYE::past_shot_desc} \
+	dui add dbutton DSx_past 40 850 1125 975 -tags dsx_past_launch_dye -labelvariable {$::plugins::DYE::shots::past_shot_desc} \
 		-label_pos { 0.001 0.01 } -label_font_size -1 -label_anchor nw \
 		-label_fill $::plugins::DYE::settings(shot_desc_font_color) -label_justify left -label_width 1100 \
 		-command { if { [ifexists ::DSx_settings(past_shot_file) ""] ne "" } { dui page load DYE DSx_past } }
 	
-	dui add dbutton DSx_past 1300 850 2400 975 -tags dsx_past2_launch_dye -labelvariable {$::plugins::DYE::past_shot_desc2} \
+	dui add dbutton DSx_past 1300 850 2400 975 -tags dsx_past2_launch_dye -labelvariable {$::plugins::DYE::shots::past_shot_desc2} \
 		-label_pos { 0.001 0.01 } -label_font_size -1 -label_anchor nw \
 		-label_fill $::plugins::DYE::settings(shot_desc_font_color) -label_justify left -label_width 1100 \
 		-command { if { [ifexists ::DSx_settings(past_shot_file2) ""] ne "" } { dui page load DYE DSx_past2 } }
 	
 	# Update left and right side shot descriptions when they change
-	trace add execution ::load_DSx_past_shot {leave} { ::plugins::DYE::define_past_shot_desc }
-	trace add execution ::load_DSx_past2_shot {leave} { ::plugins::DYE::define_past_shot_desc2 }
-	trace add execution ::clear_graph {leave} { ::plugins::DYE::define_past_shot_desc2 }	
+	trace add execution ::load_DSx_past_shot {leave} { ::plugins::DYE::shots::define_past_shot_desc }
+	trace add execution ::load_DSx_past2_shot {leave} { ::plugins::DYE::shots::define_past_shot_desc2 }
+	trace add execution ::clear_graph {leave} { ::plugins::DYE::shots::define_past_shot_desc2 }	
 	
 	# Search/filter button for left side
 	dui add dbutton DSx_past 935 1445 -tags dsx_past_filter -style dsx_archive -symbol filter \
@@ -645,10 +645,10 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 		} 
 		
 	### FULL PAGE CHARTS FROM HISTORY VIEWER ###
-	dui add variable DSx_past_zoomed 1280 1535 -tags dye_shot_desc -textvariable {$::plugins::DYE::past_shot_desc_one_line} \
+	dui add variable DSx_past_zoomed 1280 1535 -tags dye_shot_desc -textvariable {$::plugins::DYE::shots::past_shot_desc_one_line} \
 		-font_size 12 -fill $settings(shot_desc_font_color) -anchor center -justify center -width 2200
 
-	dui add variable DSx_past2_zoomed 1280 1535 -tags dye_shot_desc -textvariable {$::plugins::DYE::past_shot_desc_one_line2} \
+	dui add variable DSx_past2_zoomed 1280 1535 -tags dye_shot_desc -textvariable {$::plugins::DYE::shots::past_shot_desc_one_line2} \
 		-font_size 12 -fill $settings(shot_desc_font_color) -anchor center -justify center -width 2200
 	
 	trace add execution ::history_godshots_switch leave ::plugins::DYE::history_godshots_switch_leave_hook
@@ -687,8 +687,8 @@ proc ::plugins::DYE::setup_ui_DSx {} {
 proc ::plugins::DYE::history_godshots_switch_leave_hook { args } {
 	if { $::settings(skin) ne "DSx" } return
 	if {[info exists ::DSx_settings(history_godshots)] && $::DSx_settings(history_godshots) ne "history" } {
-		set ::plugins::DYE::past_shot_desc2 {}
-		set ::plugins::DYE::past_shot_desc_one_line2 {}
+		set ::plugins::DYE::shots::past_shot_desc2 {}
+		set ::plugins::DYE::shots::past_shot_desc_one_line2 {}
 	}
 }
 
