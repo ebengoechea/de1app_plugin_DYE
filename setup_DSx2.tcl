@@ -2839,9 +2839,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	variable shots
 	array set shots {}
 	
-	variable selected_shot
-	array set selected_shot {}
-	
 	variable base_shot
 	array set base_shot {}
 	
@@ -2953,14 +2950,18 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		set data(bean_type) $::settings(bean_type)
 		set data(profile_title) $::settings(profile_title)
 		set data(grinder_model) $::settings(grinder_model)
+		set data(selected) {}
+		
+		# This also fills the shot history
+		filter_shots
 		
 		if { $base_clock <= 0 } {
-			set $base_clock $settings(next_src_clock)
+			set base_clock $settings(next_src_clock)
 		}
-		shot_select $base_clock 1 left
+		shot_select $base_clock 1 left 1
 		
 		if { $comp_clock > 0 } {
-			shot_select $comp_clock 1 right
+			shot_select $comp_clock 1 right 1
 		} else {
 			set data(right_clock) 0
 			array unset comp_shot
@@ -2968,7 +2969,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			set settings(next_shot_desc) "\[ [translate {Tap to select a shot to compare with}] \]"
 		}
 		
-		filter_shots
 		select_shot_side "right"
 		
 		return 1
@@ -3017,7 +3017,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dtext fill]
 			
 			set data(selected_side) "left"
-			dui item config $page right_panel_title -text [translate {Select base shot}]
+			dui item config $page search_shot_title -text [translate {Select base shot}]
 			#dui item config $page select_shot_label -text [translate {M A T C H   C O M P A R E   S H O T}]
 			dui item config $page describe_shot-lbl -text [translate {Describe base shot}]
 			dui item config $page copy_to_next-lbl -text [translate {Copy base shot to Next}]
@@ -3035,9 +3035,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dbutton_label fill -style dsx2]
 			
 			set data(selected_side) "right"
-			dui item config $page right_panel_title -text [translate {Select compare shot}]
+			dui item config $page search_shot_title -text [translate {Select comparison shot}]
 			#dui item config $page select_shot_label -text [translate {M A T C H   B A S E   S H O T}]
-			dui item config $page describe_shot-lbl -text [translate {Describe compare shot}]
+			dui item config $page describe_shot-lbl -text [translate {Describe comp. shot}]
 			dui item config $page copy_to_next-lbl -text [translate {Copy comp. shot to Next}]
 			
 			shot_select $data(right_clock) 0
@@ -3082,18 +3082,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			}
 		}
 		
-#		# Order by
-#		if { $data(sort_by) eq "enjoyment" } {
-#			set sort_by "CASE WHEN espresso_enjoyment='' THEN 0 ELSE COALESCE(espresso_enjoyment,0) END DESC,clock DESC"
-#		} elseif { $data(sort_by) eq "ey" } {
-#			set sort_by "CASE WHEN drink_ey='' THEN 0 ELSE COALESCE(drink_ey,0) END DESC,clock DESC"
-#		} elseif { $data(sort_by) eq "ratio" } {
-#			set sort_by "CASE WHEN drink_weight='' OR drink_weight=0 OR grinder_dose_weight=0 OR grinder_dose_weight='' THEN 0 ELSE drink_weight/grinder_dose_weight END DESC,clock DESC"
-#		} else {
-#			set sort_by "clock DESC"
-#		}
-		set sort_by "clock DESC"
-		
 		# Case-insensitive search doesn't work on SQLite on Androwish "Eppur si Muove" (2019). Using COLLATE NOCASE does
 		# nothing, and doing LOWER(shot_desc) or UPPER(shot_desc) triggers a runtime error. So we apply the string
 		# filtering in Tcl instead.
@@ -3111,7 +3099,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			set data(n_matches_text) [translate "No shots found"]
 		} else {
 			array set shots [::plugins::SDB::shots {clock filename shot_desc profile_title grinder_dose_weight drink_weight 
-				extraction_time bean_desc espresso_enjoyment grinder_model grinder_setting} 1 $filter 500 $sort_by]
+				extraction_time bean_desc espresso_enjoyment grinder_model grinder_setting} 1 $filter 500 "clock DESC"]
 		}
 		
 		apply_string_filter
@@ -3269,39 +3257,36 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		}
 	}	
 	
-	proc shot_select { clock {load_shot 1} {side {}} } {
+	proc shot_select { clock {load_shot 1} {side {}} {force 0} } {
 		variable data
 		variable widgets
 		variable shots
-		variable selected_shot
 		variable base_shot
 		variable comp_shot
 		variable ::plugins::DYE::settings
 
 		set widget $widgets(shots)
-		#set vectors_ns [namespace current]::vectors
 
 		if { $clock eq "" } {
 			if { $data(selected) ne "" } {
 				$widget tag configure shot_$data(selected) -background {} -foreground {}
 				set data(selected) ""
 			}
-			array set selected_shot {}
 			return
-		} elseif { $data(selected) eq $clock } {
+		} elseif { $data(selected) eq $clock && ![string is true $force] } {
 			return
 		}
-
+msg "DYE SHOT_SELECT, data(selected)=$data(selected), clock=$clock, side=$side, force=$force"
 		if { $data(selected) ne "" } {
 			$widget tag configure shot_$data(selected) -background {} -foreground {}
 		}
-		
-		set data(selected) $clock
-		#array set selected_shot {}
+
+		if { $side eq {} } {
+			set data(selected) $clock
+		}
 				
 		$widget tag configure shot_$clock -background [dui::aspect::get dbutton fill -style dsx2] \
 				-foreground [dui::aspect::get dbutton_label fill -style dsx2]
-		#{*}[dui aspect list -type text_tag -style dyev3_field_highlighted -as_options yes]
 		
 		# if the tag can't be found in the widget, this fails, so embedded in catch
 		catch {
@@ -3314,8 +3299,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		}
 		if { $side eq "left" } {
 			if { [string is true $load_shot] && $data(left_clock) != $clock } {
-				if { $clock == $settings(next_src_clock) } {
+				if { $clock == $settings(next_src_clock) } {					
 					array set base_shot [array get ::plugins::DYE::shots::src_shot]
+msg "DYE HV SHOT_SELECT, clock == \$settings(next_src_clock), \$base_shot(clock)=$base_shot(clock)"	
 				} else {
 					array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
 				}

@@ -173,7 +173,6 @@ proc ::plugins::DYE::main {} {
 	# Initialize source shot and shot summaries
 	if { $settings(next_src_clock) > 0 } {
 		array set src_shot [::plugins::SDB::load_shot $settings(next_src_clock) 1 1 1 1]
-msg "DYE MAIN, src_shot(clock)=$src_shot(clock), src_shot(profile_title)=$src_shot(profile_title)"		
 		shots::define_last_desc src_shot
 	} else {
 		shots::define_last_desc
@@ -2113,7 +2112,7 @@ namespace eval ::plugins::DYE::shots {
 		}
 		
 		if { [value_or_default next_shot(clock) 0] > 0 } {
-			set settings(next_shot_header) [translate {COMPARE SHOT: }]
+			set settings(next_shot_header) [translate {COMP. SHOT: }]
 			append settings(next_shot_header) "[::plugins::DYE::format_date $next_shot(clock) no], "
 		} else {
 			set settings(next_shot_header) [translate {NEXT SHOT}]
