@@ -2917,6 +2917,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		$tw tag configure details -lmargin1 [dui::platform::rescale_x 25] -lmargin2 [dui::platform::rescale_x 40] \
 			-font [dui font get notosansuiregular 10] -spacing1 -20
 		$tw tag configure symbol -font [dui font get $::dui::symbol::font_filename 16]
+		# Selected shot
+		$tw tag configure selshot -background [dui::aspect::get dbutton fill -style dsx2] \
+			-foreground [dui::aspect::get dbutton_label fill -style dsx2] 
+		$tw tag configure selother -background grey 
 		
 		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
 		# when use_finger_down_for_tap=0. 
@@ -3180,6 +3184,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			} else {
 				$tw insert insert "[::plugins::DYE::format_date $shot_clock]" [concat $tags datetime shotsep]
 			}
+			$tw mark set stype_$shot_clock insert
+			$tw mark gravity stype_$shot_clock left
 			
 			set enjoy [lindex $shots(espresso_enjoyment) $idx]
 			if { $enjoy > 0 } {
@@ -3266,42 +3272,47 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable ::plugins::DYE::settings
 
 		set widget $widgets(shots)
-
-		if { $clock eq "" } {
-			if { $data(selected) ne "" } {
-				$widget tag configure shot_$data(selected) -background {} -foreground {}
-				set data(selected) ""
-			}
+		
+		if { $clock eq {} || $clock <= 0} {
+			$widget tag delete selshot
+			set data(selected) {}
 			return
 		} elseif { $data(selected) eq $clock && ![string is true $force] } {
 			return
-		}
-msg "DYE SHOT_SELECT, data(selected)=$data(selected), clock=$clock, side=$side, force=$force"
-		if { $data(selected) ne "" } {
-			$widget tag configure shot_$data(selected) -background {} -foreground {}
 		}
 
 		if { $side eq {} } {
 			set data(selected) $clock
 		}
-				
-		$widget tag configure shot_$clock -background [dui::aspect::get dbutton fill -style dsx2] \
-				-foreground [dui::aspect::get dbutton_label fill -style dsx2]
-		
-		# if the tag can't be found in the widget, this fails, so embedded in catch
-		catch {
-			$widget see shot_${clock}.last
-			$widget see shot_${clock}.first
+
+		$widget tag delete selshot
+		# if a tag like shot_$clock can't be found in the widget, this raises an error, so embed in catch
+		try {
+			$widget tag add selshot shot_${clock}.first shot_${clock}.last
+		} on error err {
+			msg -NOTICE [namespace current] "shot_select: tag 'shot_$clock' not found on text widget, $err"
+			return
 		}
+			
+		$widget tag configure selshot -background [dui::aspect::get dbutton fill -style dsx2] \
+			-foreground [dui::aspect::get dbutton_label fill -style dsx2] 
+		$widget see shot_${clock}.last
+		$widget see shot_${clock}.first
 		
 		if { $side eq {} } {
 			set side $data(selected_side) 
 		}
 		if { $side eq "left" } {
+			$widget configure -state normal
+			catch {
+				$widget delete sel_base.first sel_base.last
+				$widget tag delete sel_base
+			}
+			$widget insert stype_$clock " \[[translate BASE]\]" [list sel_base selshot shot_$clock]
+			$widget configure -state disabled
 			if { [string is true $load_shot] && $data(left_clock) != $clock } {
 				if { $clock == $settings(next_src_clock) } {					
 					array set base_shot [array get ::plugins::DYE::shots::src_shot]
-msg "DYE HV SHOT_SELECT, clock == \$settings(next_src_clock), \$base_shot(clock)=$base_shot(clock)"	
 				} else {
 					array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
 				}
@@ -3309,6 +3320,13 @@ msg "DYE HV SHOT_SELECT, clock == \$settings(next_src_clock), \$base_shot(clock)
 			}
 			set data(left_clock) $clock
 		} elseif { $side eq "right" } {
+			$widget configure -state normal
+			catch {
+				$widget delete sel_comp.first sel_comp.last
+				$widget tag delete sel_comp
+			}			
+			$widget insert stype_$clock " \[[translate COMP]\]" [list sel_comp selshot shot_$clock]
+			$widget configure -state disabled
 			if { [string is true $load_shot] && $data(right_clock) != $clock } {
 				if { $clock == $settings(next_src_clock) } {
 					array set comp_shot [array get ::plugins::DYE::shots::src_shot]
