@@ -27,7 +27,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.44
+	variable version 2.45
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people. Also includes beans-based workflow, shot history management, and profile tools."]
@@ -7284,7 +7284,7 @@ namespace eval ::dui::pages::dye_item_select_dlg {
 		
 		# If no selected is given, but variable is given and it has a current value, use it as selected.
 		set data(variable) $variable
-		set data(item_values) [subst $values]
+		set data(item_values) $values
 		set data(item_ids) [::dui::args::get_option -values_ids {}]
 		if { $data(item_ids) ne {} && [llength $data(item_values)] != [llength $data(item_ids)] } {
 			msg -ERROR [namespace current] "load: item_ids and item_values have different lengths"

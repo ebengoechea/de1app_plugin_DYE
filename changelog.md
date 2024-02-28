@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.45] - 2024-02-28
+
+### Changed
+ - Fixed a bug that was tcl-subst'ing values passed to dialog ``dye_item_select_dlg`` so they would fail if they had characters interpretable by Tcl. Reported by Omer Ytzhaki.
+
 ## [2.44] - 2024-02-23
 
 ### Changed
