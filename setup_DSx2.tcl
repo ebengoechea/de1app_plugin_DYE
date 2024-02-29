@@ -2962,9 +2962,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		if { $base_clock <= 0 } {
 			set base_clock $settings(next_src_clock)
 		}
+msg "DYE DSX2_DYE_HV LOAD, base_clock=$base_clock"		
 		shot_select $base_clock 1 left 1
 		
 		if { $comp_clock > 0 } {
+msg "DYE DSX2_DYE_HV LOAD, comp_clock=$comp_clock"			
 			shot_select $comp_clock 1 right 1
 		} else {
 			set data(right_clock) 0
@@ -2972,7 +2974,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			set settings(next_shot_header) {}
 			set settings(next_shot_desc) "\[ [translate {Tap to select a shot to compare with}] \]"
 		}
-		
+
+msg "DYE DSX2_DYE_HV LOAD, select_shot_side right"		
 		select_shot_side "right"
 		
 		return 1
@@ -3001,15 +3004,19 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		::plugins::DYE::shots::define_next_desc		
 	}
 	
-	proc select_shot_side { side } {
+	proc select_shot_side { side {allow_comp 1} } {
 		variable data
+		variable widgets
 		set page [namespace tail [namespace current]]
+		set tw $widgets(shots)
 		
-		if { $data(selected_side) eq $side } {
+msg "SELECT_SHOT_SIDE $side, data(selected_side)=$data(selected_side), allow_comp=$allow_comp"		
+		if { $data(selected_side) eq $side && [string is true $allow_comp] } {
 			set side ""
 		}
 		
 		if { $side eq "left" } {
+			$tw tag delete selother
 			dui item hide $page compare_panel
 			dui item show $page search_shot_panel
 			dui item config $page launch_dye_last-btn -fill [dui::aspect::get dbutton fill -style dsx2]
@@ -3026,8 +3033,15 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			dui item config $page describe_shot-lbl -text [translate {Describe base shot}]
 			dui item config $page copy_to_next-lbl -text [translate {Copy base shot to Next}]
 			
-			shot_select $data(left_clock) 0
+			shot_select $data(left_clock) 0 left 1
+			if { $data(right_clock) > 0 } {
+				catch {
+					$tw tag add selother shot_$data(right_clock).first shot_$data(right_clock).last
+					$tw tag configure selother -background "light grey"
+				}
+			}
 		} elseif { $side eq "right" } {
+			$tw tag delete selother	
 			dui item hide $page compare_panel
 			dui item show $page search_shot_panel
 			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
@@ -3044,7 +3058,13 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			dui item config $page describe_shot-lbl -text [translate {Describe comp. shot}]
 			dui item config $page copy_to_next-lbl -text [translate {Copy comp. shot to Next}]
 			
-			shot_select $data(right_clock) 0
+			shot_select $data(right_clock) 0 right 1
+			if { $data(left_clock) > 0 } {
+				catch {
+					$tw tag add selother shot_$data(left_clock).first shot_$data(left_clock).last
+					$tw tag configure selother -background "light grey"
+				}
+			}	
 		} else {
 			# Clear both			
 			dui item hide $page search_shot_panel
@@ -3107,6 +3127,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		}
 		
 		apply_string_filter
+		if { $data(selected_side) ne "" } {
+			select_shot_side $data(selected_side) 0
+		}
 	}
 	
 	proc apply_string_filter {} {
@@ -3276,17 +3299,28 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		if { $clock eq {} || $clock <= 0} {
 			$widget tag delete selshot
 			set data(selected) {}
+msg "DYE SHOT_SELECT, returning for empty clock"			
 			return
 		} elseif { $data(selected) eq $clock && ![string is true $force] } {
+msg "DYE SHOT_SELECT, returning for already selected clock"			
 			return
 		}
 
+		# If selecting the other shot, do nothing
+		if { $data(selected_side) eq "left" && $data(right_clock) == $clock } {
+msg "DYE SHOT_SELECT, returning as selecting other"			
+			return
+		} elseif { $data(selected_side) eq "right" && $data(left_clock) == $clock } {
+msg "DYE SHOT_SELECT, returning as selecting other"			
+			return
+		}
+		
 		if { $side eq {} } {
 			set data(selected) $clock
 		}
 
 		$widget tag delete selshot
-		# if a tag like shot_$clock can't be found in the widget, this raises an error, so embed in catch
+		# if a tag like shot_$clock can't be found in the widget, this raises an error, so embed in try
 		try {
 			$widget tag add selshot shot_${clock}.first shot_${clock}.last
 		} on error err {
@@ -3318,6 +3352,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				}
 				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
 			}
+msg "DYE SHOT_SELECT, set data(left_clock) $clock"			
 			set data(left_clock) $clock
 		} elseif { $side eq "right" } {
 			$widget configure -state normal
@@ -3336,6 +3371,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
 			}
 			set data(right_clock) $clock
+msg "DYE SHOT_SELECT, set data(right_clock) $clock"	
 		}
 	}
 	
