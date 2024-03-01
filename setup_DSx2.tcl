@@ -2828,6 +2828,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		selected_side "left"
 		left_clock 0
 		right_clock 0
+		data_panel "small"
 		
 		bean_brand ""
 		bean_type ""
@@ -2841,7 +2842,29 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		selected {}
 		show_diff_only 0
 		
-		flow 0.0
+		base_time "-"
+		base_peak_pressure "-"
+		base_final_pressure "-"
+		base_peak_flow "-"
+		base_final_flow "-"
+		base_peak_weight "-"
+		base_final_weight "-"
+		base_peak_temperature "-"
+		base_final_temperature "-"
+		base_volume "-"
+		base_weight "-"
+		
+		comp_time "-"
+		comp_peak_pressure "-"
+		comp_final_pressure "-"
+		comp_peak_flow "-"
+		comp_final_flow "-"
+		comp_peak_weight "-"
+		comp_final_weight "-"
+		comp_peak_temperature "-"
+		comp_final_temperature "-"
+		comp_volumen "-"
+		comp_weight "-"
 	}
 	
 	variable shots
@@ -2857,12 +2880,192 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable data
 		variable widgets	
 		set page [namespace tail [namespace current]]
-
+		
 		dui add dbutton $page 40 250 -bwidth 120 -bheight 140  -style dsx2 -anchor nw \
 			-tags launch_dye_dsx2_hv -symbol arrow-left-long -symbol_pos {0.5 0.4} \
 			-label [translate {back}] -label_width 115 -label_pos {0.5 0.8} \
 			-label_anchor center -label_justify center -label_font_size 10 \
-			-command [namespace current]::page_done
+			-tap_pad {40 100 50 30} -command [namespace current]::page_done
+
+		# TOP SMALL PANEL
+		set x 850 
+		set y 90
+		set panel_width 900
+		dui add shape outline $page $x $y -bwidth $panel_width -bheight 300 -tags {smallp_box data_smallp} \
+			-width 2 -outline [dui::aspect::get dtext fill] 
+
+		dui add shape line $page [expr {$x+40}] [expr {$y+70}] [expr {$x+$panel_width-40}] \
+			[expr {$y+70}] -width [dui::platform::rescale_y 2] -outline "light grey" \
+			-tags {smallp_line1 data_smallp}
+		dui add shape line $page [expr {$x+40}] [expr {$y+180}] [expr {$x+$panel_width-40}] \
+			[expr {$y+180}] -width [dui::platform::rescale_y 2] -outline "light grey" \
+			-tags {smallp_line2 data_smallp}
+
+		dui add dtext $page [expr {$x+50}] [expr {$y+70+(180-70)/2}] -anchor w -width 200 \
+			-text "[translate {Base shot}]" -font_family notosansuibold -font_size 14 \
+			-tags {smallp_base data_smallp}
+		dui add dtext $page [expr {$x+50}] [expr {$y+180+(300-180)/2}] -anchor w -width 200 \
+			-text "[translate {Comp shot}]" -font_family notosansuibold -font_size 14 \
+			-tags {smallp_comp data_smallp} 
+
+		set xwidth [expr {($panel_width-300)/2}]
+		set xv [expr {$x+250+$xwidth/2}]
+		set y_colheader [expr {$y+35}]
+		dui add dtext $page $xv $y_colheader -anchor center -justify center \
+			-text "[translate {Peak pressure}]" -font_family notosansuibold -font_size 12 \
+			-tags {smallp_pressure data_smallp}
+		dui add dtext $page [expr {$xv+$xwidth}] [expr {$y+35}] -anchor center -justify center \
+			-text "[translate {Final flow}]" -font_family notosansuibold -font_size 12 \
+			-tags {smallp_flow data_smallp}
+		
+		# Data variables
+		set y_base [expr {$y+70+(180-70)/2}]
+		set y_comp [expr {$y+180+(300-180)/2}]
+		
+		dui add variable $page $xv $y_base -anchor center -justify center \
+			-tags {smallp_base_peak_pressure data_smallp} -font_size 16 \
+			-textvariable {$%NS::data(base_peak_pressure)}
+		dui add variable $page $xv $y_comp -anchor center -justify center \
+			-tags {smallp_comp_peak_pressure data_smallp} -font_size 16 \
+			-textvariable {$%NS::data(comp_peak_pressure)}
+		
+		dui add variable $page [expr {$xv+$xwidth}] $y_base -anchor center -justify center \
+			-tags {smallp_base_final_flow data_smallp} -font_size 16 \
+			-textvariable {$%NS::data(base_final_flow)}
+		dui add variable $page [expr {$xv+$xwidth}] $y_comp -anchor center -justify center \
+			-tags {smallp_comp_final_flow data_smallp} -font_size 16 \
+			-textvariable {$%NS::data(comp_final_flow)}
+		
+		dui add dbutton $page $x $y -bwidth $panel_width -bheight 300 -command toggle_data_panel \
+			-tags {smallp_btn data_smallp}
+		
+		# TOP BIG PANEL
+		set x 225 
+		set y 90
+		set panel_width 1540
+		dui add shape outline $page $x $y -bwidth $panel_width -bheight 300 -tags {bigp_box data_bigp} \
+			-width 2 -outline [dui::aspect::get dtext fill] -initial_state hidden
+		
+		dui add dbutton $page $x $y -bwidth 100 -bheight 300 -tags {move_prev_step data_bigp} \
+			-symbol caret-left -symbol_pos {0.6 0.5} -symbol_font_size 40 \
+			-symbol_fill [dui::aspect::get dtext fill] -tap_pad 30 -initial_state hidden
+		dui add dbutton $page [expr {$x+$panel_width-100}] $y -bwidth 100 -bheight 300 \
+			-tags {move_next_step data_bigp} -symbol caret-right -symbol_pos {0.4 0.5} \
+			-symbol_font_size 40 -symbol_fill [dui::aspect::get dtext fill] -tap_pad 30 \
+			-initial_state hidden
+		
+		dui add shape line $page [expr {$x+120}] [expr {$y+70}] [expr {$x+$panel_width-120}] \
+			[expr {$y+70}] -width [dui::platform::rescale_y 2] -outline "light grey" \
+			-tags {bigp_line1 data_bigp} -initial_state hidden
+		dui add shape line $page [expr {$x+120}] [expr {$y+180}] [expr {$x+$panel_width-120}] \
+			[expr {$y+180}] -width [dui::platform::rescale_y 2] -outline "light grey" \
+			-tags {bigp_line2 data_bigp} -initial_state hidden
+		
+		dui add dtext $page [expr {$x+130}] [expr {$y+35}] -anchor w -justify left -tags step_name \
+			-text "[translate {Full shot}]" -font_size 14 -fill brown -tags {step_name data_bigp} \
+			-initial_state hidden
+		
+		dui add dtext $page [expr {$x+130}] [expr {$y+70+(180-70)/2}] -anchor w -width 130 \
+			-text "[translate {Base shot}]" -font_family notosansuibold -font_size 14 \
+			-tags {bigp_base data_bigp} -initial_state hidden
+		dui add dtext $page [expr {$x+130}] [expr {$y+180+(300-180)/2}] -anchor w -width 130 \
+			-text "[translate {Comp shot}]" -font_family notosansuibold -font_size 14 \
+			-tags {bigp_comp data_bigp} -initial_state hidden
+		
+		dui add dtext $page [expr {$x+130+130}] [expr {$y+70+(180-70)/4}] -anchor w -width 120 \
+			-text "[translate Peak]" -font_size 12 -tags {bigp_base_peak data_bigp} \
+			-initial_state hidden
+		dui add dtext $page [expr {$x+130+130}] [expr {$y+70+(180-70)*3/4}] -anchor w -width 120 \
+			-text "[translate Final]" -font_size 12 -tags {bigp_base_final data_bigp} \
+			-initial_state hidden
+
+		dui add dtext $page [expr {$x+130+130}] [expr {$y+180+(300-180)/4}] -anchor w -width 120 \
+			-text "[translate Peak]" -font_size 12 -tags {bigp_comp_peak data_bigp} \
+			-initial_state hidden
+		dui add dtext $page [expr {$x+130+130}] [expr {$y+180+(300-180)*3/4}] -anchor w -width 120 \
+			-text "[translate Final]" -font_size 12 -tags {bigp_comp_final data_bigp} \
+			-initial_state hidden
+				
+		set xwidth [expr {($panel_width-240-240)/6}]
+		set xv [expr {$x+370+$xwidth/2}]
+		set y_colheader [expr {$y+35}]
+		dui add dtext $page $xv $y_colheader -anchor center -justify center \
+			-text "[translate Time]" -font_family notosansuibold -font_size 12 \
+			-tags {bigp_time data_bigp} -initial_state hidden
+		dui add dtext $page [expr {$xv+$xwidth}] [expr {$y+35}] -anchor center -justify center \
+			-text "[translate Pressure]" -font_family notosansuibold -font_size 12 \
+			-tags {bigp_pressure data_bigp} -initial_state hidden
+		dui add dtext $page [expr {$xv+$xwidth*2}] [expr {$y+35}] -anchor center -justify center \
+			-text "[translate Flow]" -font_family notosansuibold -font_size 12 \
+			-tags {bigp_flow data_bigp} -initial_state hidden
+		dui add dtext $page [expr {$xv+$xwidth*3}] [expr {$y+35}] -anchor center -justify center \
+			-text "[translate Scale]" -font_family notosansuibold -font_size 12 \
+			-tags {bigp_scale data_bigp} -initial_state hidden
+		dui add dtext $page [expr {$xv+$xwidth*4}] [expr {$y+35}] -anchor center -justify center \
+			-text "[translate {Vol./Weight}]" -font_family notosansuibold -font_size 12 \
+			-tags {bigp_volw data_bigp} -initial_state hidden
+		dui add dtext $page [expr {$xv+$xwidth*5}] [expr {$y+35}] -anchor center -justify center \
+			-text "[translate Temp.]" -font_family notosansuibold -font_size 12 \
+			-tags {bigp_temp data_bigp} -initial_state hidden
+
+		dui add dbutton $page [expr {$x+150}] $y -bwidth [expr {$panel_width-300}] -bheight 300 \
+			-command toggle_data_panel -tags {bigp_btn data_bigp}
+		
+		# Data variables		
+		set y_base_peak [expr {$y+70+(180-70)/4}]
+		set y_base_final [expr {$y+70+(180-70)*3/4}]
+		set y_comp_peak [expr {$y+180+(300-180)/4}]
+		set y_comp_final [expr {$y+180+(300-180)*3/4}]
+		
+		dui add variable $page $xv $y_base_final -anchor center -justify center \
+			-tags {base_time data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page $xv $y_comp_final -anchor center -justify center \
+			-tags {comp_time data_bigp} -font_size 12 -initial_state hidden
+		
+		dui add variable $page [expr {$xv+$xwidth}] $y_base_peak -anchor center -justify center \
+			-tags {base_peak_pressure data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth}] $y_base_final -anchor center -justify center \
+			-tags {base_final_pressure data_bigp} -font_size 12	-initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth}] $y_comp_peak -anchor center -justify center \
+			-tags {comp_peak_pressure data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth}] $y_comp_final -anchor center -justify center \
+			-tags {comp_final_pressure data_bigp} -font_size 12 -initial_state hidden
+
+		dui add variable $page [expr {$xv+$xwidth*2}] $y_base_peak -anchor center -justify center \
+			-tags {base_peak_flow data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*2}] $y_base_final -anchor center -justify center \
+			-tags {base_final_flow data_bigp} -font_size 12	-initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*2}] $y_comp_peak -anchor center -justify center \
+			-tags {comp_peak_flow data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*2}] $y_comp_final -anchor center -justify center \
+			-tags {comp_final_flow data_bigp} -font_size 12 -initial_state hidden
+
+		dui add variable $page [expr {$xv+$xwidth*3}] $y_base_peak -anchor center -justify center \
+			-tags {base_peak_weight data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*3}] $y_base_final -anchor center -justify center \
+			-tags {base_final_weight data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*3}] $y_comp_peak -anchor center -justify center \
+			-tags {comp_peak_weight data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*3}] $y_comp_final -anchor center -justify center \
+			-tags {comp_final_weight data_bigp} -font_size 12 -initial_state hidden
+
+		dui add variable $page [expr {$xv+$xwidth*4}] $y_base_peak -anchor center -justify center \
+			-tags {base_volume data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*4}] $y_base_final -anchor center -justify center \
+			-tags {base_weight data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*4}] $y_comp_peak -anchor center -justify center \
+			-tags {comp_volume data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*4}] $y_comp_final -anchor center -justify center \
+			-tags {comp_weight data_bigp} -font_size 12 -initial_state hidden
+
+		dui add variable $page [expr {$xv+$xwidth*5}] $y_base_peak -anchor center -justify center \
+			-tags {base_peak_temperature data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*5}] $y_base_final -anchor center -justify center \
+			-tags {base_final_temperature data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*5}] $y_comp_peak -anchor center -justify center \
+			-tags {comp_peak_temperature data_bigp} -font_size 12 -initial_state hidden
+		dui add variable $page [expr {$xv+$xwidth*5}] $y_comp_final -anchor center -justify center \
+			-tags {comp_final_temperature data_bigp} -font_size 12 -initial_state hidden
 		
 		# GRAPH
 		# Beware correct sorting of legend items here is critical or they may have the wrong z-order 
@@ -2879,13 +3082,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		bind $::home_espresso_graph <B1--Motion> [list \
 			[namespace current]::pressmotion_graph %W %x %y]	
 
-		dui add variable $page [expr $::skin(graph_key_x) + 216 + 38 + 20] [expr $::skin(graph_key_y) + 12] \
-			-tags hv_flow_data -font [skin_font font $::key_font_size] -fill $::skin_text_colour \
-			-anchor w -justify center -width 100 -initial_state hidden \
-			-textvariable {$::plugins::DYE::pages::dsx2_dye_hv::data(flow)ml/s}
-		
-		
-		# Right side panel, Search shot mode
+		# RIGHT SIDE PANEL, Search shot mode
 		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1210 -tags {search_shot_box search_shot_panel} \
 			-width 2 -outline [dui::aspect::get dtext fill]
 		
@@ -2914,7 +3111,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			-style dsx2 -symbol file-export -label [translate {Copy comp. shot to Next}] \
 			-symbol_font_size 20 -symbol_pos {50 0.5} -symbol_anchor center -symbol_justify center -label_pos {0.55 0.5}
 		
-		# Right side panel, Compare mode
+		# # RIGHT SIDE PANEL, Compare mode
 		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1460 -tags {compare_box compare_panel} \
 			-width 2 -outline [dui::aspect::get dtext fill] -initial_state hidden
 		
@@ -3021,6 +3218,21 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		::plugins::DYE::shots::define_next_desc		
 	}
 	
+	proc toggle_data_panel {} {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { $data(data_panel) eq "small" } {
+			dui item hide $page data_smallp
+			dui item show $page data_bigp
+			set data(data_panel) "big"
+		} else {
+			dui item hide $page data_bigp
+			dui item show $page data_smallp
+			set data(data_panel) "small"
+		}
+	}
+	
 	proc press_graph { widget x y } {
 		variable data
 		
@@ -3062,18 +3274,25 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			if { $data(right_clock) > 0 } {
 				set comp_list_time [compare_espresso_elapsed range 0 end]
 				set comp_idx [lsearch -sorted -increasing -bisect -real $comp_list_time $x]
-						
-				compare_espresso_pressure variable comp_pressure
-				compare_espresso_flow variable comp_flow
-				compare_espresso_flow_weight variable comp_weight
-				#compare_temperature variable comp_temp
-				set comp_n [compare_espresso_pressure length]
-				
-				if { $comp_idx < $comp_n } {
-					append pressure_label " | [round_to_one_digits $comp_pressure($comp_idx)]"
-					append flow_label " | [round_to_one_digits $comp_flow($comp_idx)]"
-					append weight_label " | [round_to_one_digits $comp_weight($comp_idx)]"
-					#append temp_label " | [return_temperature_measurement [expr {$comp_temp($comp_idx)*10.0}] 0]"
+
+				if { $comp_idx > -1 } {
+					compare_espresso_pressure variable comp_pressure
+					compare_espresso_flow variable comp_flow
+					compare_espresso_flow_weight variable comp_weight
+					#compare_temperature variable comp_temp
+					set comp_n [compare_espresso_pressure length]
+					
+					if { $comp_idx < $comp_n } {
+						append pressure_label " | [round_to_one_digits $comp_pressure($comp_idx)]"
+						append flow_label " | [round_to_one_digits $comp_flow($comp_idx)]"
+						append weight_label " | [round_to_one_digits $comp_weight($comp_idx)]"
+						#append temp_label " | [return_temperature_measurement [expr {$comp_temp($comp_idx)*10.0}] 0]"
+					} else {
+						append pressure_label " | - "
+						append flow_label " | - "
+						append weight_label " | - "
+						#append temp_label " | - "
+					}
 				} else {
 					append pressure_label " | - "
 					append flow_label " | - "
@@ -3463,6 +3682,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
 			}
 			set data(left_clock) $clock
+			calc_shot_stats left -1
 		} elseif { $side eq "right" } {
 			$widget configure -state normal
 			catch {
@@ -3480,7 +3700,81 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
 			}
 			set data(right_clock) $clock
+			calc_shot_stats right -1
 		}
+	}
+	
+	proc _stats_strings { side series_name unit {vector_name {}} } {
+		variable data
+		
+		if { $vector_name eq "" } {
+			set vector_name $series_name
+		}
+		if { $side eq "left" } {
+			set vecname ::plugins::DYE::pages::dsx2_dye_home::src_$vector_name
+			set prefix "base"
+		} elseif { $side eq "right" } {
+			set vecname compare_espresso_$vector_name
+			set prefix "comp"
+		} else {
+			return
+		}
+		
+		set unit [translate $unit]
+		if { $series_name eq "temperature" } {
+			set data(${prefix}_peak_temperature) \
+				"[return_temperature_measurement [expr {[vector expr max($vecname)]*10.0}]]"
+			set data(${prefix}_final_temperature) \
+				"[return_temperature_measurement [expr {[$vecname range end end]*10.0}]]"
+		} else {
+			set data(${prefix}_peak_$series_name) "[format {%.1f} [vector expr max($vecname)]] $unit"
+			set data(${prefix}_final_$series_name) "[format {%.1f} [$vecname range end end]] $unit"
+		}
+	}
+	
+	# Use step -1 for the whole shot
+	proc calc_shot_stats { side {step -1} } {
+		variable data
+		set data(step_name) [translate {Full shot}]
+		
+		if { $side eq "left" } {
+			if { $data(left_clock) <= 0 } {
+				set data(base_time) "-"
+				set data(base_peak_pressure) "-"
+				set data(base_final_pressure) "-"
+				set data(base_peak_flow) "-"
+				set data(base_final_flow) "-"
+				set data(base_peak_weight) "-"
+				set data(base_final_weight) "-"
+				set data(base_peak_temperature) "-"
+				set data(base_final_temperature) "-"
+			} else {
+				set data(base_time) "[format {%.0f} [::plugins::DYE::pages::dsx2_dye_home::src_elapsed range end end]] [translate s]"
+				_stats_strings left pressure bar
+				_stats_strings left flow "ml/s"
+				_stats_strings left weight "g/s"
+				_stats_strings left temperature ""
+			}
+		} elseif { $side eq "right" } { 
+			if { $data(right_clock) <= 0 } {
+				set data(comp_time) "-"
+				set data(comp_peak_pressure) "-"
+				set data(comp_final_pressure) "-"
+				set data(comp_peak_flow) "-"
+				set data(comp_final_flow) "-"
+				set data(comp_peak_weight) "-"
+				set data(comp_final_weight) "-"
+				set data(comp_peak_temperature) "-"
+				set data(comp_final_temperature) "-"
+			} else {
+				set data(comp_time) "[format {%.0f} [compare_espresso_elapsed range end end]] [translate s]"
+				_stats_strings right pressure bar
+				_stats_strings right flow "ml/s"
+				_stats_strings right weight "g/s" flow_weight
+				#_stats_strings right temperature ""
+			}
+		}
+		
 	}
 	
 	proc fill_comparison {} {
