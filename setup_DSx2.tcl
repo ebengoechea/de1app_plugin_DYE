@@ -722,7 +722,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		trace add execution ::set_scale_weight_to_dose leave ${ns}::set_scale_weight_to_dose_hook
 		
 		# Main DSx2 graph
-		bind $::home_espresso_graph [platform_button_press] +{::plugins::DYE::pages::dsx2_dye_home::press_graph_hook}
+		bind $::home_espresso_graph [dui::platform::button_press] \
+			[list ::plugins::DYE::pages::dsx2_dye_home::press_graph_hook %W %x %y]
 		
 		blt::vector create src_elapsed src_pressure src_pressure_goal src_flow src_flow_goal \
 			src_flow_weight src_weight src_temperature src_temperature_goal src_resistance src_steps \
@@ -941,18 +942,23 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 	}
 	
 	proc press_graph_hook { args } {
-msg "DYE PRESS_GRAPH_HOOK"		
 		variable main_graph_height
 		set page [lindex $::skin_home_pages 0]
 		
-		if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-			if { $::main_graph_height == [rescale_y_skin 1010] } {
-				$::home_espresso_graph configure -height $main_graph_height
-				dui item show $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
-				dui item config $page live_graph_data -initial_state hidden -state hidden
-			} elseif { $::main_graph_height == $main_graph_height } {
-				dui item hide $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
+		if { [dui page current] eq "dsx2_dye_hv" } {
+			::plugins::DYE::pages::dsx2_dye_hv::press_graph {*}$args
+		} else {
+			if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
+				if { $::main_graph_height == [rescale_y_skin 1010] } {
+					$::home_espresso_graph configure -height $main_graph_height
+					dui item show $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
+					dui item config $page live_graph_data -initial_state hidden -state hidden
+				} elseif { $::main_graph_height == $main_graph_height } {
+					dui item hide $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
+				}
 			}
+				
+			::toggle_cache_graphs
 		}
 	}
 	
@@ -2834,6 +2840,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		n_matches_text ""
 		selected {}
 		show_diff_only 0
+		
+		flow 0.0
 	}
 	
 	variable shots
@@ -2856,6 +2864,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			-label_anchor center -label_justify center -label_font_size 10 \
 			-command [namespace current]::page_done
 		
+		# GRAPH
 		# Beware correct sorting of legend items here is critical or they may have the wrong z-order 
 		dui page add_items $page [list $::home_espresso_graph graph_key_shape \
 			pressure_data pressure_text pressure_key_button \
@@ -2864,7 +2873,18 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			resistance_data resistance_text resistance_key_button \
 			steps_data steps_text steps_key_button \
 			main_graph_toggle_view_label main_graph_toggle_view_button]
+		
+		bind $::home_espresso_graph [dui::platform::button_unpress] \
+			[list [namespace current]::unpress_graph %W %x %y]
+		bind $::home_espresso_graph <B1--Motion> [list \
+			[namespace current]::pressmotion_graph %W %x %y]	
 
+		dui add variable $page [expr $::skin(graph_key_x) + 216 + 38 + 20] [expr $::skin(graph_key_y) + 12] \
+			-tags hv_flow_data -font [skin_font font $::key_font_size] -fill $::skin_text_colour \
+			-anchor w -justify center -width 100 -initial_state hidden \
+			-textvariable {$::plugins::DYE::pages::dsx2_dye_hv::data(flow)ml/s}
+		
+		
 		# Right side panel, Search shot mode
 		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1210 -tags {search_shot_box search_shot_panel} \
 			-width 2 -outline [dui::aspect::get dtext fill]
@@ -2961,12 +2981,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		
 		if { $base_clock <= 0 } {
 			set base_clock $settings(next_src_clock)
-		}
-msg "DYE DSX2_DYE_HV LOAD, base_clock=$base_clock"		
+		}		
 		shot_select $base_clock 1 left 1
 		
 		if { $comp_clock > 0 } {
-msg "DYE DSX2_DYE_HV LOAD, comp_clock=$comp_clock"			
 			shot_select $comp_clock 1 right 1
 		} else {
 			set data(right_clock) 0
@@ -2975,7 +2993,6 @@ msg "DYE DSX2_DYE_HV LOAD, comp_clock=$comp_clock"
 			set settings(next_shot_desc) "\[ [translate {Tap to select a shot to compare with}] \]"
 		}
 
-msg "DYE DSX2_DYE_HV LOAD, select_shot_side right"		
 		select_shot_side "right"
 		
 		return 1
@@ -3004,13 +3021,110 @@ msg "DYE DSX2_DYE_HV LOAD, select_shot_side right"
 		::plugins::DYE::shots::define_next_desc		
 	}
 	
+	proc press_graph { widget x y } {
+		variable data
+		
+		# TBD: Cache src_elapsed(min) and max in ns variables, instead of computing them every time!
+		::plugins::DYE::pages::dsx2_dye_home::src_elapsed variable xdata
+		::plugins::DYE::pages::dsx2_dye_home::src_pressure variable pressure
+		::plugins::DYE::pages::dsx2_dye_home::src_flow variable flow
+		::plugins::DYE::pages::dsx2_dye_home::src_weight variable weight
+		::plugins::DYE::pages::dsx2_dye_home::src_temperature variable temp
+		set src_n [::plugins::DYE::pages::dsx2_dye_home::src_pressure length]
+		
+		set x [$widget axis invtransform x $x]
+		if { $x < $xdata(min) } {
+			set x $xdata(min)
+		} elseif { $x >= $xdata(max) } {
+			set x $xdata(max)
+		}
+		
+		$widget marker create line -coords { $x -Inf $x Inf } -name vline -dashes dash \
+			-linewidth 2 -outline $::skin_red
+		
+		#set idx [::plugins::DYE::pages::dsx2_dye_home::src_elapsed search $x]
+		set list_time [::plugins::DYE::pages::dsx2_dye_home::src_elapsed range 0 end]
+		set idx [lsearch -sorted -increasing -bisect -real $list_time $x]
+		
+		if { $idx > -1 } {
+			if { $idx < $src_n } {
+				set pressure_label "[round_to_one_digits $pressure($idx)]"
+				set flow_label "[round_to_one_digits $flow($idx)]"
+				set weight_label "[round_to_one_digits $weight($idx)]"
+				set temp_label "[return_temperature_measurement [expr {$temp($idx)*10.0}] 0]"
+			} else {
+				set pressure_label "-"
+				set flow_label "-"
+				set weight_label "-"
+				set temp_label "-"
+			}
+			
+			if { $data(right_clock) > 0 } {
+				set comp_list_time [compare_espresso_elapsed range 0 end]
+				set comp_idx [lsearch -sorted -increasing -bisect -real $comp_list_time $x]
+						
+				compare_espresso_pressure variable comp_pressure
+				compare_espresso_flow variable comp_flow
+				compare_espresso_flow_weight variable comp_weight
+				#compare_temperature variable comp_temp
+				set comp_n [compare_espresso_pressure length]
+				
+				if { $comp_idx < $comp_n } {
+					append pressure_label " | [round_to_one_digits $comp_pressure($comp_idx)]"
+					append flow_label " | [round_to_one_digits $comp_flow($comp_idx)]"
+					append weight_label " | [round_to_one_digits $comp_weight($comp_idx)]"
+					#append temp_label " | [return_temperature_measurement [expr {$comp_temp($comp_idx)*10.0}] 0]"
+				} else {
+					append pressure_label " | - "
+					append flow_label " | - "
+					append weight_label " | - "
+					#append temp_label " | - "
+				}
+			} 
+
+			append pressure_label [translate "bar"]
+			append flow_label [translate "ml/s"]
+			append weight_label [translate "g/s"]
+		} else {
+			set pressure_label "-"
+			set flow_label "-"
+			set weight_label "-"
+			set temp_label "-"
+		}
+		
+		dui item config dsx2_dye_hv pressure_text -text $pressure_label
+		dui item config dsx2_dye_hv flow_text -text $flow_label	
+		dui item config dsx2_dye_hv weight_text -text $weight_label
+		dui item config dsx2_dye_hv temperature_text -text $temp_label
+	}
+
+	proc pressmotion_graph { widget x y } {
+		if { [dui::page::current] ne [namespace tail [namespace current]] } {
+			return
+		}
+		
+		$widget marker delete vline
+		press_graph $widget $x $y
+	}
+	
+	proc unpress_graph { widget x y } {
+		if { [dui::page::current] ne [namespace tail [namespace current]] } {
+			return
+		}
+
+		$widget marker delete vline
+		dui item config dsx2_dye_hv flow_text -text "[translate {Flow rate}] ([translate {in}])"
+		dui item config dsx2_dye_hv pressure_text -text [translate Pressure]
+		dui item config dsx2_dye_hv weight_text -text "[translate {Scale rate}] ([translate {out}])"
+		dui item config dsx2_dye_hv temperature_text -text [translate Temperature]
+	}
+	
 	proc select_shot_side { side {allow_comp 1} } {
 		variable data
 		variable widgets
 		set page [namespace tail [namespace current]]
 		set tw $widgets(shots)
-		
-msg "SELECT_SHOT_SIDE $side, data(selected_side)=$data(selected_side), allow_comp=$allow_comp"		
+				
 		if { $data(selected_side) eq $side && [string is true $allow_comp] } {
 			set side ""
 		}
@@ -3299,19 +3413,15 @@ msg "SELECT_SHOT_SIDE $side, data(selected_side)=$data(selected_side), allow_com
 		if { $clock eq {} || $clock <= 0} {
 			$widget tag delete selshot
 			set data(selected) {}
-msg "DYE SHOT_SELECT, returning for empty clock"			
 			return
 		} elseif { $data(selected) eq $clock && ![string is true $force] } {
-msg "DYE SHOT_SELECT, returning for already selected clock"			
 			return
 		}
 
 		# If selecting the other shot, do nothing
 		if { $data(selected_side) eq "left" && $data(right_clock) == $clock } {
-msg "DYE SHOT_SELECT, returning as selecting other"			
 			return
 		} elseif { $data(selected_side) eq "right" && $data(left_clock) == $clock } {
-msg "DYE SHOT_SELECT, returning as selecting other"			
 			return
 		}
 		
@@ -3352,7 +3462,6 @@ msg "DYE SHOT_SELECT, returning as selecting other"
 				}
 				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
 			}
-msg "DYE SHOT_SELECT, set data(left_clock) $clock"			
 			set data(left_clock) $clock
 		} elseif { $side eq "right" } {
 			$widget configure -state normal
@@ -3371,7 +3480,6 @@ msg "DYE SHOT_SELECT, set data(left_clock) $clock"
 				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
 			}
 			set data(right_clock) $clock
-msg "DYE SHOT_SELECT, set data(right_clock) $clock"	
 		}
 	}
 	
