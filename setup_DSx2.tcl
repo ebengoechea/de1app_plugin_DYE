@@ -1036,13 +1036,13 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		set current_page [dui::page::current]
 		if { $side eq "left" } {
 			if { $current_page eq "dsx2_dye_hv" } {
-				::plugins::DYE::pages::dsx2_dye_hv::select_shot_side left
+				::plugins::DYE::pages::dsx2_dye_hv::click_base_description
 			} else {
 				::plugins::DYE::open -which_shot "source"
 			}
 		} elseif { $side eq "right" } {
 			if { $current_page eq "dsx2_dye_hv" } {
-				::plugins::DYE::pages::dsx2_dye_hv::select_shot_side right
+				::plugins::DYE::pages::dsx2_dye_hv::click_comp_description
 			} else {
 				::plugins::DYE::open -which_shot "next"
 			}
@@ -2825,15 +2825,12 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	
 	variable data
 	array set data {
-		selected_side "left"
+		selected_side "right"
+		right_panel_mode "sel_comp"
 		left_clock 0
 		right_clock 0
 		data_panel "small"
 		
-		bean_brand ""
-		bean_type ""
-		profile_title ""
-		grinder_model ""
 		shown_indexes {}
 		filter_matching {beans}
 		filter_string ""
@@ -3008,9 +3005,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			-text "[translate Temp.]" -font_family notosansuibold -font_size 12 \
 			-tags {bigp_temp data_bigp} -initial_state hidden
 
-		dui add dbutton $page [expr {$x+150}] $y -bwidth [expr {$panel_width-300}] -bheight 300 \
-			-command toggle_data_panel -tags {bigp_btn data_bigp}
-		
 		# Data variables		
 		set y_base_peak [expr {$y+70+(180-70)/4}]
 		set y_base_final [expr {$y+70+(180-70)*3/4}]
@@ -3066,6 +3060,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			-tags {comp_peak_temperature data_bigp} -font_size 12 -initial_state hidden
 		dui add variable $page [expr {$xv+$xwidth*5}] $y_comp_final -anchor center -justify center \
 			-tags {comp_final_temperature data_bigp} -font_size 12 -initial_state hidden
+
+		dui add dbutton $page [expr {$x+150}] $y -bwidth [expr {$panel_width-300}] -bheight 300 \
+			-command toggle_data_panel -tags {bigp_btn data_bigp}
 		
 		# GRAPH
 		# Beware correct sorting of legend items here is critical or they may have the wrong z-order 
@@ -3082,50 +3079,52 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		bind $::home_espresso_graph <B1--Motion> [list \
 			[namespace current]::pressmotion_graph %W %x %y]	
 
-		# RIGHT SIDE PANEL, Search shot mode
-		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1210 -tags {search_shot_box search_shot_panel} \
-			-width 2 -outline [dui::aspect::get dtext fill]
+		# RIGHT SIDE PANEL, select panel mode
+		set x 1820 
+		set y 90
+		set panel_width 700
+		dui add dselector $page $x $y -bwidth $panel_width -bheight 100 -tags right_panel_mode \
+			-values {sel_base sel_comp charts compare} -multiple no -label_font_size -3 \
+			-labels [list [translate "Select base"] [translate "Select comp"] \
+				[translate "4 mini charts"] [translate "Compare shots"]] \
+			-label_width [expr {$panel_width/4-10}] -command right_panel_mode 
+
+		dui add shape outline $page $x [incr y 130] -bwidth $panel_width -bheight 1330 \
+			-tags right_panel -width 2 -outline [dui::aspect::get dtext fill]
 		
-		dui add dtext $page 2170 110 -anchor n -justify center -tags {search_shot_title search_shot_panel} \
-			-width 690 -style menu_dlg_title -font_family notosansuibold \
-			-text [translate {Select comparison shot}]
+		# RIGHT SIDE PANEL, Search left or right shot mode
+		dui add dtext $page [expr {$x+$panel_width/2}] [incr y 10] -anchor n -justify center \
+			-tags {search_shot_title search_shot_panel} -width 690 -style menu_dlg_title \
+			-font_family notosansuibold -text [translate {Select comparison shot}]
 		
-		dui add dtext $page 2170 180 -tags {select_shot_label search_shot_panel} -font_size 10 \
-			-anchor n -justify center -text [translate {M A T C H   B A S E   S H O T}] \
-			
-		dui add dselector $page 1850 215 -bwidth 640 -bheight 90 -tags {filter_matching search_shot_panel} \
-			-values {beans profile grinder} -multiple yes -label_font_size -1 \
-			-labels [list [translate "Beans"] [translate "Profile"] [translate "Grinder"]] \
+		dui add dtext $page [expr {$x+$panel_width/2}] [incr y 60] -anchor n -justify center -font_size 10 \
+			-tags {select_shot_label search_shot_panel} -text [translate {M A T C H   B A S E   S H O T}]
+
+		dui add dselector $page [expr {$x+30}] [incr y 40] -bwidth [expr {$panel_width-60}] -bheight 90 \
+			-tags {filter_matching search_shot_panel} -values {beans profile grinder} -multiple yes \
+			-label_font_size -1 -labels [list [translate "Beans"] [translate "Profile"] [translate "Grinder"]] \
 			-command filter_shots 
 		
-		set tw [dui add text $page 1840 325 -tags {shots search_shot_panel} -canvas_width 660 \
-			-canvas_height 955 -canvas_anchor nw -yscrollbar 0 -font_size 12 \
-			-highlightthickness 0 -initial_state disabled -foreground [dui::aspect::get dtext fill] \
-			-exportselection 0]
+		set tw [dui add text $page [expr {$x+20}] [incr y 110] -tags {shots search_shot_panel} \
+			-canvas_width [expr {$panel_width-40}] -canvas_height 1075 -canvas_anchor nw \
+			-yscrollbar 0 -font_size 12 -exportselection 0 \
+			-highlightthickness 0 -initial_state disabled -foreground [dui::aspect::get dtext fill]]
 
-		dui add dbutton $page 1850 1330 -bwidth 640 -bheight 90 -tags {describe_shot search_shot_panel} \
-			-style dsx2 -symbol $::plugins::DYE::settings(describe_icon) -label [translate {Describe comp. shot}] \
-			-symbol_font_size 20 -symbol_pos {50 0.5} -symbol_anchor center -symbol_justify center -label_pos {0.55 0.5} 
-
-		dui add dbutton $page 1850 1450 -bwidth 640 -bheight 90 -tags {copy_to_next search_shot_panel} \
-			-style dsx2 -symbol file-export -label [translate {Copy comp. shot to Next}] \
-			-symbol_font_size 20 -symbol_pos {50 0.5} -symbol_anchor center -symbol_justify center -label_pos {0.55 0.5}
-		
-		# # RIGHT SIDE PANEL, Compare mode
-		dui add shape outline $page 1820 90 -bwidth 700 -bheight 1460 -tags {compare_box compare_panel} \
-			-width 2 -outline [dui::aspect::get dtext fill] -initial_state hidden
-		
-		dui add dtext $page 2170 110 -anchor n -justify center -tags {compare_title compare_panel} \
+		# RIGHT SIDE PANEL, Compare mode
+		set y 220
+		dui add dtext $page 2170 [incr y 10] -anchor n -justify center -tags {compare_title compare_panel} \
 			-width 690 -style menu_dlg_title -font_family notosansuibold \
 			-text [translate {Shots comparison}] -initial_state hidden
 
-		dui add dtoggle $page 1850 200 -tags {show_diff_only compare_panel} -initial_state hidden
-		dui add dtext $page 1980 204 -tags {diff_only_label compare_panel} \
+		incr y 80
+		dui add dtext $page 1990 [expr {$y+4}] -tags {diff_only_label compare_panel} \
 			-text [translate {Show only differences}] -initial_state hidden
+		dui add dtoggle $page 1850 $y -tags {show_diff_only compare_panel} \
+			-tap_pad {10 10 600 10} -initial_state hidden
 		
-		set ctw [dui add text $page 1840 290 -tags {compare compare_panel} -canvas_width 660 \
-			-canvas_height 1180 -canvas_anchor nw -yscrollbar 0 -font_size 11 \
-			-highlightthickness 1 -initial_state hidden -foreground [dui::aspect::get dtext fill] \
+		set ctw [dui add text $page 1840 [incr y 80] -tags {compare compare_panel} -canvas_width 660 \
+			-canvas_height 1135 -canvas_anchor nw -yscrollbar 0 -font_size 11 \
+			-highlightthickness 0 -initial_state hidden -foreground [dui::aspect::get dtext fill] \
 			-exportselection 0]
 
 		# Define Tk Text tag styles for shot selection
@@ -3142,7 +3141,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
 		# when use_finger_down_for_tap=0. 
 		$tw tag bind shot <ButtonPress-1> [list + [namespace current]::click_shot_text %W %x %y %X %Y]
-		$tw tag bind shot <Double-Button-1> [list [namespace current]::select_shot_side none]
+		$tw tag bind shot <Double-Button-1> [list [namespace current]::right_panel_mode compare]
 		
 		# Define Tk Text tag styles for shot comparison (TEMPORAL, TODO change styles)
 		# TODO: dui aspect text_tags $ctw -tag section -style dyev3_section field dyev3_field		
@@ -3157,7 +3156,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	proc load { page_to_hide page_to_show {base_clock 0} {comp_clock 0} args } {
 		variable data 
 		variable base_shot
-		variable comp_shot
 		variable ::plugins::DYE::settings
 		
 		# Modify home UI elements
@@ -3167,31 +3165,30 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		# Initialize data
 		set data(n_shots) 0
 		set data(filter_string) ""
-		set data(bean_brand) $::settings(bean_brand)
-		set data(bean_type) $::settings(bean_type)
-		set data(profile_title) $::settings(profile_title)
-		set data(grinder_model) $::settings(grinder_model)
 		set data(selected) {}
+
+		if { $base_clock <= 0 } {
+			set base_clock $settings(next_src_clock)
+		}
+		# We need to load the base shot before filter_shots, otherwise
+		# matching data is not loaded yet, then do the selection afterwards
+		load_base_shot $base_clock
 		
 		# This also fills the shot history
 		filter_shots
-		
-		if { $base_clock <= 0 } {
-			set base_clock $settings(next_src_clock)
-		}		
-		shot_select $base_clock 1 left 1
-		
+
+		shot_select $base_clock 0 left 1
+	
 		if { $comp_clock > 0 } {
 			shot_select $comp_clock 1 right 1
 		} else {
 			set data(right_clock) 0
 			array unset comp_shot
 			set settings(next_shot_header) {}
-			set settings(next_shot_desc) "\[ [translate {Tap to select a shot to compare with}] \]"
+			set settings(next_shot_desc) "\[ [translate {Select a shot to compare with}] \]"
 		}
 
-		select_shot_side "right"
-		
+		right_panel_mode sel_comp
 		return 1
 	}
 	
@@ -3202,7 +3199,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	proc hide { page_to_hide page_to_show } {
 		variable data
 		
-		select_shot_side none
+		select_base 0
+		select_comp 0
+		
 		$::home_espresso_graph configure -width [dui::platform::rescale_x 1950]
 		dui item moveto $page_to_hide launch_dye_next* 1090 1370
 		
@@ -3215,7 +3214,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		# just reload the source shot always.
 		::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} ::plugins::DYE::shots::src_shot
 		
-		::plugins::DYE::shots::define_next_desc		
+		::plugins::DYE::shots::define_next_desc
 	}
 	
 	proc toggle_data_panel {} {
@@ -3338,31 +3337,30 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		dui item config dsx2_dye_hv temperature_text -text [translate Temperature]
 	}
 	
-	proc select_shot_side { side {allow_comp 1} } {
+	proc right_panel_mode { {mode {}} }  {
 		variable data
 		variable widgets
+
 		set page [namespace tail [namespace current]]
 		set tw $widgets(shots)
-				
-		if { $data(selected_side) eq $side && [string is true $allow_comp] } {
-			set side ""
+		
+		if { $mode eq {} } {
+			set mode $data(right_panel_mode)
+		} else {
+			if { $mode ni {sel_base sel_comp charts compare} } {
+				msg -WARNING [namespace current] "right_panel_mode: mode '$mode' not recognized"
+				set mode "sel_comp"
+			}
+			set data(right_panel_mode) $mode
 		}
 		
-		if { $side eq "left" } {
+		if { $mode eq "sel_base" } {
 			$tw tag delete selother
 			dui item hide $page compare_panel
 			dui item show $page search_shot_panel
-			dui item config $page launch_dye_last-btn -fill [dui::aspect::get dbutton fill -style dsx2]
-			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dbutton_label fill -style dsx2]
-			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dbutton_label fill -style dsx2]
+			select_base
 			
-			dui item config $page launch_dye_next-btn -fill [dui::aspect::get page bg_color]
-			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dtext fill]
-			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dtext fill]
-			
-			set data(selected_side) "left"
 			dui item config $page search_shot_title -text [translate {Select base shot}]
-			#dui item config $page select_shot_label -text [translate {M A T C H   C O M P A R E   S H O T}]
 			dui item config $page describe_shot-lbl -text [translate {Describe base shot}]
 			dui item config $page copy_to_next-lbl -text [translate {Copy base shot to Next}]
 			
@@ -3373,21 +3371,13 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 					$tw tag configure selother -background "light grey"
 				}
 			}
-		} elseif { $side eq "right" } {
+		} elseif { $mode eq "sel_comp" } {
 			$tw tag delete selother	
 			dui item hide $page compare_panel
 			dui item show $page search_shot_panel
-			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
-			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dtext fill]
-			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dtext fill]
+			select_comp
 			
-			dui item config $page launch_dye_next-btn -fill [dui::aspect::get dbutton fill -style dsx2]
-			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dbutton_label fill -style dsx2]
-			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dbutton_label fill -style dsx2]
-			
-			set data(selected_side) "right"
 			dui item config $page search_shot_title -text [translate {Select comparison shot}]
-			#dui item config $page select_shot_label -text [translate {M A T C H   B A S E   S H O T}]
 			dui item config $page describe_shot-lbl -text [translate {Describe comp. shot}]
 			dui item config $page copy_to_next-lbl -text [translate {Copy comp. shot to Next}]
 			
@@ -3398,44 +3388,146 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 					$tw tag configure selother -background "light grey"
 				}
 			}	
-		} else {
-			# Clear both			
+		} elseif { $mode eq "charts" } {
+			dui item hide $page compare_panel
+			dui item show $page search_shot_panel
+			select_base 0
+			select_comp 0
+		} elseif { $mode eq "compare" } {
 			dui item hide $page search_shot_panel
 			dui item show $page compare_panel
-			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
-			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dtext fill]
-			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dtext fill]
+			select_base 0
+			select_comp 0
+			
+			fill_comparison
+		} 
+		
+		return $mode
+	}
+	
+	proc click_base_description {} {
+		variable data
+		if { $data(right_panel_mode) eq "sel_base" } {
+			right_panel_mode compare
+		} else {
+			right_panel_mode sel_base
+		}
+	}
+
+	proc click_comp_description {} {
+		variable data
+		if { $data(right_panel_mode) eq "sel_comp" } {
+			right_panel_mode compare
+		} else {
+			right_panel_mode sel_comp
+		}
+	}
+	
+	proc select_base { {select 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { [string is true $select] } {
+			set data(selected_side) "left"
+			dui item config $page launch_dye_last-btn -fill [dui::aspect::get dbutton fill -style dsx2]
+			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dbutton_label fill -style dsx2]
+			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dbutton_label fill -style dsx2]
 			
 			dui item config $page launch_dye_next-btn -fill [dui::aspect::get page bg_color]
 			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dtext fill]
 			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dtext fill]
-			
-			set data(selected_side) ""
-			fill_comparison
+		} else {
+			if { $data(selected_side) eq "left" } {
+				set data(selected_side) ""
+			}
+			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
+			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dtext fill]
+			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dtext fill]
 		}
+		
+	}
+
+	proc select_comp { {select 1} } {
+		variable data
+		set page [namespace tail [namespace current]]
+		
+		if { [string is true $select] } {
+			set data(selected_side) "right"
+			dui item config $page launch_dye_next-btn -fill [dui::aspect::get dbutton fill -style dsx2]
+			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dbutton_label fill -style dsx2]
+			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dbutton_label fill -style dsx2]
+			
+			dui item config $page launch_dye_last-btn -fill [dui::aspect::get page bg_color]
+			dui item config $page launch_dye_last-lbl -fill [dui::aspect::get dtext fill]
+			dui item config $page launch_dye_last-lbl1 -fill [dui::aspect::get dtext fill]
+		} else {
+			if { $data(selected_side) eq "right" } {
+				set data(selected_side) ""
+			}
+			dui item config $page launch_dye_next-btn -fill [dui::aspect::get page bg_color]
+			dui item config $page launch_dye_next-lbl -fill [dui::aspect::get dtext fill]
+			dui item config $page launch_dye_next-lbl1 -fill [dui::aspect::get dtext fill]
+		}
+	}
+
+	proc load_base_shot { clock } {
+		variable data
+		variable base_shot
+		variable ::plugins::DYE::settings
+		
+		if { $data(left_clock) != $clock || [array size base_shot] == 0 } {
+			if { $clock == $settings(next_src_clock) } {
+				array set base_shot [array get ::plugins::DYE::shots::src_shot]
+			} else {
+				array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+			}
+			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
+			set data(left_clock) $clock
+		}
+		
+		calc_shot_stats left -1
+	}
+
+	proc load_comp_shot { clock } {
+		variable data
+		variable comp_shot
+		variable ::plugins::DYE::settings
+		
+		if { $data(right_clock) != $clock || [array size comp_shot] == 0 } {
+			if { $clock == $settings(next_src_clock) } {
+				array set comp_shot [array get ::plugins::DYE::shots::src_shot]
+			} else {
+				array set comp_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+			}
+			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
+			set data(right_clock) $clock
+		}
+		
+		calc_shot_stats right -1
 	}
 	
 	proc filter_shots {} {
 		variable data
+		variable base_shot
 		variable shots
 		array set shots {}
 				
 		# BUILD THE QUERY
 		set filter ""
 		if { $data(filter_matching) ne {} } {
-			if { "beans" in $data(filter_matching) && ($data(bean_brand) ne "" || $data(bean_type) ne "") } {
-				if { $data(bean_brand) ne "" } { 
-					append filter "bean_brand=[::plugins::SDB::string2sql $data(bean_brand)] AND "
+			if { "beans" in $data(filter_matching) && ($base_shot(bean_brand) ne "" || $base_shot(bean_type) ne "") } {
+				if { $base_shot(bean_brand) ne "" } { 
+					append filter "bean_brand=[::plugins::SDB::string2sql $base_shot(bean_brand)] AND "
 				}
-				if { $data(bean_type) ne "" } {
-					append filter "bean_type=[::plugins::SDB::string2sql $data(bean_type)] AND "
+				if { $base_shot(bean_type) ne "" } {
+					append filter "bean_type=[::plugins::SDB::string2sql $base_shot(bean_type)] AND "
 				}
 			}
-			if { "profile" in $data(filter_matching) && $data(profile_title) ne "" } {
-				append filter "profile_title=[::plugins::SDB::string2sql $data(profile_title)] AND "
+			if { "profile" in $data(filter_matching) && $base_shot(profile_title) ne "" } {
+				append filter "profile_title=[::plugins::SDB::string2sql $base_shot(profile_title)] AND "
 			}
-			if { "grinder" in $data(filter_matching) && $data(grinder_model) ne "" } {
-				append filter "grinder_model=[::plugins::SDB::string2sql $data(grinder_model)] AND "
+			if { "grinder" in $data(filter_matching) && $base_shot(grinder_model) ne "" } {
+				append filter "grinder_model=[::plugins::SDB::string2sql $base_shot(grinder_model)] AND "
 			}
 		}
 		
@@ -3460,9 +3552,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		}
 		
 		apply_string_filter
-		if { $data(selected_side) ne "" } {
-			select_shot_side $data(selected_side) 0
-		}
+		# Ensure selected shot is highlighted
+		right_panel_mode $data(right_panel_mode)
 	}
 	
 	proc apply_string_filter {} {
@@ -3540,8 +3631,15 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			} else {
 				$tw insert insert "[::plugins::DYE::format_date $shot_clock]" [concat $tags datetime shotsep]
 			}
+			
 			$tw mark set stype_$shot_clock insert
 			$tw mark gravity stype_$shot_clock left
+			
+			if { $shot_clock eq $data(left_clock) } {
+				$tw insert insert " \[[translate BASE]\]" [concat $tags sel_base]
+			} elseif { $shot_clock eq $data(right_clock) } {
+				$tw insert insert " \[[translate COMP]\]" [concat $tags sel_comp]
+			}
 			
 			set enjoy [lindex $shots(espresso_enjoyment) $idx]
 			if { $enjoy > 0 } {
@@ -3671,36 +3769,23 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				$widget delete sel_base.first sel_base.last
 				$widget tag delete sel_base
 			}
-			$widget insert stype_$clock " \[[translate BASE]\]" [list sel_base selshot shot_$clock]
+			$widget insert stype_$clock " \[[translate BASE]\]" [list shot shot_$clock selshot sel_base]
 			$widget configure -state disabled
-			if { [string is true $load_shot] && $data(left_clock) != $clock } {
-				if { $clock == $settings(next_src_clock) } {					
-					array set base_shot [array get ::plugins::DYE::shots::src_shot]
-				} else {
-					array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
-				}
-				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
+			if { [string is true $load_shot] } { 
+				load_base_shot $clock
 			}
-			set data(left_clock) $clock
-			calc_shot_stats left -1
 		} elseif { $side eq "right" } {
 			$widget configure -state normal
 			catch {
 				$widget delete sel_comp.first sel_comp.last
 				$widget tag delete sel_comp
 			}			
-			$widget insert stype_$clock " \[[translate COMP]\]" [list sel_comp selshot shot_$clock]
+			$widget insert stype_$clock " \[[translate COMP]\]" [list shot shot_$clock selshot sel_comp]
 			$widget configure -state disabled
-			if { [string is true $load_shot] && $data(right_clock) != $clock } {
-				if { $clock == $settings(next_src_clock) } {
-					array set comp_shot [array get ::plugins::DYE::shots::src_shot]
-				} else {
-					array set comp_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
-				}
-				::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
+			
+			if { [string is true $load_shot] } {
+				load_comp_shot $clock
 			}
-			set data(right_clock) $clock
-			calc_shot_stats right -1
 		}
 	}
 	
