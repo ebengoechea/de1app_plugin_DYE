@@ -3156,6 +3156,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	proc load { page_to_hide page_to_show {base_clock 0} {comp_clock 0} args } {
 		variable data 
 		variable base_shot
+		variable comp_shot
+		variable shots
 		variable ::plugins::DYE::settings
 		
 		# Modify home UI elements
@@ -3163,32 +3165,48 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		dui item moveto $page_to_show launch_dye_next* 900 1370
 		
 		# Initialize data
-		set data(n_shots) 0
-		set data(filter_string) ""
 		set data(selected) {}
 
-		if { $base_clock <= 0 } {
-			set base_clock $settings(next_src_clock)
-		}
-		# We need to load the base shot before filter_shots, otherwise
-		# matching data is not loaded yet, then do the selection afterwards
-		load_base_shot $base_clock
-		
-		# This also fills the shot history
-		filter_shots
-
-		shot_select $base_clock 0 left 1
-	
-		if { $comp_clock > 0 } {
-			shot_select $comp_clock 1 right 1
+		# If not specific shots are requested and the source shot is already the currently
+		# loaded base shot, open the page as it was left on last page opening.
+		if { $base_clock == 0 && $comp_clock == 0 && $data(left_clock) == $settings(next_src_clock) } {
+			# Ensure a description is selected if on base or comp selection mode
+			right_panel_mode $data(right_panel_mode)
+			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
 		} else {
-			set data(right_clock) 0
-			array unset comp_shot
-			set settings(next_shot_header) {}
-			set settings(next_shot_desc) "\[ [translate {Select a shot to compare with}] \]"
+			set data(n_shots) 0
+			set data(filter_string) ""
+				
+			if { $base_clock <= 0 } {
+				set base_clock $settings(next_src_clock)
+			}
+			# We need to load the base shot before filter_shots, otherwise
+			# matching data is not loaded yet, then do the selection afterwards
+			load_base_shot $base_clock
+			
+			# This also fills the shot history
+			filter_shots
+	
+			shot_select $base_clock 0 left 1
+		
+			if { $comp_clock > 0 } {
+				shot_select $comp_clock 1 right 1
+			} else {
+				# By default, compare if possible with the previous matching shot 
+				set next_idx [expr {[lsearch -exact $shots(clock) $base_clock]+1}]
+				if { $next_idx > 0 && $next_idx < [llength $shots(clock)] } {
+					shot_select [lindex $shots(clock) $next_idx] 1 right 1
+				} else {
+					set data(right_clock) 0
+					array unset comp_shot
+					set settings(next_shot_header) {}
+					set settings(next_shot_desc) "\[ [translate {Select a shot to compare with}] \]"
+				}
+			}
+	
+			right_panel_mode sel_comp
 		}
-
-		right_panel_mode sel_comp
+		
 		return 1
 	}
 	
@@ -3213,7 +3231,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		# shot the X axis has been modified, and returning to the original is not trivial, so we
 		# just reload the source shot always.
 		::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} ::plugins::DYE::shots::src_shot
-		
 		::plugins::DYE::shots::define_next_desc
 	}
 	
@@ -3337,7 +3354,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		dui item config dsx2_dye_hv temperature_text -text [translate Temperature]
 	}
 	
-	proc right_panel_mode { {mode {}} }  {
+	proc right_panel_mode { {mode {}} {load_shot 0} }  {
 		variable data
 		variable widgets
 
@@ -3356,8 +3373,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		
 		if { $mode eq "sel_base" } {
 			$tw tag delete selother
-			dui item hide $page compare_panel
-			dui item show $page search_shot_panel
+			dui item hide $page compare_panel -initial 1
+			dui item show $page search_shot_panel -initial 1
 			select_base
 			
 			dui item config $page search_shot_title -text [translate {Select base shot}]
@@ -3373,8 +3390,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			}
 		} elseif { $mode eq "sel_comp" } {
 			$tw tag delete selother	
-			dui item hide $page compare_panel
-			dui item show $page search_shot_panel
+			dui item hide $page compare_panel -initial 1
+			dui item show $page search_shot_panel -initial 1
 			select_comp
 			
 			dui item config $page search_shot_title -text [translate {Select comparison shot}]
@@ -3389,13 +3406,13 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				}
 			}	
 		} elseif { $mode eq "charts" } {
-			dui item hide $page compare_panel
-			dui item show $page search_shot_panel
+			dui item hide $page compare_panel -initial 1
+			dui item show $page search_shot_panel -initial 1
 			select_base 0
 			select_comp 0
 		} elseif { $mode eq "compare" } {
-			dui item hide $page search_shot_panel
-			dui item show $page compare_panel
+			dui item hide $page search_shot_panel -initial 1
+			dui item show $page compare_panel -initial 1
 			select_base 0
 			select_comp 0
 			
