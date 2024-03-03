@@ -3225,7 +3225,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	proc show { page_to_hide page_to_show } {
 		$::home_espresso_graph configure -width [dui::platform::rescale_x 1750]
 		if { $::skin(show_heading) == 1 } {
-			dui item moveto $page_to_show heading_entry 450 -1001
+			dui item hide $page_to_show {headerbar_heading heading}
 		}
 	}
 	
@@ -3249,7 +3249,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		::plugins::DYE::shots::define_next_desc
 		
 		if { $::skin(show_heading) == 1 } {
-			dui item moveto $page_to_hide heading_entry 450 640
+			dui item show $page_to_hide {headerbar_heading heading}
 		}
 	}
 	
