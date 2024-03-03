@@ -2083,9 +2083,9 @@ namespace eval ::plugins::DYE::shots {
 	
 			set workflow [value_or_default last_shot(workflow)]
 			if { $workflow eq {} } {
-				set workflow [value_or_default last_shot(DSx2_workflow) "no"]
+				set workflow [value_or_default last_shot(DSx2_workflow) "no workflow"]
 			}
-			append settings(last_shot_header) ", [translate $workflow] [translate {workflow}]"
+			append settings(last_shot_header) ", [translate $workflow]"
 		}
 			
 	}
@@ -2133,7 +2133,7 @@ namespace eval ::plugins::DYE::shots {
 			set line_spec {profile beans {grind ratio}}
 			set max_line_chars 55
 			
-			append settings(next_shot_header) "[translate [value_or_default ::skin(workflow) {no}]] [translate {workflow}]" 
+			append settings(next_shot_header) "[translate [value_or_default ::skin(workflow) {no workflow}]]" 
 		} else {
 			set line_spec {beans grind ratio}
 			set max_line_chars 55
