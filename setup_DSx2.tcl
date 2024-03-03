@@ -814,7 +814,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			-text [translate "Roast date"] -initial_state hidden
 		set w [dui add entry $page [expr {$x-115}] [expr {$y+55}] -tags wf_roast_date -width 10 \
 			-justify center -textvariable ::plugins::DYE::settings(next_roast_date) -initial_state hidden]
-		bind $w <Leave> [list + [namespace current]::compute_days_offroast]
+		bind $w <FocusOut> [list + [namespace current]::compute_days_offroast]
 		
 		dui add variable $page $x [expr {$y+140}] -tags wf_days_offroast -width 250 \
 			-textvariable {$::plugins::DYE::pages::dsx2_dye_home::data(days_offroast_msg)} -font [skin_font font 16] \

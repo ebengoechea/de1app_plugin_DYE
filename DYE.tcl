@@ -3106,7 +3106,7 @@ proc ::dui::pages::DYE::setup {} {
 	incr y 100
 	dui add entry $page $x_left_field $y -tags roast_date -width [expr {$width_left_field/2}] \
 		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_pos [list $x_left_label $y]
-	bind $widgets(roast_date) <Leave> [list + [namespace current]::compute_days_offroast]
+	bind $widgets(roast_date) <FocusOut> [list + [namespace current]::compute_days_offroast]
 	
 	dui add variable $page [expr {$x_left_field+400}] $y -tags days_offroast_msg
 	bind $widgets(roast_date) <Configure> [list ::dui::item::relocate_text_wrt DYE days_offroast_msg roast_date e 30 0 w]
