@@ -2851,6 +2851,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		base_volume "-"
 		base_weight "-"
 		
+		base_extr_peak_pressure "-"
+		base_full_final_flow "-"
+		
 		comp_time "-"
 		comp_peak_pressure "-"
 		comp_final_pressure "-"
@@ -2862,6 +2865,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		comp_final_temperature "-"
 		comp_volumen "-"
 		comp_weight "-"
+
+		comp_extr_peak_pressure "-"
+		comp_full_final_flow "-"
 	}
 	
 	variable shots
@@ -2913,7 +2919,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		set xv [expr {$x+250+$xwidth/2}]
 		set y_colheader [expr {$y+35}]
 		dui add dtext $page $xv $y_colheader -anchor center -justify center \
-			-text "[translate {Peak pressure}]" -font_family notosansuibold -font_size 12 \
+			-text "[translate {Peak extr. pressure}]" -font_family notosansuibold -font_size 12 \
 			-tags {smallp_pressure data_smallp}
 		dui add dtext $page [expr {$xv+$xwidth}] [expr {$y+35}] -anchor center -justify center \
 			-text "[translate {Final flow}]" -font_family notosansuibold -font_size 12 \
@@ -2924,18 +2930,14 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		set y_comp [expr {$y+180+(300-180)/2}]
 		
 		dui add variable $page $xv $y_base -anchor center -justify center \
-			-tags {smallp_base_peak_pressure data_smallp} -font_size 16 \
-			-textvariable {$%NS::data(base_peak_pressure)}
+			-tags {base_extr_peak_pressure data_smallp} -font_size 16
 		dui add variable $page $xv $y_comp -anchor center -justify center \
-			-tags {smallp_comp_peak_pressure data_smallp} -font_size 16 \
-			-textvariable {$%NS::data(comp_peak_pressure)}
-		
+			-tags {comp_extr_peak_pressure data_smallp} -font_size 16 
+				
 		dui add variable $page [expr {$xv+$xwidth}] $y_base -anchor center -justify center \
-			-tags {smallp_base_final_flow data_smallp} -font_size 16 \
-			-textvariable {$%NS::data(base_final_flow)}
+			-tags {base_full_final_flow data_smallp} -font_size 16
 		dui add variable $page [expr {$xv+$xwidth}] $y_comp -anchor center -justify center \
-			-tags {smallp_comp_final_flow data_smallp} -font_size 16 \
-			-textvariable {$%NS::data(comp_final_flow)}
+			-tags {comp_full_final_flow data_smallp} -font_size 16
 		
 		dui add dbutton $page $x $y -bwidth $panel_width -bheight 300 -command toggle_data_panel \
 			-tags {smallp_btn data_smallp}
@@ -3222,6 +3224,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	
 	proc show { page_to_hide page_to_show } {
 		$::home_espresso_graph configure -width [dui::platform::rescale_x 1750]
+		if { $::skin(show_heading) == 1 } {
+			dui item moveto $page_to_show heading_entry 450 -1001
+		}
 	}
 	
 	proc hide { page_to_hide page_to_show } {
@@ -3242,6 +3247,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		# just reload the source shot always.
 		::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} ::plugins::DYE::shots::src_shot
 		::plugins::DYE::shots::define_next_desc
+		
+		if { $::skin(show_heading) == 1 } {
+			dui item moveto $page_to_hide heading_entry 450 640
+		}
 	}
 	
 	proc toggle_data_panel {} {
@@ -3286,10 +3295,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		if { $idx > -1 } {
 			if { $idx < $src_n } {
 				set time_label [format {%.1f} $x]
-				set step_idx [lsearch -sorted -increasing -bisect -real \
-						$base_shot(steps_indexes) [expr {$idx-1}]]
+				set step_idx [lsearch -sorted -increasing -bisect -real $base_shot(steps_indexes) $idx]
 				if { $step_idx > -1 } {
-					set step_label [lindex $base_shot(steps_names) [expr {$step_idx-1}]]
+					set step_label [lindex $base_shot(steps_names) $step_idx]
 				} else {
 					set step_label ""
 				}
@@ -3312,9 +3320,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 
 				if { $comp_idx > -1 } {
 					set step_idx [lsearch -sorted -increasing -bisect -real \
-							$comp_shot(steps_indexes) [expr {$comp_idx-1}]]
+							$comp_shot(steps_indexes) $comp_idx]
 					if { $step_idx > -1 } {
-						set comp_step_label [lindex $comp_shot(steps_names) [expr {$step_idx-1}]]
+						set comp_step_label [lindex $comp_shot(steps_names) $step_idx]
 						if { $comp_step_label ne $step_label } {
 							set step_label "[translate Base]:   $step_label\n[translate Comp]: $comp_step_label"
 						}
@@ -3892,6 +3900,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	# Use step -1 for the whole shot
 	proc calc_shot_stats { side {step -1} } {
 		variable data
+		variable base_shot
+		variable comp_shot
+		vector create extr_pressure
 		set data(step_name) [translate {Full shot}]
 		
 		if { $side eq "left" } {
@@ -3905,12 +3916,31 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				set data(base_final_weight) "-"
 				set data(base_peak_temperature) "-"
 				set data(base_final_temperature) "-"
+
+				set data(base_extr_peak_pressure) "-"
+				set data(base_full_final_flow) "-"
 			} else {
-				set data(base_time) "[format {%.0f} [::plugins::DYE::pages::dsx2_dye_home::src_elapsed range end end]] [translate s]"
+				#set data(base_time) "[format {%.0f} [::plugins::DYE::pages::dsx2_dye_home::src_elapsed range end end]] [translate s]"
+				set data(base_time) "[format {%.0f} $base_shot(extraction_time)] [translate s]"
 				_stats_strings left pressure bar
 				_stats_strings left flow "ml/s"
 				_stats_strings left weight "g/s"
 				_stats_strings left temperature ""
+				
+				if { $step < 0 } {
+					if { [llength $base_shot(steps_indexes)] > 1 } {
+						set extr_start_idx 2
+					} else {
+						set extr_start_idx 1
+					}
+
+					extr_pressure append [::plugins::DYE::pages::dsx2_dye_home::src_pressure range \
+						[lindex $base_shot(steps_indexes) $extr_start_idx] end]
+					set data(base_extr_peak_pressure) \
+						"[format {%.1f} [vector expr max(extr_pressure)]] [translate {bar}]"
+					
+					set data(base_full_final_flow) $data(base_final_flow)
+				}
 			}
 		} elseif { $side eq "right" } { 
 			if { $data(right_clock) <= 0 } {
@@ -3923,15 +3953,37 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				set data(comp_final_weight) "-"
 				set data(comp_peak_temperature) "-"
 				set data(comp_final_temperature) "-"
+				
+				set data(comp_extr_peak_pressure) "-"
+				set data(comp_full_final_flow) "-"
 			} else {
-				set data(comp_time) "[format {%.0f} [compare_espresso_elapsed range end end]] [translate s]"
+				#set data(comp_time) "[format {%.0f} [compare_espresso_elapsed range end end]] [translate s]"
+				set data(comp_time) "[format {%.0f} $comp_shot(extraction_time)] [translate s]"
 				_stats_strings right pressure bar
 				_stats_strings right flow "ml/s"
 				_stats_strings right weight "g/s" flow_weight
 				#_stats_strings right temperature ""
+				
+				if { $step < 0 } {
+					if { [llength $comp_shot(steps_indexes)] > 1 } {
+						set extr_start_idx 2
+					} else {
+						set extr_start_idx 1
+					}
+					if { [extr_pressure  length] > 0 } {
+						extr_pressure delete 0:end
+					}
+					extr_pressure append [compare_espresso_pressure range \
+						[lindex $comp_shot(steps_indexes) $extr_start_idx] end]
+					set data(comp_extr_peak_pressure) \
+						"[format {%.1f} [vector expr max(extr_pressure)]] [translate {bar}]"
+					
+					set data(comp_full_final_flow) $data(comp_final_flow)
+				}
 			}
 		}
 		
+		vector destroy extr_pressure
 	}
 	
 	proc fill_comparison {} {

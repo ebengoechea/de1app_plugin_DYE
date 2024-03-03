@@ -2173,6 +2173,42 @@ namespace eval ::plugins::DYE::shots {
 		
 		return $repo_link
 	}
+	
+	proc shot_steps { shot_array_name } {
+		upvar $shot_array_name shot
+		set steps_idxs [list 0]
+		set steps_elapsed [list]
+		set steps_names [list]
+		
+		if { [info exists shot(graph_espresso_state_change)] } {
+			set state_change $shot(graph_espresso_state_change)
+			set next_value [expr {-1.0*[lindex $state_change 1]}]
+			set idx [lsearch -start 1 $state_change $next_value]
+			while { $idx > -1 } {
+				lappend steps_idxs [expr {$idx-1}]
+				set next_value [expr {-1.0*$next_value}]
+				
+				set idx [lsearch -start [expr {$idx+1}] $state_change $next_value]
+			}
+			
+			if { [info exists shot(graph_espresso_elapsed)] } {
+				set elapsed $shot(graph_espresso_elapsed)
+				
+				foreach idx $steps_idxs {
+					lappend steps_elapsed [lindex $elapsed $idx]
+				}
+			}
+		}
+		
+		if { [info exists shot(advanced_shot)] } {
+			foreach step_list $shot(advanced_shot) {
+				array set step $step_list
+				lappend steps_names $step(name)
+			}
+		}
+		
+		return [list indexes $steps_idxs elapsed $steps_elapsed names $steps_names]
+	}
 }
 
 namespace eval ::plugins::DYE::profiles {
