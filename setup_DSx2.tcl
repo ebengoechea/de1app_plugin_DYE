@@ -3078,10 +3078,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			temperature_data temperature_text temperature_key_button \
 			resistance_data resistance_text resistance_key_button \
 			steps_data steps_text steps_key_button \
-			main_graph_toggle_view_label main_graph_toggle_view_button]
+			main_graph_toggle_view_label main_graph_toggle_view_button \
+			main_graph_toggle_goal_label main_graph_toggle_goal_button]
 		
-		dui add dtext $page [expr $::skin(graph_key_x)+976+80] [expr $::skin(graph_key_y)+30] \
-			-width 590 -tags press_steps -text "setps" -anchor sw -initial_state hidden \
+		dui add dtext $page [expr $::skin(graph_key_x)+976+130] [expr $::skin(graph_key_y)+30] \
+			-width 550 -tags press_steps -text "steps" -anchor sw -initial_state hidden \
 			-font [skin_font font $::key_font_size] -fill $::skin_text_colour
 		
 		bind $::home_espresso_graph [dui::platform::button_unpress] \
@@ -3382,8 +3383,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		dui item config dsx2_dye_hv weight_text -text $weight_label
 		dui item config dsx2_dye_hv temperature_text -text $temp_label
 		
-		dui item hide dsx2_dye_hv {resistance_icon resistance_text steps_icon steps_text \
-				main_graph_toggle_view_label}
+		dui item hide dsx2_dye_hv {resistance_icon resistance_text resistance_key_button \
+				steps_icon steps_text steps_key_button \
+				main_graph_toggle_view_label main_graph_toggle_view_button \
+				main_graph_toggle_goal_label main_graph_toggle_goal_button}
 		dui item config dsx2_dye_hv press_steps -text $step_label
 		dui item show dsx2_dye_hv press_steps
 	}
@@ -3403,12 +3406,14 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		}
 
 		$widget marker delete vline vline_time
-		dui item config dsx2_dye_hv flow_text -text "[translate {Flow rate}] ([translate {in}])"
-		dui item config dsx2_dye_hv pressure_text -text [translate Pressure]
-		dui item config dsx2_dye_hv weight_text -text "[translate {Scale rate}] ([translate {out}])"
-		dui item config dsx2_dye_hv temperature_text -text [translate Temperature]
-		dui item show dsx2_dye_hv {resistance_icon resistance_text steps_icon steps_text \
-				main_graph_toggle_view_label }
+		dui item config dsx2_dye_hv pressure_text -text [translate pressure]
+		dui item config dsx2_dye_hv flow_text -text "[translate {flow rate}]"		
+		dui item config dsx2_dye_hv weight_text -text "[translate {scale rate}]"
+		dui item config dsx2_dye_hv temperature_text -text [translate temperature]
+		dui item show dsx2_dye_hv {resistance_icon resistance_text resistance_key_button \
+			steps_icon steps_text steps_key_button \
+			main_graph_toggle_view_label main_graph_toggle_view_button \
+			main_graph_toggle_goal_label main_graph_toggle_goal_button}
 		dui item hide dsx2_dye_hv press_steps
 	}
 	
