@@ -3165,6 +3165,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	
 	proc load { page_to_hide page_to_show {base_clock 0} {comp_clock 0} args } {
 		variable data 
+		variable widgets
 		variable base_shot
 		variable comp_shot
 		variable comp_shot_steps
@@ -3217,6 +3218,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			}
 	
 			right_panel_mode sel_comp
+		}
+
+		# Ensure (if it's shown) that the base clock is always visible
+		catch {
+			$widgets(shots) see shot_${base_clock}.first
 		}
 		
 		return 1
