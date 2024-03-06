@@ -1557,10 +1557,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		src_elapsed set $src_shot(graph_espresso_elapsed)
 		
 		# Apply the temp units transformation to all elements of the temps lists
-		set src_shot(graph_espresso_temperature_basket) [::struct::list mapfor x \
-				$src_shot(graph_espresso_temperature_basket) {skin_temperature_units $x}]
-		set src_shot(graph_espresso_temperature_goal) [::struct::list mapfor x \
-				$src_shot(graph_espresso_temperature_goal) {skin_temperature_units $x}]
+#		set src_shot(graph_espresso_temperature_basket) [::struct::list mapfor x \
+#				$src_shot(graph_espresso_temperature_basket) {skin_temperature_units $x}]
+#		set src_shot(graph_espresso_temperature_goal) [::struct::list mapfor x \
+#				$src_shot(graph_espresso_temperature_goal) {skin_temperature_units $x}]
 		# Series for the graph view with a second Y axis
 		set src_shot(graph_espresso_flow_2x) [::struct::list mapfor x \
 				$src_shot(graph_espresso_flow) {round_to_two_digits [expr {2.0 * $x}]}]
@@ -1585,7 +1585,13 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			
 			src_$src_name length 0
 			if {[info exists src_shot(graph_espresso_$lg)]} {
-				src_$src_name append $src_shot(graph_espresso_$lg)
+				if { $lg in {temperature_goal temperature_basket} } {
+					src_$src_name append [::struct::list mapfor x \
+						$src_shot(graph_espresso_$lg) {skin_temperature_units $x}] 
+				} else {
+					src_$src_name append $src_shot(graph_espresso_$lg)
+				}
+				
 				$::home_espresso_graph element configure home_$src_name -xdata src_elapsed -ydata src_$src_name	
 			} else {
 				msg -WARNING [namespace current] "load_home_graph_from: series '$lg' not found on shot file with clock '$src_clock"
@@ -1593,14 +1599,22 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		}
 		
 		if { [string is true $reset_compare] } {
-			$::home_espresso_graph element configure compare_pressure -xdata src_elapsed \
-				-ydata src_pressure -linewidth 0
-			$::home_espresso_graph element configure compare_flow -xdata src_elapsed \
-				-ydata src_flow -linewidth 0
-			$::home_espresso_graph element configure compare_weight -xdata src_elapsed \
-				-ydata src_weight -linewidth 0
-			$::home_espresso_graph element configure compare_steps -xdata src_elapsed \
-				-ydata src_steps -linewidth 0
+			$::home_espresso_graph element configure compare_temperature -hide 1
+			$::home_espresso_graph element configure compare_pressure -hide 1
+			$::home_espresso_graph element configure compare_flow -hide 1
+			$::home_espresso_graph element configure compare_flow_2x -hide 1
+			$::home_espresso_graph element configure compare_weight -hide 1
+			$::home_espresso_graph element configure compare_weight_2x -hide 1
+			$::home_espresso_graph element configure compare_steps -hide 1
+			
+#			$::home_espresso_graph element configure compare_pressure -xdata src_elapsed \
+#				-ydata src_pressure -linewidth 0
+#			$::home_espresso_graph element configure compare_flow -xdata src_elapsed \
+#				-ydata src_flow -linewidth 0
+#			$::home_espresso_graph element configure compare_weight -xdata src_elapsed \
+#				-ydata src_weight -linewidth 0
+#			$::home_espresso_graph element configure compare_steps -xdata src_elapsed \
+#				-ydata src_steps -linewidth 0
 		}
 		
 		::plugins::DYE::shots::define_last_desc src_shot
@@ -1624,15 +1638,15 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			msg -WARNING [namespace current] "load_home_graph_comp_from: comp espresso_elapsed only has 0 or 1 elements"			
 			return
 		}
-		
+
 		compare_espresso_elapsed length 0
 		compare_espresso_elapsed set $comp_shot(graph_espresso_elapsed)
 		
 		# Apply the temp units transformation to all elements of the temps lists
-		set comp_shot(graph_espresso_temperature_basket) [::struct::list mapfor x \
-				$comp_shot(graph_espresso_temperature_basket) {skin_temperature_units $x}]
-		set comp_shot(graph_espresso_temperature_goal) [::struct::list mapfor x \
-				$comp_shot(graph_espresso_temperature_goal) {skin_temperature_units $x}]
+#		set comp_shot(graph_espresso_temperature_basket) [::struct::list mapfor x \
+#				$comp_shot(graph_espresso_temperature_basket) {skin_temperature_units $x}]
+#		set comp_shot(graph_espresso_temperature_goal) [::struct::list mapfor x \
+#				$comp_shot(graph_espresso_temperature_goal) {skin_temperature_units $x}]
 		# Series for the graph view with a second Y axis
 		set comp_shot(graph_espresso_flow_2x) [::struct::list mapfor x \
 				$comp_shot(graph_espresso_flow) {round_to_two_digits [expr {2.0 * $x}]}]
@@ -1640,26 +1654,71 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 				$comp_shot(graph_espresso_flow_goal) {round_to_two_digits [expr {2.0 * $x}]}]
 		set comp_shot(graph_espresso_flow_weight_2x) [::struct::list mapfor x \
 				$comp_shot(graph_espresso_flow_weight) {round_to_two_digits [expr {2.0 * $x}]}]
-		
+
+		compare_espresso_temperature_basket length 0
+		compare_espresso_temperature_basket append [::struct::list mapfor x \
+				$comp_shot(graph_espresso_temperature_basket) {skin_temperature_units $x}]
+		$::home_espresso_graph element configure compare_temperature -linewidth [rescale_x_skin 4] \
+			-xdata compare_espresso_elapsed -ydata compare_espresso_temperature_basket
+
 		compare_espresso_pressure length 0
 		compare_espresso_pressure append $comp_shot(graph_espresso_pressure)
 		$::home_espresso_graph element configure compare_pressure -linewidth [rescale_x_skin 4] \
-			-xdata compare_espresso_elapsed -ydata compare_espresso_pressure
-			
+			-xdata compare_espresso_elapsed -ydata compare_espresso_pressure			
+		
 		compare_espresso_flow length 0
 		compare_espresso_flow append $comp_shot(graph_espresso_flow)
 		$::home_espresso_graph element configure compare_flow -linewidth [rescale_x_skin 4] \
 			-xdata compare_espresso_elapsed -ydata compare_espresso_flow
-		
+
 		compare_espresso_flow_weight length 0
 		compare_espresso_flow_weight append $comp_shot(graph_espresso_flow_weight)
 		$::home_espresso_graph element configure compare_weight -linewidth [rescale_x_skin 4] \
 			-xdata compare_espresso_elapsed -ydata compare_espresso_flow_weight
 
+		compare_espresso_flow_2x length 0
+		compare_espresso_flow_2x append $comp_shot(graph_espresso_flow_2x)
+		$::home_espresso_graph element configure compare_flow_2x -linewidth [rescale_x_skin 4] \
+			-xdata compare_espresso_elapsed -ydata compare_espresso_flow_2x
+		
+		compare_espresso_flow_weight_2x length 0
+		compare_espresso_flow_weight_2x append $comp_shot(graph_espresso_flow_weight_2x)
+		$::home_espresso_graph element configure compare_weight_2x -linewidth [rescale_x_skin 4] \
+			-xdata compare_espresso_elapsed -ydata compare_espresso_flow_weight_2x
+
 		compare_espresso_state_change length 0
 		compare_espresso_state_change append $comp_shot(graph_espresso_state_change)
 		$::home_espresso_graph element configure compare_steps -linewidth [rescale_x_skin 2] \
 			-xdata compare_espresso_elapsed -ydata compare_espresso_state_change
+		
+		$::home_espresso_graph element configure compare_temperature -hide 0
+		$::home_espresso_graph element configure compare_pressure -hide 0
+		$::home_espresso_graph element configure compare_steps -hide 0		
+		if {$::skin(show_y2_axis) == 1} {
+			$::home_espresso_graph element configure home_flow_goal -hide 1
+			$::home_espresso_graph element configure home_flow -hide 1
+			$::home_espresso_graph element configure home_weight -hide 1
+			#$::home_espresso_graph element configure home_flow_goal_2x -hide 0
+			$::home_espresso_graph element configure home_flow_2x -hide 0
+			$::home_espresso_graph element configure home_weight_2x -hide 0
+			
+			$::home_espresso_graph element configure compare_flow -hide 1
+			$::home_espresso_graph element configure compare_weight -hide 1	
+			$::home_espresso_graph element configure compare_flow_2x -hide 0
+			$::home_espresso_graph element configure compare_weight_2x -hide 0	
+		} else {
+			$::home_espresso_graph element configure home_flow_goal -hide 0
+			$::home_espresso_graph element configure home_flow -hide 0
+			$::home_espresso_graph element configure home_weight -hide 0
+			#$::home_espresso_graph element configure home_flow_goal_2x -hide 1
+			$::home_espresso_graph element configure home_flow_2x -hide 1
+			$::home_espresso_graph element configure home_weight_2x -hide 1
+			
+			$::home_espresso_graph element configure compare_flow -hide 0
+			$::home_espresso_graph element configure compare_weight -hide 0	
+			$::home_espresso_graph element configure compare_flow_2x -hide 1
+			$::home_espresso_graph element configure compare_weight_2x -hide 1
+		}
 		
 		::plugins::DYE::shots::define_next_desc comp_shot	
 	}
@@ -3090,6 +3149,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		bind $::home_espresso_graph <B1--Motion> [list \
 			[namespace current]::pressmotion_graph %W %x %y]	
 
+		trace add execution ::check_graph_axis leave [namespace current]::toggle_y2_axis_hook
+		
 		# RIGHT SIDE PANEL, select panel mode
 		set x 1820 
 		set y 90
@@ -3415,6 +3476,26 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			main_graph_toggle_view_label main_graph_toggle_view_button \
 			main_graph_toggle_goal_label main_graph_toggle_goal_button}
 		dui item hide dsx2_dye_hv press_steps
+	}
+	
+	# The proc on DSx2 doesn't show/hide the compare shots in the same way as DYE, so we
+	# need to do it here
+	proc toggle_y2_axis_hook { args } {
+		set page [namespace tail [namespace current]]
+		
+		if { [dui page current] eq $page } {
+			if {$::skin(show_y2_axis) == 1} {
+				$::home_espresso_graph element configure compare_flow -hide 1
+				$::home_espresso_graph element configure compare_weight -hide 1	
+				$::home_espresso_graph element configure compare_flow_2x -hide 0
+				$::home_espresso_graph element configure compare_weight_2x -hide 0	
+			} else {
+				$::home_espresso_graph element configure compare_flow -hide 0
+				$::home_espresso_graph element configure compare_weight -hide 0	
+				$::home_espresso_graph element configure compare_flow_2x -hide 1
+				$::home_espresso_graph element configure compare_weight_2x -hide 1
+			}			
+		}
 	}
 	
 	proc right_panel_mode { {mode {}} {load_shot 0} }  {
