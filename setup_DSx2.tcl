@@ -707,11 +707,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		
 		set page [lindex $::skin_home_pages 0]
 		
-		# TEMPORAL, DEBUGGING TEST!
-#dui add dbutton $page [expr {$::skin(button_x_scale)+40}] [expr {$::skin(button_y_scale) - 130}] \
-#	-bwidth 250 -bheight 70 -style dsx2 -label "Test" -command [namespace current]::select_grinder 
-		#[list dui::page::open_dialog dye_item_select_dlg ::plugins::DYE::settings(next_grinder_model) {"P100 SPP Burrs and an arbitrary name for this excellent grinder in all my life " "Niche Zero" "Comandante C40"} ] 
-		
 		# Define hooks for Damian's pages and procs
 		set ns [namespace current]
 		dui page add_action $page load ${ns}::load
@@ -728,22 +723,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		blt::vector create src_elapsed src_pressure src_pressure_goal src_flow src_flow_goal \
 			src_flow_weight src_weight src_temperature src_temperature_goal src_resistance src_steps \
 			src_flow_2x src_flow_goal_2x src_weight_2x 
-		
-#		if { [ifexists ::settings(espresso_clock) 0] > 0 && \
-#				$settings(next_src_clock) != $::settings(espresso_clock) && \
-#				[string is true $settings(dsx2_update_chart_on_copy)] && \
-#				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
-#			# Called proc already defines the source shot desc
-#			load_home_graph_from $settings(next_src_clock) 
-#		} else {
-#			::plugins::DYE::shots::define_last_desc
-#		}
-
-		if { [string is true $settings(dsx2_update_chart_on_copy)] && \
-				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
-			# Called proc already defines the source shot desc
-			load_home_graph_from {} ::plugins::DYE::shots::src_shot 
-		} 
 		
 		# Add last/source & next shot description buttons to the home page
 		if { [string is true $settings(dsx2_show_shot_desc_on_home)] } {
@@ -764,11 +743,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
 			-initial_state $istate
 		
-		set dbu [dui add dbutton $page 1000 1380 -bwidth 120 -bheight 180 -style dsx2 -anchor n \
+		dui add dbutton $page 1000 1380 -bwidth 120 -bheight 180 -style dsx2 -anchor n \
 			-tags launch_dye_dsx2_hv -symbol clock-rotate-left -symbol_pos {0.5 0.3} \
 			-label [translate {history viewer}] -label_width 115 -label_pos {0.5 0.78} \
 			-label_anchor center -label_justify center -label_font_size 10 \
-			-tap_pad {20 40 20 40} -command {::dui::page::load dsx2_dye_hv}]
+			-tap_pad {20 40 20 40} -command {::dui::page::load dsx2_dye_hv}
 
 		# A try to rebind clicks on the main graph, but can't make it work
 #		bindtags $::home_espresso_graph [concat [dui::canvas].launch_dye_dsx2_hv \

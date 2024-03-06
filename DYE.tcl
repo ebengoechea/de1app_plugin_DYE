@@ -173,7 +173,19 @@ proc ::plugins::DYE::main {} {
 	# Initialize source shot and shot summaries
 	if { $settings(next_src_clock) > 0 } {
 		array set src_shot [::plugins::SDB::load_shot $settings(next_src_clock) 1 1 1 1]
-		shots::define_last_desc src_shot
+		
+		# Note this can't be on DSx2 setup because that is run before this code, and so it
+		# doesn't have shots::src_shot available. We put it here which is not as nice, but 
+		# avoids loading the source shot twice.
+		if { [is_DSx2] && \
+				$settings(next_src_clock) != [value_or_default $::settings(espresso_clock) 0] && \
+				[string is true $settings(dsx2_update_chart_on_copy)] && \
+				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
+			# Called proc already defines the source shot desc
+			pages::dsx2_dye_home::load_home_graph_from {} src_shot 
+		} else { 
+			shots::define_last_desc src_shot
+		}
 	} else {
 		shots::define_last_desc
 	}
