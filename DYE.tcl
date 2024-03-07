@@ -771,13 +771,16 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 			$settings(next_src_clock) > 0 } {
 		$::home_espresso_graph element configure home_pressure_goal -xdata espresso_elapsed -ydata espresso_pressure_goal
 		$::home_espresso_graph element configure home_flow_goal  -xdata espresso_elapsed -ydata espresso_flow_goal
-		$::home_espresso_graph element configure home_temperature_goal -xdata espresso_elapsed -ydata espresso_temperature_goal10th 
+		$::home_espresso_graph element configure home_temperature_goal -xdata espresso_elapsed -ydata espresso_temperature_goal10th
 		$::home_espresso_graph element configure home_pressure -xdata espresso_elapsed -ydata espresso_pressure
 		$::home_espresso_graph element configure home_flow  -xdata espresso_elapsed -ydata espresso_flow
 		$::home_espresso_graph element configure home_weight  -xdata espresso_elapsed -ydata espresso_flow_weight
 		$::home_espresso_graph element configure home_temperature -xdata espresso_elapsed -ydata espresso_temperature_basket10th
 		$::home_espresso_graph element configure home_resistance  -xdata espresso_elapsed -ydata espresso_resistance
-		$::home_espresso_graph element configure home_steps -xdata espresso_elapsed -ydata espresso_state_change	
+		$::home_espresso_graph element configure home_steps -xdata espresso_elapsed -ydata espresso_state_change
+		$::home_espresso_graph element configure home_flow_goal_2x  -xdata espresso_elapsed -ydata espresso_flow_goal_2x
+		$::home_espresso_graph element configure home_flow_2x  -xdata espresso_elapsed -ydata espresso_flow_2x
+		$::home_espresso_graph element configure home_weight_2x  -xdata espresso_elapsed -ydata espresso_flow_weight_2x	
 	}
 
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
@@ -2801,7 +2804,7 @@ namespace eval ::plugins::DYE::favorites {
 			"beverage_type NOT IN ('cleaning','calibrate')" $max_n_recent]
 	}
 	
-	proc update_recent { {max_title_chars 28} } {
+	proc update_recent { {max_title_chars 26} } {
 		variable all_recent
 		variable ::plugins::DYE::settings
 		set max_n_favs [max_number]
