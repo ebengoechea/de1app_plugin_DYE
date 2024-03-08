@@ -769,18 +769,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	# to last shot series
 	if { $isDSx2 && [string is true $settings(dsx2_update_chart_on_copy)] && \
 			$settings(next_src_clock) > 0 } {
-		$::home_espresso_graph element configure home_pressure_goal -xdata espresso_elapsed -ydata espresso_pressure_goal
-		$::home_espresso_graph element configure home_flow_goal  -xdata espresso_elapsed -ydata espresso_flow_goal
-		$::home_espresso_graph element configure home_temperature_goal -xdata espresso_elapsed -ydata espresso_temperature_goal10th
-		$::home_espresso_graph element configure home_pressure -xdata espresso_elapsed -ydata espresso_pressure
-		$::home_espresso_graph element configure home_flow  -xdata espresso_elapsed -ydata espresso_flow
-		$::home_espresso_graph element configure home_weight  -xdata espresso_elapsed -ydata espresso_flow_weight
-		$::home_espresso_graph element configure home_temperature -xdata espresso_elapsed -ydata espresso_temperature_basket10th
-		$::home_espresso_graph element configure home_resistance  -xdata espresso_elapsed -ydata espresso_resistance
-		$::home_espresso_graph element configure home_steps -xdata espresso_elapsed -ydata espresso_state_change
-		$::home_espresso_graph element configure home_flow_goal_2x  -xdata espresso_elapsed -ydata espresso_flow_goal_2x
-		$::home_espresso_graph element configure home_flow_2x  -xdata espresso_elapsed -ydata espresso_flow_2x
-		$::home_espresso_graph element configure home_weight_2x  -xdata espresso_elapsed -ydata espresso_flow_weight_2x	
+		::restore_live_graphs_default_vectors
 	}
 
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
@@ -789,10 +778,8 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 }
 
 # Hook executed after save_espresso_rating_to_history
-# TBD: NO LONGER NEEDED? define_last_desc ALREADY DONE in reset_gui_starting_espresso_leave_hook,
-#	only useful if this is invoked from Insight's original Godshots/Describe Espresso pages.
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
-	set isDSx2 [is_DSx2 1 "Damian"]
+	#set isDSx2 [is_DSx2 1 "Damian"]
 	::plugins::DYE::shots::define_last_desc {} yes
 	# Updating recent favorites saves DYE settings	
 	::plugins::DYE::favorites::update_recent
@@ -9083,8 +9070,9 @@ proc ::dui::pages::DYE_settings2::dsx2_show_shot_desc_on_home_change {} {
 			::plugins::DYE::shots::define_next_desc
 		} else {
 			::restore_live_graphs_default_vectors
+			::restore_live_graphs
 		}
-		::plugins::DYE::pages::dsx2_dye_home::toggle_show_shot_desc
+		::plugins::DYE::pages::dsx2_dye_home::toggle_show_shot_desc		
 	}
 	plugins save_settings DYE
 }

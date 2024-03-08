@@ -1695,35 +1695,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			-hide [expr {$::skin(steps) == 0}]
 		
 		#::check_graph_axis
-#		$::home_espresso_graph element configure compare_temperature -hide 0
-#		$::home_espresso_graph element configure compare_pressure -hide 0
-#		$::home_espresso_graph element configure compare_resistance -hide 0
-#		$::home_espresso_graph element configure compare_steps -hide 0
-#		if {$::skin(show_y2_axis) == 1} {
-#			$::home_espresso_graph element configure home_flow_goal -hide 1
-#			$::home_espresso_graph element configure home_flow -hide 1
-#			$::home_espresso_graph element configure home_weight -hide 1
-#			#$::home_espresso_graph element configure home_flow_goal_2x -hide 0
-#			$::home_espresso_graph element configure home_flow_2x -hide 0
-#			$::home_espresso_graph element configure home_weight_2x -hide 0
-#			
-#			$::home_espresso_graph element configure compare_flow -hide 1
-#			$::home_espresso_graph element configure compare_weight -hide 1	
-#			$::home_espresso_graph element configure compare_flow_2x -hide 0
-#			$::home_espresso_graph element configure compare_weight_2x -hide 0	
-#		} else {
-#			$::home_espresso_graph element configure home_flow_goal -hide 0
-#			$::home_espresso_graph element configure home_flow -hide 0
-#			$::home_espresso_graph element configure home_weight -hide 0
-#			#$::home_espresso_graph element configure home_flow_goal_2x -hide 1
-#			$::home_espresso_graph element configure home_flow_2x -hide 1
-#			$::home_espresso_graph element configure home_weight_2x -hide 1
-#			
-#			$::home_espresso_graph element configure compare_flow -hide 0
-#			$::home_espresso_graph element configure compare_weight -hide 0	
-#			$::home_espresso_graph element configure compare_flow_2x -hide 1
-#			$::home_espresso_graph element configure compare_weight_2x -hide 1
-#		}
 		
 		::plugins::DYE::shots::define_next_desc comp_shot	
 	}
