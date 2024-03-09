@@ -740,9 +740,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			-label1variable {$::plugins::DYE::settings(last_shot_header)} -label1_font_family notosansuibold \
 			-label1_font_size -4 -label1_fill $::skin_text_colour \
 			-label1_pos {0.0 0.0} -label1_anchor nw -label1_justify left -label1_width 850 \
-			-command [::list [namespace current]::home_shot_desc_clicked left] -tap_pad {20 15 0 50} \
-			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 50 1350\] -anchor sw] \
-			-initial_state $istate
+			-initial_state $istate -tap_pad {20 15 0 50} \
+			-command [::list [namespace current]::home_shot_desc_clicked left] \
+			-longpress_cmd [::list [namespace current]::home_shot_desc_longclicked left]
+			
 		
 		dui add dbutton $page 1000 1380 -bwidth 120 -bheight 180 -style dsx2 -anchor n \
 			-tags launch_dye_dsx2_hv -symbol clock-rotate-left -symbol_pos {0.5 0.3} \
@@ -763,9 +764,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			-label1variable {$::plugins::DYE::settings(next_shot_header)} -label1_font_family notosansuibold \
 			-label1_font_size -4 -label1_fill $::skin_text_colour \
 			-label1_pos {1.0 0.0} -label1_anchor ne -label1_justify right -label1_width 850 \
-			-command [::list [namespace current]::home_shot_desc_clicked right] -tap_pad {0 15 20 50} \
-			-longpress_cmd [::list ::dui::page::open_dialog dye_which_shot_dlg -coords \[::list 1950 1350\] -anchor se] \
-			-initial_state $istate
+			-initial_state $istate -tap_pad {0 15 20 50} \
+			-command [::list [namespace current]::home_shot_desc_clicked right] \
+			-longpress_cmd [::list [namespace current]::home_shot_desc_longclicked right]
 	
 		toggle_show_shot_desc
 
@@ -925,7 +926,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		variable main_graph_height
 		set page [lindex $::skin_home_pages 0]
 		
-		if { [dui page current] eq "dsx2_dye_hv" } {			
+		if { [dui page current] eq "dsx2_dye_hv" } {
 			::plugins::DYE::pages::dsx2_dye_hv::press_graph {*}$args
 		} else {
 			::toggle_cache_graphs
@@ -1029,6 +1030,23 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 				::plugins::DYE::pages::dsx2_dye_hv::click_comp_description
 			} else {
 				::plugins::DYE::open -which_shot "next"
+			}
+		}
+	}
+	
+	proc home_shot_desc_longclicked { side } {
+		set current_page [dui::page::current]
+		if { $side eq "left" } {
+			if { $current_page eq "dsx2_dye_hv" } {
+				home_shot_desc_clicked left
+			} else {
+				dui page open_dialog dye_which_shot_dlg -coords {50 1350} -anchor sw
+			}
+		} else {
+			if { $current_page eq "dsx2_dye_hv" } {
+				home_shot_desc_clicked right
+			} else {
+				dui page open_dialog dye_which_shot_dlg -coords {1950 1350} -anchor se
 			}
 		}
 	}
@@ -3140,10 +3158,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		set y 90
 		set panel_width 700
 		dui add dselector $page $x $y -bwidth $panel_width -bheight 100 -tags right_panel_mode \
-			-values {sel_base sel_comp charts compare} -multiple no -label_font_size -3 \
+			-values {sel_base sel_comp compare dialin} -multiple no -label_font_size -3 \
 			-labels [list [translate "Select base"] [translate "Select comp"] \
-				[translate "4 mini charts"] [translate "Compare shots"]] \
-			-label_width [expr {$panel_width/4-10}] -command right_panel_mode 
+				[translate "Compare shots"] [translate "Dial-in"]] \
+			-label_width [expr {$panel_width/4-10}] -command right_panel_mode
 
 		dui add shape outline $page $x [incr y 130] -bwidth $panel_width -bheight 1330 \
 			-tags right_panel -width 2 -outline [dui::aspect::get dtext fill]
@@ -3197,7 +3215,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		# BEWARE: DON'T USE [dui::platform::button_press] as event for tag binding, or tapping doesn't work on android 
 		# when use_finger_down_for_tap=0. 
 		$tw tag bind shot <ButtonPress-1> [list + [namespace current]::click_shot_text %W %x %y %X %Y]
-		$tw tag bind shot <Double-Button-1> [list [namespace current]::right_panel_mode compare]
+		# Temporarily disabled, until compare mode is ready
+		#$tw tag bind shot <Double-Button-1> [list [namespace current]::right_panel_mode compare]
 		
 		# Define Tk Text tag styles for shot comparison (TEMPORAL, TODO change styles)
 		$ctw tag configure section {*}[dui aspect list -type text_tag -style dyev3_section -as_options yes]
@@ -3285,6 +3304,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		if { $::skin(show_heading) == 1 } {
 			dui item hide $page_to_show {headerbar_heading heading}
 		}
+		
+		# Temporal adjustments
+		dui item disable $page_to_show {right_panel_mode_3* right_panel_mode_4*}
 	}
 	
 	proc hide { page_to_hide page_to_show } {
@@ -3327,6 +3349,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		if { $data(data_panel) eq "small" } {
 			dui item hide $page data_smallp
 			dui item show $page data_bigp
+			dui item disable $page {move_prev_step* move_next_step*}
 			set data(data_panel) "big"
 		} else {
 			dui item hide $page data_bigp
@@ -3609,7 +3632,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	proc click_base_description {} {
 		variable data
 		if { $data(right_panel_mode) eq "sel_base" } {
-			right_panel_mode compare
+			# Temporarily disabled, until compare mode is ready
+			#right_panel_mode compare
 		} else {
 			right_panel_mode sel_base
 		}
@@ -3618,7 +3642,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	proc click_comp_description {} {
 		variable data
 		if { $data(right_panel_mode) eq "sel_comp" } {
-			right_panel_mode compare
+			# Temporarily disabled, until compare mode is ready
+			#right_panel_mode compare
 		} else {
 			right_panel_mode sel_comp
 		}
