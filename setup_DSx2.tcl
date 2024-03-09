@@ -1519,7 +1519,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		} elseif { $src_array_name ne {} } {
 			upvar $src_array_name src_shot
 		} else {
-			msg -ERROR [namespace current] "load_home_graph_from: Invoked without input data"
+			msg -ERROR [namespace current] "load_home_graph_from: Invoked without input shot"
 			return
 		}
 		
@@ -2918,6 +2918,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	variable comp_shot_steps
 	array set comp_shot_steps {}
 	
+	variable click_graph_timer {}
+	variable click_graph_previous_idx {}
+	variable click_graph_previous_clock {}
+	
 	proc setup { } {
 		variable data
 		variable widgets	
@@ -3108,11 +3112,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		# GRAPH
 		# Beware correct sorting of legend items here is critical or they may have the wrong z-order 
 		dui page add_items $page [list $::home_espresso_graph graph_key_shape \
-			pressure_data pressure_text pressure_key_button \
-			flow_data flow_text flow_key_button weight_data weight_text weight_key_button \
-			temperature_data temperature_text temperature_key_button \
-			resistance_data resistance_text resistance_key_button \
-			steps_data steps_text steps_key_button \
+			pressure_text pressure_key_button flow_text flow_key_button weight_text weight_key_button \
+			temperature_text temperature_key_button resistance_text resistance_key_button \
+			steps_text steps_key_button \
 			main_graph_toggle_view_label main_graph_toggle_view_button \
 			main_graph_toggle_goal_label main_graph_toggle_goal_button]
 		
@@ -3317,6 +3319,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable data
 		variable base_shot
 		variable comp_shot
+		variable click_graph_previous_idx
+		variable click_graph_previous_clock
+		variable click_graph_timer
+		variable orig_x
 		
 		::plugins::DYE::pages::dsx2_dye_home::src_elapsed variable xdata
 		::plugins::DYE::pages::dsx2_dye_home::src_pressure variable pressure
@@ -3325,6 +3331,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		::plugins::DYE::pages::dsx2_dye_home::src_temperature variable temp
 		set src_n [::plugins::DYE::pages::dsx2_dye_home::src_pressure length]
 
+		set orig_x $x
 		set x [$widget axis invtransform x $x]
 		lassign [$widget axis limits x] x_min x_max
 		if { $x <= $x_min } {
@@ -3333,11 +3340,23 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			set x [expr {$x_max-0.01}]
 		}
 		
-		$widget marker create line -coords { $x -Inf $x Inf } -name vline -dashes dash \
-			-linewidth 2 -outline $::skin_red
-		
 		set idx [lsearch -sorted -increasing -bisect -real $base_shot(graph_espresso_elapsed) $x]
 		if { $idx > -1 } {
+			# Don't do unneeded calculations & drawings, specially in slower tablets
+			if { $click_graph_previous_idx == $idx } {
+				return
+			} elseif { $click_graph_previous_clock ne {} && \
+					[expr {[clock milliseconds]-$click_graph_previous_clock}] < 200 } {
+				after cancel click_graph_timer
+				set click_graph_timer [after 200 [namespace current]::press_graph $widget $orig_x $y]
+				return
+			}
+
+			set x $xdata($idx)
+			$widget marker delete vline vline_time
+			$widget marker create line -coords { $x -Inf $x Inf } -name vline -dashes dash \
+				-linewidth 2 -outline $::skin_red
+			
 			if { $idx < $src_n } {
 				set time_label [format {%.1f} $x]
 				set step_idx [lsearch -sorted -increasing -bisect -real $base_shot(steps_indexes) $idx]
@@ -3349,7 +3368,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				set pressure_label "[round_to_one_digits $pressure($idx)]"
 				set flow_label "[round_to_one_digits $flow($idx)]"
 				set weight_label "[round_to_one_digits $weight($idx)]"
-				set temp_label "[return_temperature_measurement [expr {$temp($idx)*10.0}] 0]"
+				if {$::settings(enable_fahrenheit) == 1} {
+					set temp_label [round_to_one_digits [celsius_to_fahrenheit $temp($idx)]]
+				} else {
+					set temp_label [round_to_one_digits $temp($idx)]
+				}
 			} else {
 				set time_label ""
 				set step_label ""
@@ -3378,25 +3401,29 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 					compare_espresso_pressure variable comp_pressure
 					compare_espresso_flow variable comp_flow
 					compare_espresso_flow_weight variable comp_weight
-					#compare_temperature variable comp_temp
+					compare_espresso_temperature_basket variable comp_temp
 					set comp_n [compare_espresso_pressure length]
 					
 					if { $comp_idx < $comp_n } {
 						append pressure_label " | [round_to_one_digits $comp_pressure($comp_idx)]"
 						append flow_label " | [round_to_one_digits $comp_flow($comp_idx)]"
 						append weight_label " | [round_to_one_digits $comp_weight($comp_idx)]"
-						#append temp_label " | [return_temperature_measurement [expr {$comp_temp($comp_idx)*10.0}] 0]"
+						if {$::settings(enable_fahrenheit) == 1} {
+							append temp_label " | [round_to_one_digits [celsius_to_fahrenheit $comp_temp($comp_idx)]]"
+						} else {
+							append temp_label " | [round_to_one_digits $comp_temp($comp_idx)]"
+						}
 					} else {
 						append pressure_label " | - "
 						append flow_label " | - "
 						append weight_label " | - "
-						#append temp_label " | - "
+						append temp_label " | - "
 					}
 				} else {
 					append pressure_label " | - "
 					append flow_label " | - "
 					append weight_label " | - "
-					#append temp_label " | - "
+					append temp_label " | - "
 				}
 			} 
 
@@ -3404,6 +3431,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			append pressure_label [translate "bar"]
 			append flow_label [translate "ml/s"]
 			append weight_label [translate "g/s"]
+			if {$::settings(enable_fahrenheit) == 1} {
+				append temp_label "\u00B0F"
+			} else {
+				append temp_label "\u00B0C"
+			}
 		} else {
 			set time_label ""
 			set step_label ""
@@ -3426,6 +3458,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				main_graph_toggle_goal_label main_graph_toggle_goal_button}
 		dui item config dsx2_dye_hv press_steps -text $step_label
 		dui item show dsx2_dye_hv press_steps
+
+		set click_graph_previous_idx $idx
+		set click_graph_previous_clock [clock milliseconds]	
 	}
 
 	proc pressmotion_graph { widget x y } {
@@ -3433,7 +3468,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			return
 		}
 		
-		$widget marker delete vline vline_time
+		variable click_graph_timer
+		after cancel $click_graph_timer
+		set click_graph_timer {}
+		
 		press_graph $widget $x $y
 	}
 	
@@ -3442,6 +3480,15 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			return
 		}
 
+		variable click_graph_timer
+		variable click_graph_previous_idx
+		variable click_graph_previous_clock
+		
+		after cancel $click_graph_timer
+		set click_graph_timer {}
+		set click_graph_previous_idx {}
+		set click_graph_previous_clock {}
+		
 		$widget marker delete vline vline_time
 		dui item config dsx2_dye_hv pressure_text -text [translate pressure]
 		dui item config dsx2_dye_hv flow_text -text "[translate {flow rate}]"		
@@ -3615,8 +3662,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		if { $data(left_clock) != $clock || [array size base_shot] == 0 } {
 			if { $clock == $settings(next_src_clock) } {
 				array set base_shot [array get ::plugins::DYE::shots::src_shot]
+msg "DSX2_DYE_HV LOAD_BASE_SHOT FROM SRC_SHOT, clock=$clock, dt=$base_shot(date_time)"
 			} else {
 				array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+msg "DSX2_DYE_HV LOAD_BASE_SHOT FROM DISK, clock=$clock, dt=$base_shot(date_time)"	
 			}
 			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
 			
@@ -3639,8 +3688,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		if { $data(right_clock) != $clock || [array size comp_shot] == 0 } {
 			if { $clock == $settings(next_src_clock) } {
 				array set comp_shot [array get ::plugins::DYE::shots::src_shot]
+msg "DSX2_DYE_HV LOAD_COMP_SHOT FROM SRC_SHOT, clock=$clock, dt=$comp_shot(date_time)"
 			} else {
 				array set comp_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
+msg "DSX2_DYE_HV LOAD_COMP_SHOT FROM DISK, clock=$clock, dt=$comp_shot(date_time)"
 			}			
 			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
 			
@@ -3948,7 +3999,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			set vecname ::plugins::DYE::pages::dsx2_dye_home::src_$vector_name
 			set prefix "base"
 		} elseif { $side eq "right" } {
-			set vecname compare_espresso_$vector_name
+			if { $series_name eq "temperature" } {
+				set vecname compare_espresso_temperature_basket
+			} else {
+				set vecname compare_espresso_$vector_name
+			}
 			set prefix "comp"
 		} else {
 			return
@@ -3957,9 +4012,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		set unit [translate $unit]
 		if { $series_name eq "temperature" } {
 			set data(${prefix}_peak_temperature) \
-				"[return_temperature_measurement [expr {[vector expr max($vecname)]*10.0}]]"
+				"[return_temperature_measurement [expr {[vector expr max($vecname)]}]]"
 			set data(${prefix}_final_temperature) \
-				"[return_temperature_measurement [expr {[$vecname range end end]*10.0}]]"
+				"[return_temperature_measurement [expr {[$vecname range end end]}]]"
 		} else {
 			set data(${prefix}_peak_$series_name) "[format {%.1f} [vector expr max($vecname)]] $unit"
 			set data(${prefix}_final_$series_name) "[format {%.1f} [$vecname range end end]] $unit"
@@ -3989,7 +4044,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				set data(base_extr_peak_pressure) "-"
 				set data(base_full_final_flow) "-"
 			} else {
-				#set data(base_time) "[format {%.0f} [::plugins::DYE::pages::dsx2_dye_home::src_elapsed range end end]] [translate s]"
 				set data(base_time) "[format {%.0f} $base_shot(extraction_time)] [translate s]"
 				_stats_strings left pressure bar
 				_stats_strings left flow "ml/s"
@@ -3997,6 +4051,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				_stats_strings left temperature ""
 				
 				if { $step < 0 } {
+					# Full shot
 					if { [llength $base_shot(steps_indexes)] > 1 } {
 						set extr_start_idx 2
 					} else {
@@ -4026,12 +4081,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 				set data(comp_extr_peak_pressure) "-"
 				set data(comp_full_final_flow) "-"
 			} else {
-				#set data(comp_time) "[format {%.0f} [compare_espresso_elapsed range end end]] [translate s]"
 				set data(comp_time) "[format {%.0f} $comp_shot(extraction_time)] [translate s]"
 				_stats_strings right pressure bar
 				_stats_strings right flow "ml/s"
 				_stats_strings right weight "g/s" flow_weight
-				#_stats_strings right temperature ""
+				_stats_strings right temperature ""
 				
 				if { $step < 0 } {
 					if { [llength $comp_shot(steps_indexes)] > 1 } {

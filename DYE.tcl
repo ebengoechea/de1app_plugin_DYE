@@ -10,7 +10,7 @@
 #set ::skindebug 1
 #plugins enable SDB
 #plugins enable DYE
-#fconfigure $::logging::_log_fh -buffering line
+fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
 package require http
@@ -779,18 +779,20 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 
 # Hook executed after save_espresso_rating_to_history
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
-	#set isDSx2 [is_DSx2 1 "Damian"]
+	variable ::plugins::DYE::shots::src_shot
 	::plugins::DYE::shots::define_last_desc {} yes
+	array set src_shot [::plugins::DYE::shots::get_last]
+msg "DYE::save_espresso_to_history_hook, src extraction time=$::plugins::DYE::shots::src_shot(extraction_time)"	
 	# Updating recent favorites saves DYE settings	
 	::plugins::DYE::favorites::update_recent
 	::plugins::DYE::favorites::select_from_clock $::settings(espresso_clock)
+	
 }
 
 proc ::plugins::DYE::select_profile_enter_hook { select_profile_args args } {
 	if { $::plugins::DYE::favorites::_is_loading } { return }
 	set new_profile [lindex $select_profile_args 1]
 	if { $new_profile ne $::settings(profile_filename) } {
-msg "DYE SELECT_PROFILE_HOOK, profile changed from $::settings(profile_filename) to $new_profile"		
 		::plugins::DYE::favorites::clear_selected_if_needed profile_title
 		::plugins::DYE::shots::define_next_desc
 	}
@@ -1677,20 +1679,20 @@ namespace eval ::plugins::DYE::shots {
 			clock {}
 			date_time {}
 			local_time {}
-			espresso_elapsed {0.0}
-			extraction_time 0.0
-			espresso_pressure {0.0}
-			espresso_weight {0.0}
-			espresso_flow {0.0}
-			espresso_flow_weight {0.0} 
-			espresso_temperature_basket {0.0}
-			espresso_temperature_mix {0.0}
-			espresso_flow_weight_raw {0.0}
-			espresso_water_dispensed {0.0} 
-			espresso_temperature_goal {0.0}
-			espresso_pressure_goal {0.0}
-			espresso_flow_goal {0.0}
-			espresso_state_change {0.0}
+			graph_espresso_elapsed {0.0}
+			graph_espresso_pressure {0.0}
+			graph_espresso_weight {0.0}
+			graph_espresso_flow {0.0}
+			graph_espresso_flow_weight {0.0} 
+			graph_espresso_temperature_basket {0.0}
+			graph_espresso_temperature_mix {0.0}
+			graph_espresso_flow_weight_raw {0.0}
+			graph_espresso_water_dispensed {0.0} 
+			graph_espresso_temperature_goal {0.0}
+			graph_espresso_pressure_goal {0.0}
+			graph_espresso_flow_goal {0.0}
+			graph_espresso_state_change {0.0}
+			graph_extraction_time 0.0
 			repository_links {}
 		}
 		set skin $::settings(skin)
@@ -1721,8 +1723,7 @@ namespace eval ::plugins::DYE::shots {
 			}
 		}
 	
-	#msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
-	#msg "DYE LOAD_NEXT_SHOT ::settings(final_desired_shot_volume_advanced)=$::settings(final_desired_shot_volume_advanced)"
+
 		# Variables that are often exposed in skin UIs, global settings variable takes precedence	
 		if { $::settings(grinder_dose_weight) > 0 } { 
 			set shot_data(grinder_dose_weight) $::settings(grinder_dose_weight)
@@ -1748,7 +1749,6 @@ namespace eval ::plugins::DYE::shots {
 			set shot_data(workflow) $::skin(workflow)
 		}
 	
-	#msg "DYE LOAD_NEXT_SHOT shot_data(drink_weight)=$shot_data(drink_weight)"	
 		# profile_title and beverage_type already in profile_vars above, removed
 		foreach field_name {app_version firmware_version_number enabled_plugins skin skin_version} {
 			if { [info exists ::settings($field_name)] } {
@@ -1775,6 +1775,46 @@ namespace eval ::plugins::DYE::shots {
 	#		}
 	#	}
 		
+		return [array get shot_data]
+	}
+	
+	# Returns an array with the same structure as ::plugins::SDB::load_shot but with the data for last 
+	# shot, taken from the global settings. This should only be invoked just after a shot is pulled.
+	# This is useful e.g. when a shot ends, to store it in the DYE source shot array without having
+	# to read it from the history file.
+	proc get_last {} {
+		if { $::settings(history_saved) == 0 || [espresso_elapsed length] <= 5 || \
+				[espresso_pressure length] <= 5 || $::settings(should_save_history) == 0 } {
+			return
+		}
+					
+		array set shot_data [get_next]
+		
+		set shot_data(clock) $::settings(espresso_clock)
+		set shot_data(date_time) [clock format $::settings(espresso_clock) -format {%a, %d %b %Y   %I:%M%p}]
+		set shot_data(local_time) [clock format $::settings(espresso_clock)]
+		set shot_data(extraction_time) [round_to_one_digits [expr {[espresso_elapsed range end end]+0.05}]]
+		set shot_data(path) "[homedir]/history/"
+		set shot_data(filename) "[clock format $::settings(espresso_clock) -format "%Y%m%dT%H%M%S"].shot" 
+#		set shot_data(file_modification_date) [file mtime $path]
+		set shot_data(repository_links) $::settings(repository_links)
+		
+		foreach sn {elapsed pressure weight flow flow_weight temperature_basket temperature_mix \
+				flow_weight_raw water_dispensed temperature_goal pressure_goal flow_goal state_change} {
+			set shot_data(graph_espresso_$sn) [espresso_$sn range 0 end]
+		}
+		
+		# These are zero'ed on get_last, so we define them
+		foreach field_name {espresso_enjoyment drink_ey drink_tds target_drink_weight} {
+			if { [info exists ::plugins::DYE::settings(next_$field_name)] && \
+						$::plugins::DYE::settings(next_$field_name) > 0 } {
+				set shot_data($field_name) $::plugins::DYE::settings(next_$field_name)
+			} else {
+				# We use {} instead of 0 to get DB NULLs and empty values in entry textboxes
+				set shot_data($field_name) {}
+			}	
+		}
+	
 		return [array get shot_data]
 	}
 	
@@ -2176,6 +2216,12 @@ namespace eval ::plugins::DYE::shots {
 		return $repo_link
 	}
 	
+	# Given the name of an array that contains shot data as returned by SDB::load_shot,
+	# extracts the profile steps data, returning a list with 3 named pairs, each a list of the
+	# same length:
+	#   indexes: the integer index in the shot chart series where each step/state change starts
+	#	elapsed: the times in seconds in the shot elapsed times where each step/state change starts
+	#	names: the name of each step in the profile
 	proc shot_steps { shot_array_name } {
 		upvar $shot_array_name shot
 		set steps_idxs [list 0]
