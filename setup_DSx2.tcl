@@ -2922,6 +2922,9 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	variable click_graph_previous_idx {}
 	variable click_graph_previous_clock {}
 	
+	variable stored_moved_coords
+	array set stored_moved_coords {}
+	
 	proc setup { } {
 		variable data
 		variable widgets	
@@ -3110,15 +3113,15 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			-command toggle_data_panel -tags {bigp_btn data_bigp}
 		
 		# GRAPH
-		# Beware correct sorting of legend items here is critical or they may have the wrong z-order 
-		dui page add_items $page [list $::home_espresso_graph graph_key_shape \
+		# Beware correct sorting of legend items here is critical or they may have the wrong z-order
+		dui page add_items $page [list main_graph graph_key_shape \
 			pressure_text pressure_key_button flow_text flow_key_button weight_text weight_key_button \
 			temperature_text temperature_key_button resistance_text resistance_key_button \
 			steps_text steps_key_button \
 			main_graph_toggle_view_label main_graph_toggle_view_button \
 			main_graph_toggle_goal_label main_graph_toggle_goal_button]
 		
-		dui add dtext $page [expr $::skin(graph_key_x)+976+130] [expr $::skin(graph_key_y)+30] \
+		dui add dtext $page [expr $::skin(graph_key_x)+976+150] [expr $::skin(graph_key_y)+30] \
 			-width 550 -tags press_steps -text "steps" -anchor sw -initial_state hidden \
 			-font [skin_font font $::key_font_size] -fill $::skin_text_colour
 		
@@ -3194,13 +3197,11 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		$tw tag bind shot <Double-Button-1> [list [namespace current]::right_panel_mode compare]
 		
 		# Define Tk Text tag styles for shot comparison (TEMPORAL, TODO change styles)
-		# TODO: dui aspect text_tags $ctw -tag section -style dyev3_section field dyev3_field		
 		$ctw tag configure section {*}[dui aspect list -type text_tag -style dyev3_section -as_options yes]
 		$ctw tag configure field {*}[dui aspect list -type text_tag -style dyev3_field -as_options yes]  
 		$ctw tag configure value {*}[dui aspect list -type text_tag -style dyev3_value -as_options yes]
 		$ctw tag configure measure_unit {*}[dui aspect list -type text_tag -style dyev3_measure_unit -as_options yes]
 		$ctw tag configure compare -elide 1 {*}[dui aspect list -type text_tag -style dyev3_compare -as_options yes]
-		#set non_highlighted_aspects [dui aspect list -type text_tag -style dyev3_field_nonhighlighted -as_options yes]				
 	}
 	
 	proc load { page_to_hide page_to_show {base_clock 0} {comp_clock 0} args } {
@@ -3210,11 +3211,19 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable comp_shot
 		variable comp_shot_steps
 		variable shots
+		variable stored_moved_coords
 		variable ::plugins::DYE::settings
+		 
+		# Modify home UI elements		
+		::plugins::DYE::ui::store_items_coords $page_to_show stored_moved_coords \
+			steps_text steps_key_button main_graph_toggle_view_label main_graph_toggle_view_button \
+			main_graph_toggle_goal_label main_graph_toggle_goal_button launch_dye_next*
 		
-		# Modify home UI elements
 		$::home_espresso_graph configure -width [dui::platform::rescale_x 1750]
-		dui item moveto $page_to_show launch_dye_next* 900 1370
+		#dui item moveto $page_to_show launch_dye_next* 900 1370
+		dui item moveby $page_to_show launch_dye_next* -200
+		dui item moveby $page_to_show {steps_text steps_key_button* main_graph_toggle_view_label \
+			main_graph_toggle_view_button* main_graph_toggle_goal_label main_graph_toggle_goal_button*} -60 
 		
 		# Initialize data
 		set data(selected) {}
@@ -3278,15 +3287,17 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	
 	proc hide { page_to_hide page_to_show } {
 		variable data
+		variable stored_moved_coords
 		
 		select_base 0
 		select_comp 0
 		
+		::plugins::DYE::ui::restore_items_coords $page_to_show stored_moved_coords 
 		$::home_espresso_graph configure -width [dui::platform::rescale_x 1950]
-		dui item moveto $page_to_hide launch_dye_next* 1090 1370
+#		dui item moveto $page_to_hide launch_dye_next* 1090 1370
 		
-		foreach curve {pressure weight flow steps} {
-			$::home_espresso_graph element configure compare_${curve} -linewidth 0
+		foreach curve {temperature zoom_temperature pressure flow flow_2x weight weight_2x resistance steps} {
+			$::home_espresso_graph element configure compare_${curve} -hide 1
 		}
 		
 		# Even if the source shot has not changed, as soon as it has been compared with another
@@ -3662,10 +3673,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		if { $data(left_clock) != $clock || [array size base_shot] == 0 } {
 			if { $clock == $settings(next_src_clock) } {
 				array set base_shot [array get ::plugins::DYE::shots::src_shot]
-msg "DSX2_DYE_HV LOAD_BASE_SHOT FROM SRC_SHOT, clock=$clock, dt=$base_shot(date_time)"
+				#msg "DSX2_DYE_HV LOAD_BASE_SHOT FROM SRC_SHOT, clock=$clock, dt=$base_shot(date_time)"
 			} else {
 				array set base_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
-msg "DSX2_DYE_HV LOAD_BASE_SHOT FROM DISK, clock=$clock, dt=$base_shot(date_time)"	
+				#msg "DSX2_DYE_HV LOAD_BASE_SHOT FROM DISK, clock=$clock, dt=$base_shot(date_time)"	
 			}
 			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_from {} base_shot 0
 			
@@ -3688,10 +3699,10 @@ msg "DSX2_DYE_HV LOAD_BASE_SHOT FROM DISK, clock=$clock, dt=$base_shot(date_time
 		if { $data(right_clock) != $clock || [array size comp_shot] == 0 } {
 			if { $clock == $settings(next_src_clock) } {
 				array set comp_shot [array get ::plugins::DYE::shots::src_shot]
-msg "DSX2_DYE_HV LOAD_COMP_SHOT FROM SRC_SHOT, clock=$clock, dt=$comp_shot(date_time)"
+				#msg "DSX2_DYE_HV LOAD_COMP_SHOT FROM SRC_SHOT, clock=$clock, dt=$comp_shot(date_time)"
 			} else {
 				array set comp_shot [::plugins::SDB::load_shot $clock 1 1 1 1]
-msg "DSX2_DYE_HV LOAD_COMP_SHOT FROM DISK, clock=$clock, dt=$comp_shot(date_time)"
+				#msg "DSX2_DYE_HV LOAD_COMP_SHOT FROM DISK, clock=$clock, dt=$comp_shot(date_time)"
 			}			
 			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
 			

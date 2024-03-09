@@ -10,7 +10,7 @@
 #set ::skindebug 1
 #plugins enable SDB
 #plugins enable DYE
-fconfigure $::logging::_log_fh -buffering line
+#fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
 
 package require http
@@ -1008,7 +1008,31 @@ namespace eval ::plugins::DYE::ui {
 			dui add dbutton $page $x_done $y -label [translate Ok] -tags page_done -style $buttons_style -tap_pad 20
 		}
 	}
+	
+	# Couple of procs useful to move page items around when entering a page, and restore them
+	# to their original positions when leaving the page.
+	proc store_items_coords { page array_name args }  {
+		upvar $array_name store
+		set can [dui canvas]
 		
+		foreach item_id [dui item get $page $args] {
+			set store($item_id) [$can coords $item_id]
+		}
+	}
+	
+	proc restore_items_coords { page array_name {unset 1} } {
+		upvar $array_name store
+		set can [dui canvas]
+		
+		foreach item_id [array names store] {
+			$can coords $item_id {*}$store($item_id)
+		}
+		
+		if { [string is true $unset] } {
+			array unset store
+		}
+	}
+	
 	# Writes a shot textual description to a Tk Text widget, optionally comparing it to another
 	# shot, or only showing its differences.
 	# Named args:
