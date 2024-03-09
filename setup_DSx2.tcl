@@ -925,20 +925,24 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		variable main_graph_height
 		set page [lindex $::skin_home_pages 0]
 		
-		if { [dui page current] eq "dsx2_dye_hv" } {
+		if { [dui page current] eq "dsx2_dye_hv" } {			
 			::plugins::DYE::pages::dsx2_dye_hv::press_graph {*}$args
 		} else {
+			::toggle_cache_graphs
+			
 			if { $::plugins::DYE::settings(dsx2_show_shot_desc_on_home) } {
-				if { $::main_graph_height == [rescale_y_skin 1010] } {
+				if { [.can itemcget graph_a -state] eq "hidden" } {
 					$::home_espresso_graph configure -height $main_graph_height
 					dui item show $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
 					dui item config $page live_graph_data -initial_state hidden -state hidden
-				} elseif { $::main_graph_height == $main_graph_height } {
+				} else {
 					dui item hide $page {launch_dye_last* launch_dye_next* launch_dye_dsx2_hv*}
+					foreach curve {temperature zoom_temperature pressure flow flow_2x weight \
+							weight_2x resistance steps} {
+						$::home_espresso_graph element configure compare_${curve} -hide 0
+					}
 				}
 			}
-				
-			::toggle_cache_graphs
 		}
 	}
 	
@@ -3292,11 +3296,18 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		
 		::plugins::DYE::ui::restore_items_coords $page_to_show stored_moved_coords 
 		$::home_espresso_graph configure -width [dui::platform::rescale_x 1950]
-#		dui item moveto $page_to_hide launch_dye_next* 1090 1370
 		
-		foreach curve {temperature zoom_temperature pressure flow flow_2x weight weight_2x resistance steps} {
-			$::home_espresso_graph element configure compare_${curve} -hide 1
+		# Hiding the compare series is not enough, as they're still there and if afterwards
+		# the mini-charts are open from the home page they may appear. So we rather empty the 
+		# compare vectors
+		foreach vec {elapsed pressure flow flow_weight flow_2x flow_weight_2x state_change \
+				temperature_basket temperature_basket10th resistance } {
+			compare_espresso_$vec length 0
 		}
+				
+#		foreach curve {temperature zoom_temperature pressure flow flow_2x weight weight_2x resistance steps} {
+#			$::home_espresso_graph element configure compare_${curve} -hide 1
+#		}
 		
 		# Even if the source shot has not changed, as soon as it has been compared with another
 		# shot the X axis has been modified, and returning to the original is not trivial, so we
