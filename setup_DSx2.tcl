@@ -2922,7 +2922,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 	array set comp_shot_steps {}
 	
 	variable click_graph_timer {}
-	variable click_graph_previous_idx {}
+	variable click_graph_previous_xvline {}
 	variable click_graph_previous_clock {}
 	
 	variable stored_moved_coords
@@ -3339,7 +3339,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable data
 		variable base_shot
 		variable comp_shot
-		variable click_graph_previous_idx
+		variable click_graph_previous_xvline
 		variable click_graph_previous_clock
 		variable click_graph_timer
 		variable orig_x
@@ -3356,103 +3356,57 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		lassign [$widget axis limits x] x_min x_max
 		if { $x <= $x_min } {
 			set x [expr {$x_min+0.001}]
-		} 
+		} elseif { $x > $x_max } {
+			set x $x_max
+		}
 		
 		set idx [lsearch -sorted -increasing -bisect -real $base_shot(graph_espresso_elapsed) $x]
-		if { $idx > -1 } {
-			# Don't do unneeded calculations & drawings, specially in slower tablets
-			if { $click_graph_previous_idx == $idx } {
-				return
-			} elseif { $click_graph_previous_clock ne {} && \
-					[expr {[clock milliseconds]-$click_graph_previous_clock}] < 200 } {
-				after cancel click_graph_timer
-				set click_graph_timer [after 200 [namespace current]::press_graph $widget $orig_x $y]
-				return
+		if { $idx < 0 } {
+			set idx 0
+		}
+		set x_vline $xdata($idx)
+		if { $data(right_clock) > 0 } {
+			set comp_idx [lsearch -sorted -increasing -bisect -real \
+					$comp_shot(graph_espresso_elapsed) $x]
+			if { $comp_idx < 0 } {
+				set comp_idx 0
 			}
-
-			set x $xdata($idx)
-			$widget marker delete vline vline_time
-			$widget marker create line -coords { $x -Inf $x Inf } -name vline -dashes dash \
-				-linewidth 2 -outline $::skin_red
 			
-			if { $idx <= $src_n } {
-				set time_label [format {%.1f} $x]
-				set step_idx [lsearch -sorted -increasing -bisect -real $base_shot(steps_indexes) $idx]
-				if { $step_idx > -1 } {
-					set step_label [lindex $base_shot(steps_names) $step_idx]
-				} else {
-					set step_label ""
-				}
-				set pressure_label "[round_to_one_digits $pressure($idx)]"
-				set flow_label "[round_to_one_digits $flow($idx)]"
-				set weight_label "[round_to_one_digits $weight($idx)]"
-				if {$::settings(enable_fahrenheit) == 1} {
-					set temp_label [round_to_one_digits [celsius_to_fahrenheit $temp($idx)]]
-				} else {
-					set temp_label [round_to_one_digits $temp($idx)]
-				}
+			if { $comp_idx > $idx } {
+				compare_espresso_elapsed variable comp_xdata
+				set x_vline $comp_xdata($comp_idx)
+			}
+		}
+		
+		# Don't do unneeded calculations & drawings, specially in slower tablets
+		if { $click_graph_previous_xvline == $x_vline } {
+			return
+		} elseif { $click_graph_previous_clock ne {} && \
+				[expr {[clock milliseconds]-$click_graph_previous_clock}] < 200 } {
+			after cancel click_graph_timer
+			set click_graph_timer [after 200 [namespace current]::press_graph $widget $orig_x $y]
+			return
+		}
+
+		$widget marker delete vline vline_time
+		$widget marker create line -coords { $x_vline -Inf $x_vline Inf } -name vline -dashes dash \
+			-linewidth 2 -outline $::skin_red
+		
+		if { $idx <= $src_n } {
+			set time_label [format {%.1f} $x]
+			set step_idx [lsearch -sorted -increasing -bisect -real $base_shot(steps_indexes) $idx]
+			if { $step_idx > -1 } {
+				set step_label [lindex $base_shot(steps_names) $step_idx]
 			} else {
-				set time_label ""
 				set step_label ""
-				set pressure_label "-"
-				set flow_label "-"
-				set weight_label "-"
-				set temp_label "-"
 			}
-			
-			if { $data(right_clock) > 0 } {
-				set comp_idx [lsearch -sorted -increasing -bisect -real \
-						$comp_shot(graph_espresso_elapsed) $x]
-
-				if { $comp_idx > -1 } {
-					set step_idx [lsearch -sorted -increasing -bisect -real \
-							$comp_shot(steps_indexes) $comp_idx]
-					if { $step_idx > -1 } {
-						set comp_step_label [lindex $comp_shot(steps_names) $step_idx]
-						if { $comp_step_label ne $step_label } {
-							set step_label "[translate Base]:   $step_label\n[translate Comp]: $comp_step_label"
-						}
-					} else {
-						set comp_step_label ""
-					}
-						
-					compare_espresso_pressure variable comp_pressure
-					compare_espresso_flow variable comp_flow
-					compare_espresso_flow_weight variable comp_weight
-					compare_espresso_temperature_basket variable comp_temp
-					set comp_n [compare_espresso_pressure length]
-					
-					if { $comp_idx < $comp_n } {
-						append pressure_label " | [round_to_one_digits $comp_pressure($comp_idx)]"
-						append flow_label " | [round_to_one_digits $comp_flow($comp_idx)]"
-						append weight_label " | [round_to_one_digits $comp_weight($comp_idx)]"
-						if {$::settings(enable_fahrenheit) == 1} {
-							append temp_label " | [round_to_one_digits [celsius_to_fahrenheit $comp_temp($comp_idx)]]"
-						} else {
-							append temp_label " | [round_to_one_digits $comp_temp($comp_idx)]"
-						}
-					} else {
-						append pressure_label " | - "
-						append flow_label " | - "
-						append weight_label " | - "
-						append temp_label " | - "
-					}
-				} else {
-					append pressure_label " | - "
-					append flow_label " | - "
-					append weight_label " | - "
-					append temp_label " | - "
-				}
-			} 
-
-			append time_label [translate "s"]
-			append pressure_label [translate "bar"]
-			append flow_label [translate "ml/s"]
-			append weight_label [translate "g/s"]
+			set pressure_label "[round_to_one_digits $pressure($idx)]"
+			set flow_label "[round_to_one_digits $flow($idx)]"
+			set weight_label "[round_to_one_digits $weight($idx)]"
 			if {$::settings(enable_fahrenheit) == 1} {
-				append temp_label "\u00B0F"
+				set temp_label [round_to_one_digits [celsius_to_fahrenheit $temp($idx)]]
 			} else {
-				append temp_label "\u00B0C"
+				set temp_label [round_to_one_digits $temp($idx)]
 			}
 		} else {
 			set time_label ""
@@ -3461,6 +3415,51 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			set flow_label "-"
 			set weight_label "-"
 			set temp_label "-"
+		}
+		
+		if { $data(right_clock) > 0 } {
+			set step_idx [lsearch -sorted -increasing -bisect -real \
+					$comp_shot(steps_indexes) $comp_idx]
+			if { $step_idx > -1 } {
+				set comp_step_label [lindex $comp_shot(steps_names) $step_idx]
+				if { $comp_step_label ne $step_label } {
+					set step_label "[translate Base]:   $step_label\n[translate Comp]: $comp_step_label"
+				}
+			} else {
+				set comp_step_label ""
+			}
+				
+			compare_espresso_pressure variable comp_pressure
+			compare_espresso_flow variable comp_flow
+			compare_espresso_flow_weight variable comp_weight
+			compare_espresso_temperature_basket variable comp_temp
+			set comp_n [compare_espresso_pressure length]
+			
+			if { $comp_idx < $comp_n } {
+				append pressure_label " | [round_to_one_digits $comp_pressure($comp_idx)]"
+				append flow_label " | [round_to_one_digits $comp_flow($comp_idx)]"
+				append weight_label " | [round_to_one_digits $comp_weight($comp_idx)]"
+				if {$::settings(enable_fahrenheit) == 1} {
+					append temp_label " | [round_to_one_digits [celsius_to_fahrenheit $comp_temp($comp_idx)]]"
+				} else {
+					append temp_label " | [round_to_one_digits $comp_temp($comp_idx)]"
+				}
+			} else {
+				append pressure_label " | - "
+				append flow_label " | - "
+				append weight_label " | - "
+				append temp_label " | - "
+			}
+		} 
+
+		append time_label [translate "s"]
+		append pressure_label [translate "bar"]
+		append flow_label [translate "ml/s"]
+		append weight_label [translate "g/s"]
+		if {$::settings(enable_fahrenheit) == 1} {
+			append temp_label "\u00B0F"
+		} else {
+			append temp_label "\u00B0C"
 		}
 		
 		$widget marker create text -name vline_time -text $time_label -coords [list $x 0] \
@@ -3477,7 +3476,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		dui item config dsx2_dye_hv press_steps -text $step_label
 		dui item show dsx2_dye_hv press_steps
 
-		set click_graph_previous_idx $idx
+		set click_graph_previous_xvline $x_vline
 		set click_graph_previous_clock [clock milliseconds]	
 	}
 
@@ -3499,12 +3498,12 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		}
 
 		variable click_graph_timer
-		variable click_graph_previous_idx
+		variable click_graph_previous_xvline
 		variable click_graph_previous_clock
 		
 		after cancel $click_graph_timer
 		set click_graph_timer {}
-		set click_graph_previous_idx {}
+		set click_graph_previous_xvline {}
 		set click_graph_previous_clock {}
 		
 		$widget marker delete vline vline_time
