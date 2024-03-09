@@ -1533,7 +1533,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			return
 		}
 		
-		src_elapsed length 0
 		src_elapsed set $src_shot(graph_espresso_elapsed)
 		
 		src_temperature_goal10th set [::struct::list mapfor x $src_shot(graph_espresso_temperature_goal) \
@@ -3220,7 +3219,6 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			main_graph_toggle_goal_label main_graph_toggle_goal_button launch_dye_next*
 		
 		$::home_espresso_graph configure -width [dui::platform::rescale_x 1750]
-		#dui item moveto $page_to_show launch_dye_next* 900 1370
 		dui item moveby $page_to_show launch_dye_next* -200
 		dui item moveby $page_to_show {steps_text steps_key_button* main_graph_toggle_view_label \
 			main_graph_toggle_view_button* main_graph_toggle_goal_label main_graph_toggle_goal_button*} -60 
@@ -3340,16 +3338,14 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		::plugins::DYE::pages::dsx2_dye_home::src_flow variable flow
 		::plugins::DYE::pages::dsx2_dye_home::src_weight variable weight
 		::plugins::DYE::pages::dsx2_dye_home::src_temperature variable temp
-		set src_n [::plugins::DYE::pages::dsx2_dye_home::src_pressure length]
+		set src_n [::plugins::DYE::pages::dsx2_dye_home::src_elapsed length]
 
 		set orig_x $x
 		set x [$widget axis invtransform x $x]
 		lassign [$widget axis limits x] x_min x_max
 		if { $x <= $x_min } {
-			set x [expr {$x_min+0.01}]
-		} elseif { $x >= $x_max } {
-			set x [expr {$x_max-0.01}]
-		}
+			set x [expr {$x_min+0.001}]
+		} 
 		
 		set idx [lsearch -sorted -increasing -bisect -real $base_shot(graph_espresso_elapsed) $x]
 		if { $idx > -1 } {
@@ -3368,7 +3364,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			$widget marker create line -coords { $x -Inf $x Inf } -name vline -dashes dash \
 				-linewidth 2 -outline $::skin_red
 			
-			if { $idx < $src_n } {
+			if { $idx <= $src_n } {
 				set time_label [format {%.1f} $x]
 				set step_idx [lsearch -sorted -increasing -bisect -real $base_shot(steps_indexes) $idx]
 				if { $step_idx > -1 } {
