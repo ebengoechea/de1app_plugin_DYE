@@ -2,6 +2,18 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.46] - 2024-03-10
+
+### New
+ - New DYE History Viewer for DSx2 page. View past shots on DSx2 main graph and compare them with other shots. Shot summary statistics and in-graph explorer (click the graph and move the finger left and right to see the exact values of each series and the profile step).
+
+### Changed
+ - Fix errors that started appearing on the main DSx2 graph when DSx2 added new series ``\*_x2`` and ``zoom_\*``. Reported by Matt Bower and Karim.
+ - "workflow" literal removed from the last/source and next shots descriptions on DSx2 home page, as sometimes they made the line too long (specially on the new history viewer).
+ - DYE Favs title max length reduced in 2 characters when appearing in button labels, as sometimes they were overflowing the button width.
+  - Deleted extra unneeded "]" in Insight screensaver button command, which was producing a runtime error.
+ - Refactoring of utility functions in the ``::plugins::DYE`` namespace. New sub-namespaces created ``::plugins::DYE::shots``, ``plugins::DYE::ui``. DSx2 pages moved from ``::dui::pages`` namespace to ``::plugins::DYE::pages`` namespace.
+ 
 ## [2.45] - 2024-02-28
 
 ### Changed
