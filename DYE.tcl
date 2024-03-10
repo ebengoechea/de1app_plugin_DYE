@@ -3019,7 +3019,7 @@ namespace eval ::plugins::DYE::favorites {
 		}
 		
 		set _is_loading 1
-		if { [fav_type $n_fav] eq "n_rec22ent" } {
+		if { [fav_type $n_fav] eq "n_recent" } {
 			if {[info exists fav_values(last_clock)]} {
 				set load_success [::plugins::DYE::shots::source_next_from $fav_values(last_clock) \
 					{} $::plugins::DYE::settings(favs_n_recent_what_to_copy) $n_fav]
