@@ -653,6 +653,8 @@ proc ::plugins::DYE::setup_default_aspects { args } {
 # Reset the "next" description and update the current/last shot summary description
 proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	variable settings
+	variable ::plugins::DYE::shots::src_shot
+	
 	set skin $::settings(skin)
 	set isDSx2 [is_DSx2]
 	
@@ -729,7 +731,7 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	
 	set settings(next_espresso_notes) {}
 	set settings(next_modified) 0
-	set settings(next_src_clock) $::settings(espresso_clock)
+	#set settings(next_src_clock) $::settings(espresso_clock)
 	
 #	if { $::undroid == 1 } {		
 #		if { $skin eq "DSx" && [info exists ::DSx_settings(saw)] && $::DSx_settings(saw) > 0 } {
@@ -760,7 +762,6 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 #		}
 #	}
 
-	#define_last_desc
 	set settings(last_shot_header) [translate {ONGOING SHOT:}]
 	set settings(last_shot_desc) "\[ [translate {Please wait until saved}] \]"
 	shots::define_next_desc
@@ -775,18 +776,26 @@ proc ::plugins::DYE::reset_gui_starting_espresso_leave_hook { args } {
 	# Settings already saved in reset_gui_starting_espresso, but as we have redefined them...
 	::save_settings
 	plugins save_settings DYE
+
 }
 
 # Hook executed after save_espresso_rating_to_history
 proc ::plugins::DYE::save_espresso_to_history_hook { args } {
+	variable settings
 	variable ::plugins::DYE::shots::src_shot
-	::plugins::DYE::shots::define_last_desc {} yes
-	array set src_shot [::plugins::DYE::shots::get_last]
-msg "DYE::save_espresso_to_history_hook, src extraction time=$::plugins::DYE::shots::src_shot(extraction_time)"	
-	# Updating recent favorites saves DYE settings	
-	::plugins::DYE::favorites::update_recent
-	::plugins::DYE::favorites::select_from_clock $::settings(espresso_clock)
 	
+
+	array set src_shot [::plugins::DYE::shots::get_last]
+	if { [array size src_shot] > 0 } {
+		set settings(next_src_clock) $src_shot(clock)
+		::plugins::DYE::shots::define_last_desc src_shot yes
+	
+		# Updating recent favorites already saves DYE settings	
+		::plugins::DYE::favorites::update_recent
+	}
+	
+	::plugins::DYE::favorites::select_from_clock $src_shot(clock)
+
 }
 
 proc ::plugins::DYE::select_profile_enter_hook { select_profile_args args } {
@@ -3010,12 +3019,13 @@ namespace eval ::plugins::DYE::favorites {
 		}
 		
 		set _is_loading 1
-		if { [fav_type $n_fav] eq "n_recent" } {
+		if { [fav_type $n_fav] eq "n_rec22ent" } {
 			if {[info exists fav_values(last_clock)]} {
 				set load_success [::plugins::DYE::shots::source_next_from $fav_values(last_clock) \
 					{} $::plugins::DYE::settings(favs_n_recent_what_to_copy) $n_fav]
 				if { [string is true $load_success ] } {
 					dui say  [translate "Recent favorite loaded"]
+					
 					set _is_loading 0
 					return 1
 				} else {
