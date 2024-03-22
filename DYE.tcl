@@ -12,6 +12,7 @@
 #plugins enable DYE
 #fconfigure $::logging::_log_fh -buffering line
 #dui config debug_buttons 1
+#dui config debug 1
 
 package require http
 package require tls
@@ -514,12 +515,26 @@ proc ::plugins::DYE::upgrade { previous_version } {
 # Defines the DYE-specific aspect styles for the default theme. These are always needed even if the current theme used is 
 # another one, to have a default and to build the settings page with the default theme.
 proc ::plugins::DYE::setup_default_aspects { args } {
-	set theme default
-	dui aspect set -theme $theme -style dsx_settings {dbutton.shape round dbutton.bwidth 384 dbutton.bheight 192 
-		dbutton_symbol.pos {0.2 0.5} dbutton_symbol.font_size 37 
-		dbutton_label.pos {0.65 0.5} dbutton_label.font_size 18 
-		dbutton_label1.pos {0.65 0.8} dbutton_label1.font_size 16}
+	set theme "default"
+#	set theme [dui::theme::get]
 	
+	# dbutton_symbol.font_size 37 
+	dui aspect set -theme [dui::theme::get] -style dye_menu_btn { 
+		dbutton.bwidth 384 dbutton.bheight 160 dbutton.tap_pad 20 
+		dbutton_symbol.pos {0.2 0.5} dbutton_symbol.font_size 37 
+		dbutton_label.pos {0.65 0.5} dbutton_label1.pos {0.65 0.8} dbutton_label1.font_size 16}
+
+#	dui aspect set -theme DSx2 -style dye_menu_btn { 
+#		dbutton.bwidth 384 dbutton.bheight 192 dbutton.tap_pad 20 
+#		dbutton_symbol.pos {0.2 0.5} dbutton_symbol.font_size 37 
+#		dbutton_label.pos {0.65 0.5} dbutton_label1.pos {0.65 0.8} dbutton_label1.font_size 16}
+
+#	dui aspect set -theme $theme -style dsx_settings {
+#		dbutton.shape round dbutton.bwidth 384 dbutton.bheight 192 
+#		dbutton_symbol.pos {0.2 0.5} dbutton_symbol.font_size 37 
+#		dbutton_label.pos {0.65 0.5} dbutton_label.font_size 18 
+#		dbutton_label1.pos {0.65 0.8} dbutton_label1.font_size 16 }
+#	
 	dui aspect set -theme $theme -style dsx_midsize {dbutton.shape round dbutton.bwidth 220 dbutton.bheight 140
 		dbutton_label.pos {0.5 0.5} dbutton_symbol.font_size 30}
 	
@@ -3123,40 +3138,37 @@ proc ::dui::pages::DYE::setup {} {
 	regsub -all { } $::settings(skin) "_" skin
 	if { [::plugins::DYE::is_DSx2] } { set skin "DSx" }
 	
-	#::plugins::DYE::ui::page_skeleton $page "" "" yes no center insight_ok
 	dui add variable $page 1280 60 -tags page_title -style page_title -command {%NS::toggle_title}
 	
-	dui add variable $page 1280 125 -textvariable {[::dui::pages::DYE::propagate_state_msg]} -tags propagate_state_msg \
-		-anchor center -justify center -font_size -3
+	dui add variable $page 1280 125 -tags propagate_state_msg -anchor center -justify center \
+		-font_size -3 -textvariable {[::dui::pages::DYE::propagate_state_msg]}
 	
 	# NAVIGATION
 	set x_left_label 100; set y 40; set hspace 110
 	
-	dui add dbutton $page 0 0 200 175 -tags move_backward -symbol backward -symbol_pos {0.7 0.4} -style dye_main_nav_button  
-	#dui add symbol $page $x_left_label $y -symbol backward -tags move_backward -style dye_main_nav_button -command yes
+	dui add dbutton $page 0 0 200 175 -style dye_main_nav_button -tags move_backward \
+		-symbol backward -symbol_pos {0.7 0.4}   
 	
-	dui add dbutton $page 200 0 350 175 -tags move_forward -symbol forward -symbol_pos {0.5 0.4} -style dye_main_nav_button
-#	dui add symbol $page [expr {$x_left_label+$hspace}] $y -symbol forward -tags move_forward -style dye_main_nav_button \
-#		-command yes
+	dui add dbutton $page 200 0 350 175 -style dye_main_nav_button -tags move_forward \
+		-symbol forward -symbol_pos {0.5 0.4} 
 	
-	dui add dbutton $page 350 0 550 175 -tags move_to_next -symbol forward-fast -symbol_pos {0.35 0.4} -style dye_main_nav_button
-#	dui add symbol $page [expr {$x_left_label+$hspace*2}] $y -symbol forward-fast -tags move_to_next -style dye_main_nav_button \
-#		-command yes
+	dui add dbutton $page 350 0 550 175 -style dye_main_nav_button -tags move_to_next \
+		-symbol forward-fast -symbol_pos {0.35 0.4} 
+
 
 	set x_right 2360
-	dui add dbutton $page 2360 0 2560 175 -tags open_history_viewer -symbol clock-rotate-left -symbol_pos {0.35 0.4} -style dye_main_nav_button
-#	dui add symbol $page $x_right $y -symbol clock-rotate-left -tags open_history_viewer -style dye_main_nav_button -command yes
+	dui add dbutton $page 2360 0 2560 175 -style dye_main_nav_button -tags open_history_viewer \
+		-symbol clock-rotate-left -symbol_pos {0.35 0.4} 
 	
-	dui add dbutton $page 2210 0 2360 175 -tags search_shot -symbol binoculars -symbol_pos {0.5 0.4} -style dye_main_nav_button
-#	dui add symbol $page [expr {$x_right-$hspace}] $y -symbol binoculars -tags search_shot -style dye_main_nav_button \
-#		-command yes
+	dui add dbutton $page 2210 0 2360 175 -style dye_main_nav_button -tags search_shot \
+		-symbol binoculars -symbol_pos {0.5 0.4} 
 
-	dui add dbutton $page 2010 0 2210 175 -tags select_shot -symbol list -symbol_pos {0.6 0.4} -style dye_main_nav_button
-#	dui add symbol $page [expr {$x_right-$hspace*2}] $y -symbol list -tags select_shot -style dye_main_nav_button \ 
-#		-command yes
+	dui add dbutton $page 2010 0 2210 175 -style dye_main_nav_button -tags select_shot \
+		-symbol list -symbol_pos {0.6 0.4} 
 	
 	# LEFT COLUMN 
 	set x_left_field 400; set width_left_field 28; set x_left_down_arrow 990
+	set cwidth_left_field 700; set left_label_width [expr {$x_left_field-$x_left_label}]
 	
 	# BEANS DATA
 	if { [dui aspect exists image -source -style dye_beans_img] } {
@@ -3165,45 +3177,52 @@ proc ::dui::pages::DYE::setup {} {
 		set img_src "bean_${skin}.png"
 	}
 	dui add image $page $x_left_label 150 $img_src -tags beans_img
-	dui add dtext $page $x_left_field 250 -text [translate "Beans"] -tags beans_header -style section_header \
-		-command beans_select
+	dui add dtext $page $x_left_field 250 -text [translate "Beans"] -style section_header \
+		-tags beans_header -command beans_select
 	
-	dui add symbol $page [expr {$x_left_field+300}] 245 -tags beans_select -symbol sort-down -font_size 24 -command yes
+	dui add symbol $page [expr {$x_left_field+300}] 245 -tags beans_select -symbol sort-down \
+		-font_size 24 -command yes
 
 	# Beans roaster / brand 
-	set y 350
-	dui add dcombobox $page $x_left_field $y -tags bean_brand -width $width_left_field \
-		-label [translate [::plugins::SDB::field_lookup bean_brand name]] -label_pos [list $x_left_label $y] \
+	set y 350	
+	dui add dcombobox $page $x_left_field $y -tags bean_brand -canvas_width $cwidth_left_field \
+		-label [translate [::plugins::SDB::field_lookup bean_brand name]] -label_width $left_label_width \
+		-label_pos [list $x_left_label $y] -label_anchor nw -label_justify left \
 		-values {[::plugins::SDB::available_categories bean_brand]} \
 		-page_title [translate "Select the beans roaster or brand"] -listbox_width 1000
 	
 	# Beans type/name
 	incr y 100
-	dui add dcombobox $page $x_left_field $y -tags bean_type -width $width_left_field \
-		-label [translate [::plugins::SDB::field_lookup bean_type name]] -label_pos [list $x_left_label $y] \
-		-values {[::plugins::SDB::available_categories bean_type]} -page_title [translate "Select the beans type"] \
-		-listbox_width 1000
+	dui add dcombobox $page $x_left_field $y -tags bean_type -canvas_width $cwidth_left_field \
+		-label [translate [::plugins::SDB::field_lookup bean_type name]] -label_width $left_label_width \
+		-label_pos [list $x_left_label $y] -label_anchor nw -label_justify left \
+		-values {[::plugins::SDB::available_categories bean_type]} \
+		-page_title [translate "Select the beans type"] -listbox_width 1000
 
 	# Roast date
 	incr y 100
-	dui add entry $page $x_left_field $y -tags roast_date -width [expr {$width_left_field/2}] \
-		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_pos [list $x_left_label $y]
+	dui add entry $page $x_left_field $y -tags roast_date -canvas_width [expr {$cwidth_left_field/2}] \
+		-label [translate [::plugins::SDB::field_lookup roast_date name]] -label_width $left_label_width \
+		-label_pos [list $x_left_label $y] -label_anchor nw -label_justify left
 	bind $widgets(roast_date) <FocusOut> [list + [namespace current]::compute_days_offroast]
 	
-	dui add variable $page [expr {$x_left_field+400}] $y -tags days_offroast_msg
-	bind $widgets(roast_date) <Configure> [list ::dui::item::relocate_text_wrt DYE days_offroast_msg roast_date e 30 0 w]
+	dui add variable $page [expr {$x_left_field+$cwidth_left_field/2+50}] $y -tags days_offroast_msg
+	bind $widgets(roast_date) <Configure> [list ::dui::item::relocate_text_wrt DYE \
+			days_offroast_msg roast_date e 30 0 w]
 		
 	# Roast level
 	incr y 100
-	dui add dcombobox $page $x_left_field $y -tags roast_level -width $width_left_field \
-		-label [translate [::plugins::SDB::field_lookup roast_level name]] -label_pos [list $x_left_label $y] \
-		-values {[::plugins::SDB::available_categories roast_level]} -page_title [translate "Select the beans roast level"] \
-		-listbox_width 800
+	dui add dcombobox $page $x_left_field $y -tags roast_level -canvas_width $cwidth_left_field \
+		-label [translate [::plugins::SDB::field_lookup roast_level name]] -label_width $left_label_width \
+		-label_pos [list $x_left_label $y] -label_anchor nw -label_justify left \
+		-values {[::plugins::SDB::available_categories roast_level]} \
+		-page_title [translate "Select the beans roast level"] -listbox_width 800
 
 	# Bean notes
 	incr y 100
-	dui add multiline_entry $page $x_left_field $y -tags bean_notes -width $width_left_field -height 3 \
-		-label [translate [::plugins::SDB::field_lookup bean_notes name]] -label_pos [list $x_left_label $y]
+	dui add multiline_entry $page $x_left_field $y -tags bean_notes -canvas_width $cwidth_left_field \
+		-height 3 -label [translate [::plugins::SDB::field_lookup bean_notes name]] \
+		-label_width $left_label_width -label_pos [list $x_left_label $y] -label_anchor nw -label_justify left
 	
 	# EQUIPMENT
 	set y 925
@@ -3218,20 +3237,23 @@ proc ::dui::pages::DYE::setup {} {
 			
 	# Grinder model
 	incr y 240
-	dui add dcombobox $page $x_left_field $y -tags grinder_model -width $width_left_field \
-		-label [translate [::plugins::SDB::field_lookup grinder_model name]] -label_pos [list $x_left_label $y] \
+	dui add dcombobox $page $x_left_field $y -tags grinder_model -canvas_width $cwidth_left_field \
+		-label [translate [::plugins::SDB::field_lookup grinder_model name]] -label_width $left_label_width \
+		-label_pos [list $x_left_label $y] -label_anchor nw -label_justify left \
 		-values {[::plugins::SDB::available_categories grinder_model]} -callback_cmd select_grinder_model_callback \
 		-page_title [translate "Select the grinder model"] -listbox_width 1200
 	bind $widgets(grinder_model) <Leave> ::dui::pages::DYE::grinder_model_change
 	
 	# Grinder setting
 	incr y 100
-	dui add dcombobox $page $x_left_field $y -tags grinder_setting -width $width_left_field \
-		-label [translate [::plugins::SDB::field_lookup grinder_setting name]] -label_pos [list $x_left_label $y] \
+	dui add dcombobox $page $x_left_field $y -tags grinder_setting -canvas_width $cwidth_left_field \
+		-label [translate [::plugins::SDB::field_lookup grinder_setting name]] -label_width $left_label_width \
+		-label_pos [list $x_left_label $y] -label_anchor nw -label_justify left \
 		-command grinder_setting_select
 	
 	# EXTRACTION
-	set x_right_label 1280; set x_right_field 1525
+	set x_right_label 1280; set x_right_field 1525; 
+	set right_label_width [expr {$x_right_field-$x_right_label}]
 	
 	if { [dui aspect exists image -source -style dye_extraction_img] } {
 		set img_src [dui aspect get image -source -style dye_extraction_img]
@@ -3247,42 +3269,48 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Grinder Dose weight
 	set y 350
-	lassign [::plugins::SDB::field_lookup grinder_dose_weight {n_decimals min_value max_value default_value small_increment big_increment}] \
-		n_decimals min max default smallinc biginc
+	lassign [::plugins::SDB::field_lookup grinder_dose_weight {n_decimals min_value max_value \
+		default_value small_increment big_increment}] n_decimals min max default smallinc biginc
 	
 	# [translate [::plugins::SDB::field_lookup grinder_dose_weight name]]
-	dui add entry $page $x_right_field $y -tags grinder_dose_weight -width 5 -label_pos [list $x_right_label $y] \
-		-label [translate "Dose (g)"] -data_type numeric \
+	dui add entry $page $x_right_field $y -tags grinder_dose_weight -width 5 -data_type numeric \
+		-label [translate "Dose (g)"] -label_width $right_label_width \
+		-label_pos [list $x_right_label $y] -label_anchor nw -label_justify left \
 		-editor_page yes -editor_page_title [translate "Edit beans dose weight (g)"] \
-		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc
+		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc \
+		-bigincrement $biginc
 	
 	bind $widgets(grinder_dose_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
 	bind $widgets(grinder_dose_weight) <FocusOut> "[namespace current]::calc_ratio_and_time_label"
 	
 	# Drink weight (Yield)
 	set offset 350
-	lassign [::plugins::SDB::field_lookup drink_weight {n_decimals min_value max_value default_value small_increment big_increment}] \
-		n_decimals min max default smallinc biginc
+	lassign [::plugins::SDB::field_lookup drink_weight {n_decimals min_value max_value default_value \
+		small_increment big_increment}] n_decimals min max default smallinc biginc
 	
 	# [translate [::plugins::SDB::field_lookup drink_weight name]]
 	dui add entry $page [expr {$x_right_field+$offset}] $y -tags drink_weight -width 5 \
-		-label [translate "Yield (g)"] -label_pos [list [expr {$x_right_field+$offset-20}] $y] -label_anchor ne -label_justify right \
+		-label [translate "Yield (g)"] -label_pos [list [expr {$x_right_field+$offset-20}] $y] \
+		-label_anchor ne -label_justify right -label_width $offset \
 		-data_type numeric -editor_page yes -editor_page_title [translate "Edit final drink weight (g)"] \
-		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc
+		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc \
+		-bigincrement $biginc
 	dui add variable $page [expr {$x_right_field+$offset+65}] [expr {$y+85}] -tags target_drink_weight \
 		-textvariable {SAW $%NS::data(target_drink_weight)g} -anchor center -justify center -font_size -4
 	
 	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ey_from_tds"
 	bind $widgets(drink_weight) <FocusOut> "[namespace current]::calc_ratio_and_time_label"
 	
-	dui add variable $page [expr {$x_right+50}] $y -tags ratio_and_time_label -anchor ne -justify right -font_size +2
+	dui add variable $page [expr {$x_right+50}] $y -tags ratio_and_time_label -anchor ne \
+		-justify right -font_size +2
 		
 	# Total Dissolved Solids
 	set x_hclicker_field 2050
 	incr y 125	
-	lassign [::plugins::SDB::field_lookup drink_tds {n_decimals min_value max_value default_value small_increment big_increment}] \
-		n_decimals min max default smallinc biginc
-	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Total Dissolved Solids (TDS)"] -tags {drink_tds_label drink_tds*}
+	lassign [::plugins::SDB::field_lookup drink_tds {n_decimals min_value max_value default_value \
+		small_increment big_increment}] n_decimals min max default smallinc biginc
+	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Total Dissolved Solids (TDS)"] \
+		-tags {drink_tds_label drink_tds*} -width [expr {$right_label_width+300}]
 	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610 -bheight 75 -tags drink_tds \
 		-labelvariable {$%NS::data(drink_tds)%} -style dye_double \
 		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc \
@@ -3291,9 +3319,10 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Extraction Yield
 	incr y 100
-	lassign [::plugins::SDB::field_lookup drink_ey {n_decimals min_value max_value default_value small_increment big_increment}] \
-		n_decimals min max default smallinc biginc
-	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Extraction Yield (EY)"] -tags {drink_ey_label drink_ey*}
+	lassign [::plugins::SDB::field_lookup drink_ey {n_decimals min_value max_value default_value \
+		small_increment big_increment}] n_decimals min max default smallinc biginc
+	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Extraction Yield (EY)"] \
+		-tags {drink_ey_label drink_ey*} -width [expr {$right_label_width+300}]
 	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610 -bheight 75 -tags drink_ey \
 		-labelvariable {$%NS::data(drink_ey)%} -style dye_double \
 		-min $min -max $max -default $default -n_decimals $n_decimals -smallincrement $smallinc -bigincrement $biginc \
@@ -3301,9 +3330,10 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Enjoyment entry with horizontal clicker
 	incr y 100
-	lassign [::plugins::SDB::field_lookup espresso_enjoyment {n_decimals min_value max_value default_value small_increment big_increment}] \
-		n_decimals min max default smallinc biginc
-	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Enjoyment (0-100)"] -tags espresso_enjoyment_label
+	lassign [::plugins::SDB::field_lookup espresso_enjoyment {n_decimals min_value max_value \
+		default_value small_increment big_increment}] n_decimals min max default smallinc biginc
+	dui add dtext $page $x_right_label [expr {$y+6}] -text [translate "Enjoyment (0-100)"] \
+		-tags espresso_enjoyment_label -width [expr {$right_label_width+300}]
 		
 	dui add dclicker $page [expr {$x_right_field+300}] $y -bwidth 610  -bheight 75 -tags espresso_enjoyment \
 		-labelvariable espresso_enjoyment -style dye_double \
@@ -3317,8 +3347,9 @@ proc ::dui::pages::DYE::setup {} {
 	
 	# Espresso notes
 	incr y 100
-	set tw [dui add multiline_entry $page $x_right_field $y -tags espresso_notes -height 5 -canvas_width 900 -label_width 245 \
-		-label [translate [::plugins::SDB::field_lookup espresso_notes name]] -label_pos [list $x_right_label $y]]
+	set tw [dui add multiline_entry $page $x_right_field $y -tags espresso_notes -height 5 \
+		-canvas_width 900 -label_width 245 -label_pos [list $x_right_label $y] -label_anchor nw \
+		-label [translate [::plugins::SDB::field_lookup espresso_notes name]]] 
 
 	# PEOPLE
 	set y 1030
@@ -3333,32 +3364,36 @@ proc ::dui::pages::DYE::setup {} {
 		
 	# Barista (my_name)
 	incr y 240
-	dui add dcombobox $page $x_right_field $y -tags my_name -canvas_width 325 \
-		-label [translate [::plugins::SDB::field_lookup my_name name]] -label_pos [list $x_right_label $y] \
+	dui add dcombobox $page $x_right_field $y -tags my_name -canvas_width 300 \
+		-label [translate [::plugins::SDB::field_lookup my_name name]] -label_width $right_label_width \
+		-label_pos [list $x_right_label $y] -label_anchor nw -label_justify left \
 		-values {[::plugins::SDB::available_categories my_name]} -page_title [translate "Select the barista"] \
 		-listbox_width 800
 	
 	# Drinker name
-	dui add dcombobox $page [expr {$x_right_field+575}] $y -tags drinker_name -canvas_width 325 \
-		-label [translate [::plugins::SDB::field_lookup drinker_name name]] -label_pos [list [expr {$x_right_label+675}] $y] \
-		-values {[::plugins::SDB::available_categories drinker_name]} -page_title [translate "Select the coffee drinker"] \
-		-listbox_width 800
+	dui add dcombobox $page [expr {$x_right_field+600}] $y -tags drinker_name -canvas_width 300 \
+		-label [translate [::plugins::SDB::field_lookup drinker_name name]] \
+		-label_pos [list [expr {$x_right_field+585}] $y] -label_width 245 -label_anchor ne \
+		-label_justify right -listbox_width 800 -page_title [translate "Select the coffee drinker"] \
+		-values {[::plugins::SDB::available_categories drinker_name]}
 	
 	# BOTTOM BUTTONS
-	dui add dbutton $page 1280 1460 -label [translate Done] -tags page_done -style insight_ok -anchor n -tap_pad 20
-	
-	set y 1415 	
-	dui add dbutton $page 100 $y -tags edit_dialog -style dsx_settings -symbol chevron-up -label [translate "Edit data"] \
-		-bheight 160 -tap_pad 20
+	dui add dbutton $page 1280 1460 -anchor n -tags page_done -style round -bwidth 480 -bheight 118 \
+		-tap_pad 20 -label [translate Ok]
 
-	dui add dbutton $page [expr {150+[dui aspect get dbutton bwidth -style dsx_settings]}] $y -tags manage_dialog \
-		-style dsx_settings -symbol chevron-up -label [translate "Manage"] -bheight 160 -tap_pad 20
+	set y 1415 	
+	dui add dbutton $page 100 $y -tags edit_dialog -style {round dye_menu_btn} \
+		-symbol chevron-up -label [translate "Edit data"]
+		 
+	dui add dbutton $page [expr {150+[dui aspect get dbutton bwidth -style dye_menu_btn]}] $y \
+		-tags manage_dialog -style {round dye_menu_btn} -symbol chevron-up -label [translate "Manage"]
 	
-	dui add dbutton $page 2440 $y -anchor ne -tags visualizer_dialog -style dsx_settings -symbol chevron-up -symbol_pos {0.8 0.45} \
-		-label [translate "Visualizer"] -label_pos {0.35 0.45} -label1variable visualizer_status_label -label1_pos {0.5 0.8} \
-		-label1_anchor center -label1_justify center -label1_font_size -3 -bheight 160 -tap_pad 20
+	#-label_pos {0.35 0.45} -label1_font_size -3  -label1_pos {0.5 0.8}
+	dui add dbutton $page 2440 $y -anchor ne -tags visualizer_dialog -style {round dye_menu_btn} \
+		-symbol chevron-up -label [translate "Visualizer"] -label1variable visualizer_status_label
 	
-	dui add variable $page 2420 1390 -tags warning_msg -style remark -anchor e -justify right -initial_state hidden
+	dui add variable $page 2420 1390 -tags warning_msg -style remark -anchor e -justify right \
+		-initial_state hidden
 }
 
 # 'which_shot' can be either a clock value matching a past shot clock, or any of 'current', 'next', 'DSx_past' or 
@@ -4665,7 +4700,7 @@ proc ::dui::pages::DYE::manage_dialog {} {
 	save_description 
 	
 	dui page open_dialog dye_manage_dlg $is_next $data(path) -anchor sw -disable_items 1 \
-		-coords [list [expr {150+[dui aspect get dbutton bwidth -style dsx_settings]}] 1390] \
+		-coords [list [expr {150+[dui aspect get dbutton bwidth -style dye_menu_btn]}] 1390] \
 		-return_callback [namespace current]::process_manage_dialog
 }
 
@@ -5753,10 +5788,11 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		dui add dtext $page 105 160 -anchor center -justify center -text [translate "PROFILE VIEWER"] \
 			-font_size 14 -fill white -width 200
 		
-		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
-			-command dui::page::close_dialog
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog \
+			-style menu_dlg_close -command dui::page::close_dialog
 
-		dui add variable $page 275 30 -anchor nw -justify left -tags profile_title -width 1900 -style dye_pv_profile_title 
+		dui add variable $page 275 30 -anchor nw -justify left -tags profile_title -width 1900 \
+			-style dye_pv_profile_title 
 		
 		dui add variable $page 265 210 -anchor sw -justify left -tags profile_type -width 1200 -font_size +1 \
 			-fill [dui aspect get text_tag foreground -style dye_pv_step]
@@ -5768,8 +5804,9 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		dui add dtext $page 1700 210 -anchor sw -tags compare_lbl -width 650 -text [translate {Compare to:}] 
 		
 		dui add dselector $page 1700 225 -bwidth 550 -bheight 330 -anchor nw -tags compare_to -orient vertical \
-			-values {none saved other} -labels [list [translate Nothing] [translate {Saved profile}] [translate {Another profile}]] \
-			-command compare_to_change
+			-values {none saved other} -command compare_to_change \
+			-labels [list [translate Nothing] [translate {Saved profile}] [translate {Another profile}]]
+			
 		dui add variable $page 1975 565 -width 560 -tags compare_to_title -anchor n -justify center -font_size -3
 		
 		dui add dtoggle $page 2250 670 -anchor ne -tags show_diff_only -label [translate {Show differences only}] \
@@ -5778,10 +5815,11 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		# Right side, bottom buttons, start by the bottom
 		set y 1300; set bheight 170; set vsep 200
 		
-		dui add dbutton $page 1700 $y -bwidth 550 -bheight $bheight -anchor sw -style dsx_settings -tags apply_profile -symbol file-export \
-			-labelvariable apply_profile_label -label_width 375
+		dui add dbutton $page 1700 $y -bwidth 550 -bheight $bheight -anchor sw -style {round dye_menu_btn} \
+			-tags apply_profile -symbol file-export -labelvariable apply_profile_label -label_width 375
 
-		dui add dbutton $page 1700 [incr y -$vsep] -bwidth 550 -bheight $bheight -anchor sw -style dsx_settings -tags change_profile \
+		dui add dbutton $page 1700 [incr y -$vsep] -bwidth 550 -bheight $bheight -anchor sw \
+			-style {round dye_menu_btn} -tags change_profile \
 			-symbol arrow-right-arrow-left -label [translate "Change profile"] -label_width 375
 		
 		# Define Tk Text tag styles
@@ -8158,12 +8196,12 @@ proc ::dui::pages::DYE_fsh::setup {} {
 	
 	# Button "Apply to left history"
 	set y 1375
-	dui add dbutton $page $x_left $y -tags apply_to_left_side -symbol filter -style dsx_settings \
+	dui add dbutton $page $x_left $y -tags apply_to_left_side -symbol filter -style {round dye_menu_btn} \
 		-label "[translate {Apply to}]\n[translate {left side}]" -label_pos {0.65 0.3} \
 		-label1variable left_filter_status -label1_pos {0.65 0.8} -initial_state hidden
 		
 	# Button "Apply to right history"
-	dui add dbutton $page 2100 $y -tags apply_to_right_side -symbol filter -style dsx_settings \
+	dui add dbutton $page 2100 $y -tags apply_to_right_side -symbol filter -style {round dye_menu_btn} \
 		-label "[translate {Apply to}]\n[translate {right side}]" -label1variable right_filter_status -initial_state hidden
 		
 }
@@ -8840,11 +8878,11 @@ proc ::dui::pages::DYE_settings::setup {} {
 	
 	dui add dtext $page $x $y -tags shot_desc_font_color_label -width 725 -text [translate "Color of shot descriptions summaries"]
 
-	dui add dbutton $page [expr {$x+$panel_width-100}] $y -anchor ne -tags shot_desc_font_color -style dsx_settings \
+	dui add dbutton $page [expr {$x+$panel_width-100}] $y -anchor ne -tags shot_desc_font_color -style {round dye_menu_btn} \
 		-command shot_desc_font_color_change -label [translate "Change color"] -label_width 250 \
 		-symbol paintbrush -symbol_fill $::plugins::DYE::settings(shot_desc_font_color)
 
-	dui add dbutton $page [expr {$x+700}] [expr {$y+[dui aspect get dbutton bheight -style dsx_settings]}] \
+	dui add dbutton $page [expr {$x+700}] [expr {$y+[dui aspect get dbutton bheight -style dye_menu_btn]}] \
 		-bwidth 425 -bheight 100 -anchor se -tags use_default_color \
 		-shape outline -outline $::plugins::DYE::default_shot_desc_font_color -arc_offset 35 \
 		-label [translate {Use default color}] -label_fill $::plugins::DYE::default_shot_desc_font_color \

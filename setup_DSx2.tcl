@@ -4,7 +4,7 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	variable settings
 	variable widgets
 	
-	DSx2_setup_dui_theme
+	setup_dsx2_dui_theme
 	
 	# DSx2 HOME PAGES UI INTEGRATION
 	# Only done on strict DSx2 skin (no fork) and default "Damian" DSx2 theme
@@ -31,349 +31,365 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 		settings(DSx2_sleep_describe_button_coords) {240 40 380 180}]
 
 	dui add dbutton saver {*}$sleep_describe_button_coords -tags saver_to_dye -shape round \
-		-radius 30 -fill #333 -symbol $settings(describe_icon) -symbol_pos {0.52 0.4} \
+		-radius $::skin_button_radius -fill #333 -symbol $settings(describe_icon) -symbol_pos {0.52 0.4} \
 		-symbol_anchor center -symbol_justify center -symbol_fill #666 -symbol_font_size 32 \
 		-label [translate "DYE"] -label_pos {0.46 0.8} -label_anchor center -label_justify center \
 		-label_fill #666 -label_font_size 14 -command {::plugins::DYE::open -which_shot last}
 }
 
-proc ::plugins::DYE::DSx2_setup_dui_theme { } {
-	### DUI ASPECTS & STYLES ###
-	dui theme add DSx2
-	dui theme set DSx2
-
-	# Skin colors
+proc ::plugins::DYE::setup_dsx2_dui_theme { } {
+#	### DUI ASPECTS & STYLES ###
+#	dui theme add DSx2
+#	dui theme set DSx2
+#
+#	# Skin colors
 	set background_c $::skin_background_colour
-	set foreground_c $::skin_forground_colour
+	set background2_c $::skin_background_2_colour
+	set foreground_c $::skin_foreground_colour
+	set foreground2_c $::skin_foreground_2_colour
 	set text_c $::skin_text_colour
+	set text_disabled_c $::skin_text_disabled_colour
+	set text_high_c $::skin_text_highlight_colour
+	set text2_c $::skin_text_2_colour
+	set text3_c $::skin_text_3_colour
 	set button_label_c $::skin_button_label_colour 
+	set button_label_disabled_c $::skin_button_label_disabled_colour
+	set button_label_high_c $::skin_button_label_highlight_colour
+	set button_label2_c $::skin_button_label_2_colour
+	set button_bg_c $::skin_forground_colour
+	set button_press_c $::skin_button_press_colour
 	set header_button_c $::skin_button_label_colour
+	# Don't use anymore?
 	set unselected_c $::skin_background_colour
 	set selected_c $::skin_selected_colour
 	set error_c $::skin_red
 	set fill_and_insert_c $::skin_text_colour
-	set button_bg_c $::skin_forground_colour
-	set disabled_c $::skin_grey
-
+	set disabled_c $::skin_disabled_colour
+	#$::skin_grey
+	set button_radius $::skin_button_radius
+	
 	#DYE fonts
 	set font "notosansuiregular"
 	set boldfont "notosansuibold"
 	set default_font_size 16
-
-	dui aspect set -theme DSx2 [subst {
-		page.bg_img {}
-		page.bg_color $background_c
-		dialog_page.bg_shape round_outline
-		dialog_page.bg_color $background_c
-		dialog_page.fill $background_c
-		dialog_page.outline $text_c
-		dialog_page.width 1
-		
-		font.font_family "$font"
-		font.font_size $default_font_size
-		
-		dtext.font_family "$font"
-		dtext.font_size $default_font_size
-		dtext.fill $text_c
-		dtext.disabledfill $disabled_c
-		dtext.anchor nw
-		dtext.justify left
-		
-		dtext.fill.remark $fill_and_insert_c
-		dtext.fill.error $error_c
-		dtext.font_family.section_title "$font"
-		
-		dtext.font_family.page_title "$font"
-		dtext.font_size.page_title 26
-		dtext.fill.page_title $text_c
-		dtext.anchor.page_title center
-		dtext.justify.page_title center
-					
-		symbol.font_family "Font Awesome 6 Pro-Regular-400"
-		symbol.font_size 55
-		symbol.fill $text_c
-		symbol.disabledfill $disabled_c
-		symbol.anchor nw
-		symbol.justify left
-		
-		symbol.font_size.small 24
-		symbol.font_size.medium 40
-		symbol.font_size.big 55
-		
-		dbutton.debug_outline yellow
-		dbutton.fill $button_bg_c
-		dbutton.disabledfill $unselected_c
-		dbutton.outline $text_c
-		dbutton.disabledoutline $unselected_c
-		dbutton.width 0
-		
-		dbutton_label.pos {0.5 0.5}
-		dbutton_label.font_size [expr {$default_font_size+1}]
-		dbutton_label.anchor center	
-		dbutton_label.justify center
-		dbutton_label.fill $button_label_c
-		dbutton_label.disabledfill $disabled_c
-		
-		dbutton_label1.pos {0.5 0.8}
-		dbutton_label1.font_size [expr {$default_font_size-1}]
-		dbutton_label1.anchor center
-		dbutton_label1.justify center
-		dbutton_label1.fill $button_label_c
-		dbutton_label1.activefill $fill_and_insert_c
-		dbutton_label1.disabledfill $disabled_c
-		
-		dbutton_symbol.pos {0.2 0.5}
-		dbutton_symbol.font_size 28
-		dbutton_symbol.anchor center
-		dbutton_symbol.justify center
-		dbutton_symbol.fill $button_label_c
-		dbutton_symbol.disabledfill $disabled_c
-		
-		dbutton.shape.insight_ok round
-		dbutton.radius.insight_ok 30
-		dbutton.bwidth.insight_ok 480
-		dbutton.bheight.insight_ok 118
-		dbutton_label.font_family.insight_ok "$boldfont"
-		dbutton_label.font_size.insight_ok 19
-		
-		dclicker.fill {}
-		dclicker.disabledfill {}
-		dclicker_label.pos {0.5 0.5}
-		dclicker_label.font_size 16
-		dclicker_label.fill $text_c
-		dclicker_label.anchor center
-		dclicker_label.justify center
-		
-		entry.relief sunken
-		entry.bg $background_c
-		entry.disabledbackground $disabled_c
-		entry.width 2
-		entry.foreground $text_c
-		entry.disabledforeground $background_c
-		entry.font_size $default_font_size
-		entry.insertbackground $fill_and_insert_c
-			
-		multiline_entry.relief sunken
-		multiline_entry.foreground $text_c
-		multiline_entry.bg $background_c
-		multiline_entry.width 2
-		multiline_entry.font_family "$font"
-		multiline_entry.font_size $default_font_size
-		multiline_entry.width 15
-		multiline_entry.height 5
-		multiline_entry.insertbackground $fill_and_insert_c
-		multiline_entry.wrap word
-	
-		dcombobox.relief sunken
-		dcombobox.bg $background_c
-		dcombobox.width 2
-		dcombobox.font_family "$font"
-		dcombobox.font_size $default_font_size
-		
-		dbutton_dda.shape {}
-		dbutton_dda.fill {}
-		dbutton_dda.disabledfill {}
-		dbutton_dda.bwidth 70
-		dbutton_dda.bheight 65
-		dbutton_dda.symbol "sort-down"
-		
-		dbutton_dda_symbol.pos {0.5 0.2}
-		dbutton_dda_symbol.font_size 24
-		dbutton_dda_symbol.anchor center
-		dbutton_dda_symbol.justify center
-		dbutton_dda_symbol.fill $text_c
-		dbutton_dda_symbol.disabledfill $disabled_c
-				
-		dcheckbox.font_family "Font Awesome 6 Pro"
-		dcheckbox.font_size 18
-		dcheckbox.fill $text_c
-		dcheckbox.anchor nw
-		dcheckbox.justify left
-		
-		dcheckbox_label.pos "e 30 0"
-		dcheckbox_label.anchor w
-		dcheckbox_label.justify left
-		
-		listbox.relief sunken
-		listbox.borderwidth 1
-		listbox.foreground $text_c
-		listbox.background $background_c
-		listbox.selectforeground $background_c
-		listbox.selectbackground $text_c
-		listbox.selectborderwidth 1
-		listbox.disabledforeground $disabled_c
-		listbox.selectmode browse
-		listbox.justify left
-		
-		listbox_label.pos "wn -10 0"
-		listbox_label.anchor ne
-		listbox_label.justify right
-		
-		listbox_label.font_family.section_title "$font"
-		
-		scrollbar.orient vertical
-		scrollbar.width 120
-		scrollbar.length 300
-		scrollbar.sliderlength 120
-		scrollbar.from 0.0
-		scrollbar.to 1.0
-		scrollbar.bigincrement 0.2
-		scrollbar.borderwidth 1
-		scrollbar.showvalue 0
-		scrollbar.resolution 0.01
-		scrollbar.background $text_c
-		scrollbar.foreground $foreground_c
-		scrollbar.troughcolor $background_c
-		scrollbar.relief flat
-		scrollbar.borderwidth 0
-		scrollbar.highlightthickness 0
-		
-		dscale.orient horizontal
-		dscale.foreground $text_c
-		dscale.background $button_label_c
-		dscale.sliderlength 75
-		
-		scale.orient horizontal
-		scale.foreground $foreground_c
-		scale.background $text_c
-		scale.troughcolor $background_c
-		scale.showvalue 0
-		scale.relief flat
-		scale.borderwidth 0
-		scale.highlightthickness 0
-		scale.sliderlength 125
-		scale.width 150
-		
-		drater.fill $text_c 
-		drater.disabledfill $disabled_c
-		drater.font_size 24
-		
-		rect.fill.insight_back_box $background_c
-		rect.width.insight_back_box 0
-		line.fill.insight_back_box_shadow $background_c
-		line.width.insight_back_box_shadow 2
-		rect.fill.insight_front_box $background_c
-		rect.width.insight_front_box 0
-		
-		graph.plotbackground $background_c
-		graph.borderwidth 1
-		graph.background $background_c
-		graph.plotrelief raised
-		graph.plotpady 0 
-		graph.plotpadx 10
-		
-		text.bg $background_c
-		text.foreground $text_c
-		text.font_size $default_font_size
-		text.relief flat
-		text.highlightthickness 1
-		text.insertbackground $fill_and_insert_c
-		text.wrap word
-		
-		dselector.radius 40
-		dselector.fill $background_c
-		dselector.selectedfill $foreground_c
-		dselector.outline $foreground_c
-		dselector.selectedoutline $foreground_c
-		dselector.label_fill $text_c
-		dselector.label_selectedfill $selected_c
-
-		dtoggle.width 120
-		dtoggle.height 68
-		dtoggle.outline_width 0
-		dtoggle.background $foreground_c
-		dtoggle.foreground $button_label_c
-		dtoggle.outline $button_label_c
-		dtoggle.selectedbackground $foreground_c
-		dtoggle.selectedforeground $selected_c
-		dtoggle.selectedoutline $selected_c
-		dtoggle.disabledbackground $disabled_c
-		dtoggle.disabledforeground $button_label_c
-		dtoggle.disabledoutline $button_label_c		
-	}]
-
-	# dui_number_editor page styles
-	dui aspect set -theme DSx2 {
-		dbutton.shape.dne_clicker outline 
-		dbutton.bwidth.dne_clicker 120 
-		dbutton.bheight.dne_clicker 140 
-		dbutton.fill.dne_clicker {}
-		dbutton.width.dne_clicker 3
-		dbutton.anchor.dne_clicker center
-		dbutton_symbol.pos.dne_clicker {0.5 0.4} 
-		dbutton_symbol.anchor.dne_clicker center 
-		dbutton_symbol.font_size.dne_clicker 20
-		dbutton_label.pos.dne_clicker {0.5 0.8} 
-		dbutton_label.font_size.dne_clicker 10 
-		dbutton_label.anchor.dne_clicker center
-		
-		dbutton.shape.dne_pad_button outline 
-		dbutton.bwidth.dne_pad_button 280 
-		dbutton.bheight.dne_pad_button 220
-		dbutton.fill.dne_pad_button {}
-		dbutton.width.dne_pad_button 3
-		dbutton.anchor.dne_pad_button nw
-		dbutton_label.pos.dne_pad_button {0.5 0.5} 
-		dbutton_label.font_family.dne_pad_button notosansuibold 
-		dbutton_label.font_size.dne_pad_button 24 
-		dbutton_label.anchor.dne_pad_button center
-	}
-	
-	# DUI confirm dialog styles
-	dui aspect set -theme DSx2 {
-		dbutton.shape.dui_confirm_button outline
-		dbutton.bheight.dui_confirm_button 100
-		dbutton.width.dui_confirm_button 1
-		dbutton.arc_offset.dui_confirm_button 20
-	}
-
-	# Menu dialogs
-	dui aspect set -theme DSx2 [subst {
-		dtext.font_size.menu_dlg_title +1
-		dtext.anchor.menu_dlg_title center
-		dtext.justify.menu_dlg_title center
-		
-		dbutton.shape.menu_dlg_close rect 
-		dbutton.fill.menu_dlg_close {} 
-		dbutton.symbol.menu_dlg_close xmark
-		dbutton_symbol.pos.menu_dlg_close {0.5 0.5}
-		dbutton_symbol.anchor.menu_dlg_close center
-		dbutton_symbol.justify.menu_dlg_close center
-		dbutton_symbol.fill.menu_dlg_close $foreground_c
-		
-		dbutton.shape.menu_dlg_btn rect
-		dbutton.fill.menu_dlg_btn {}
-		dbutton.disabledfill.menu_dlg_btn {}
-		dbutton_label.pos.menu_dlg_btn {0.25 0.4} 
-		dbutton_label.anchor.menu_dlg_btn w
-		dbutton_label.fill.menu_dlg_btn $text_c
-		dbutton_label.disabledfill.menu_dlg_btn $disabled_c
-		
-		dbutton_label1.pos.menu_dlg_btn {0.25 0.78} 
-		dbutton_label1.anchor.menu_dlg_btn w
-		dbutton_label1.fill.menu_dlg_btn $text_c
-		dbutton_label1.disabledfill.menu_dlg_btn $disabled_c
-		dbutton_label1.font_size.menu_dlg_btn -3
-		
-		dbutton_symbol.pos.menu_dlg_btn {0.15 0.5} 
-		dbutton_symbol.anchor.menu_dlg_btn center
-		dbutton_symbol.fill.menu_dlg_btn $button_label_c
-		dbutton_symbol.disabledfill.menu_dlg_btn $disabled_c
-		
-		line.fill.menu_dlg_sepline $disabled_c
-		line.width.menu_dlg_sepline 1
-		
-		dtext.fill.menu_dlg $text_c
-		dtext.disabledfill.menu_dlg $disabled_c
-		dcheckbox.fill.menu_dlg $text_c
-		dcheckbox.disabledfill.menu_dlg $disabled_c
-		dcheckbox_label.fill.menu_dlg $text_c
-		dcheckbox_label.disabledfill.menu_dlg $disabled_c
-		
-		dbutton.shape.menu_dlg outline
-		dbutton.arc_offset.menu_dlg 25
-		dbutton.width.menu_dlg 3
-	}]
+#
+##	dbutton.disabledfill $unselected_c
+##	dbutton.disabledoutline $unselected_c
+##	dbutton_label.disabledfill $disabled_c
+##	dbutton_label1.activefill $fill_and_insert_c
+##	dbutton_label1.disabledfill $disabled_c	
+#	dui aspect set -theme DSx2 [subst {
+#		page.bg_img {}
+#		page.bg_color $background_c
+#		dialog_page.bg_shape round_outline
+#		dialog_page.bg_color $background_c
+#		dialog_page.fill $background_c
+#		dialog_page.outline $text_c
+#		dialog_page.width 1
+#		
+#		font.font_family "$font"
+#		font.font_size $default_font_size
+#		
+#		dtext.font_family "$font"
+#		dtext.font_size $default_font_size
+#		dtext.fill $text_c
+#		dtext.disabledfill $text_disabled_c
+#		dtext.anchor nw
+#		dtext.justify left
+#		
+#		dtext.fill.remark $text_high_c 
+#		dtext.fill.error $error_c
+#		dtext.font_family.section_title "$font"
+#		
+#		dtext.font_family.page_title "$font"
+#		dtext.font_size.page_title 26
+#		dtext.fill.page_title $text_c
+#		dtext.anchor.page_title center
+#		dtext.justify.page_title center
+#					
+#		symbol.font_family "Font Awesome 6 Pro-Regular-400"
+#		symbol.font_size 55
+#		symbol.fill $text_c
+#		symbol.disabledfill $text_disabled_c
+#		symbol.anchor nw
+#		symbol.justify left
+#		
+#		symbol.font_size.small 24
+#		symbol.font_size.medium 40
+#		symbol.font_size.big 55
+#		
+#		dbutton.debug_outline yellow
+#		dbutton.fill $background_c
+#		dbutton.disabledfill $background_c
+#		dbutton.outline $background_c
+#		dbutton.disabledoutline $background_c
+#		dbutton.width 0
+#		
+#		dbutton_label.pos {0.5 0.5}
+#		dbutton_label.font_size [expr {$default_font_size+1}]
+#		dbutton_label.anchor center	
+#		dbutton_label.justify center
+#		dbutton_label.fill $button_label_c
+#		dbutton_label.disabledfill $button_label_disabled_c
+#		dbutton_label1.pos {0.5 0.8}
+#		dbutton_label1.font_size [expr {$default_font_size-1}]
+#		dbutton_label1.anchor center
+#		dbutton_label1.justify center
+#		dbutton_label1.fill $button_label_c	
+#		dbutton_label1.disabledfill $button_label_disabled_c
+#		
+#		dbutton_symbol.pos {0.2 0.5}
+#		dbutton_symbol.font_size 28
+#		dbutton_symbol.anchor center
+#		dbutton_symbol.justify center
+#		dbutton_symbol.fill $button_label_c
+#		dbutton_symbol.disabledfill $button_label_disabled_c
+#		
+#		dbutton.shape.insight_ok round
+#		dbutton.radius.insight_ok $button_radius
+#		dbutton.bwidth.insight_ok 480
+#		dbutton.bheight.insight_ok 118
+#		dbutton_label.font_family.insight_ok "$boldfont"
+#		dbutton_label.font_size.insight_ok 19
+#		
+#		dclicker.fill {}
+#		dclicker.disabledfill {}
+#		dclicker_label.pos {0.5 0.5}
+#		dclicker_label.font_size 16
+#		dclicker_label.fill $text_c
+#		dclicker_label.anchor center
+#		dclicker_label.justify center
+#		
+#		entry.relief sunken
+#		entry.bg $background_c
+#		entry.disabledbackground $disabled_c
+#		entry.width 2
+#		entry.foreground $text_c
+#		entry.disabledforeground $background_c
+#		entry.font_size $default_font_size
+#		entry.insertbackground $fill_and_insert_c
+#			
+#		multiline_entry.relief sunken
+#		multiline_entry.foreground $text_c
+#		multiline_entry.bg $background_c
+#		multiline_entry.width 2
+#		multiline_entry.font_family "$font"
+#		multiline_entry.font_size $default_font_size
+#		multiline_entry.width 15
+#		multiline_entry.height 5
+#		multiline_entry.insertbackground $fill_and_insert_c
+#		multiline_entry.wrap word
+#	
+#		dcombobox.relief sunken
+#		dcombobox.bg $background_c
+#		dcombobox.width 2
+#		dcombobox.font_family "$font"
+#		dcombobox.font_size $default_font_size
+#		
+#		dbutton_dda.shape {}
+#		dbutton_dda.fill {}
+#		dbutton_dda.disabledfill {}
+#		dbutton_dda.bwidth 70
+#		dbutton_dda.bheight 65
+#		dbutton_dda.symbol "sort-down"
+#		
+#		dbutton_dda_symbol.pos {0.5 0.2}
+#		dbutton_dda_symbol.font_size 24
+#		dbutton_dda_symbol.anchor center
+#		dbutton_dda_symbol.justify center
+#		dbutton_dda_symbol.fill $text_c
+#		dbutton_dda_symbol.disabledfill $disabled_c
+#				
+#		dcheckbox.font_family "Font Awesome 6 Pro"
+#		dcheckbox.font_size 18
+#		dcheckbox.fill $text_c
+#		dcheckbox.anchor nw
+#		dcheckbox.justify left
+#		
+#		dcheckbox_label.pos "e 30 0"
+#		dcheckbox_label.anchor w
+#		dcheckbox_label.justify left
+#		
+#		listbox.relief sunken
+#		listbox.borderwidth 1
+#		listbox.foreground $text_c
+#		listbox.background $background_c
+#		listbox.selectforeground $background_c
+#		listbox.selectbackground $text_c
+#		listbox.selectborderwidth 1
+#		listbox.disabledforeground $disabled_c
+#		listbox.selectmode browse
+#		listbox.justify left
+#		
+#		listbox_label.pos "wn -10 0"
+#		listbox_label.anchor ne
+#		listbox_label.justify right
+#		
+#		listbox_label.font_family.section_title "$font"
+#		
+#		scrollbar.orient vertical
+#		scrollbar.width 120
+#		scrollbar.length 300
+#		scrollbar.sliderlength 120
+#		scrollbar.from 0.0
+#		scrollbar.to 1.0
+#		scrollbar.bigincrement 0.2
+#		scrollbar.borderwidth 1
+#		scrollbar.showvalue 0
+#		scrollbar.resolution 0.01
+#		scrollbar.background $text_c
+#		scrollbar.foreground $foreground_c
+#		scrollbar.troughcolor $background_c
+#		scrollbar.relief flat
+#		scrollbar.borderwidth 0
+#		scrollbar.highlightthickness 0
+#		
+#		dscale.orient horizontal
+#		dscale.foreground $text_c
+#		dscale.background $button_label_c
+#		dscale.sliderlength 75
+#		
+#		scale.orient horizontal
+#		scale.foreground $foreground_c
+#		scale.background $text_c
+#		scale.troughcolor $background_c
+#		scale.showvalue 0
+#		scale.relief flat
+#		scale.borderwidth 0
+#		scale.highlightthickness 0
+#		scale.sliderlength 125
+#		scale.width 150
+#		
+#		drater.fill $text_c 
+#		drater.disabledfill $disabled_c
+#		drater.font_size 24
+#		
+#		rect.fill.insight_back_box $background_c
+#		rect.width.insight_back_box 0
+#		line.fill.insight_back_box_shadow $background_c
+#		line.width.insight_back_box_shadow 2
+#		rect.fill.insight_front_box $background_c
+#		rect.width.insight_front_box 0
+#		
+#		graph.plotbackground $background_c
+#		graph.borderwidth 1
+#		graph.background $background_c
+#		graph.plotrelief raised
+#		graph.plotpady 0 
+#		graph.plotpadx 10
+#		
+#		text.bg $background_c
+#		text.foreground $text_c
+#		text.font_size $default_font_size
+#		text.relief flat
+#		text.highlightthickness 1
+#		text.insertbackground $fill_and_insert_c
+#		text.wrap word
+#		
+#		dselector.radius $button_radius
+#		dselector.fill $background_c
+#		dselector.selectedfill $foreground_c
+#		dselector.outline $foreground_c
+#		dselector.selectedoutline $foreground_c
+#		dselector.label_fill $text_c
+#		dselector.label_selectedfill $selected_c
+#
+#		dtoggle.width 120
+#		dtoggle.height 68
+#		dtoggle.outline_width 0
+#		dtoggle.background $foreground_c
+#		dtoggle.foreground $button_label_c
+#		dtoggle.outline $button_label_c
+#		dtoggle.selectedbackground $foreground_c
+#		dtoggle.selectedforeground $selected_c
+#		dtoggle.selectedoutline $selected_c
+#		dtoggle.disabledbackground $disabled_c
+#		dtoggle.disabledforeground $button_label_c
+#		dtoggle.disabledoutline $button_label_c		
+#	}]
+#
+#	# dui_number_editor page styles
+#	dui aspect set -theme DSx2 {
+#		dbutton.shape.dne_clicker outline 
+#		dbutton.bwidth.dne_clicker 120 
+#		dbutton.bheight.dne_clicker 140 
+#		dbutton.fill.dne_clicker {}
+#		dbutton.width.dne_clicker 3
+#		dbutton.anchor.dne_clicker center
+#		dbutton_symbol.pos.dne_clicker {0.5 0.4} 
+#		dbutton_symbol.anchor.dne_clicker center 
+#		dbutton_symbol.font_size.dne_clicker 20
+#		dbutton_label.pos.dne_clicker {0.5 0.8} 
+#		dbutton_label.font_size.dne_clicker 10 
+#		dbutton_label.anchor.dne_clicker center
+#		
+#		dbutton.shape.dne_pad_button outline 
+#		dbutton.bwidth.dne_pad_button 280 
+#		dbutton.bheight.dne_pad_button 220
+#		dbutton.fill.dne_pad_button {}
+#		dbutton.width.dne_pad_button 3
+#		dbutton.anchor.dne_pad_button nw
+#		dbutton_label.pos.dne_pad_button {0.5 0.5} 
+#		dbutton_label.font_family.dne_pad_button notosansuibold 
+#		dbutton_label.font_size.dne_pad_button 24 
+#		dbutton_label.anchor.dne_pad_button center
+#	}
+#	
+#	# DUI confirm dialog styles
+#	dui aspect set -theme DSx2 {
+#		dbutton.shape.dui_confirm_button outline
+#		dbutton.bheight.dui_confirm_button 100
+#		dbutton.width.dui_confirm_button 1
+#		dbutton.arc_offset.dui_confirm_button 20
+#	}
+#
+#	# Menu dialogs
+#	dui aspect set -theme DSx2 [subst {
+#		dtext.font_size.menu_dlg_title +1
+#		dtext.anchor.menu_dlg_title center
+#		dtext.justify.menu_dlg_title center
+#		
+#		dbutton.shape.menu_dlg_close rect 
+#		dbutton.fill.menu_dlg_close {} 
+#		dbutton.symbol.menu_dlg_close xmark
+#		dbutton_symbol.pos.menu_dlg_close {0.5 0.5}
+#		dbutton_symbol.anchor.menu_dlg_close center
+#		dbutton_symbol.justify.menu_dlg_close center
+#		dbutton_symbol.fill.menu_dlg_close $foreground_c
+#		
+#		dbutton.shape.menu_dlg_btn rect
+#		dbutton.fill.menu_dlg_btn {}
+#		dbutton.disabledfill.menu_dlg_btn {}
+#		dbutton_label.pos.menu_dlg_btn {0.25 0.4} 
+#		dbutton_label.anchor.menu_dlg_btn w
+#		dbutton_label.fill.menu_dlg_btn $text_c
+#		dbutton_label.disabledfill.menu_dlg_btn $disabled_c
+#		
+#		dbutton_label1.pos.menu_dlg_btn {0.25 0.78} 
+#		dbutton_label1.anchor.menu_dlg_btn w
+#		dbutton_label1.fill.menu_dlg_btn $text_c
+#		dbutton_label1.disabledfill.menu_dlg_btn $disabled_c
+#		dbutton_label1.font_size.menu_dlg_btn -3
+#		
+#		dbutton_symbol.pos.menu_dlg_btn {0.15 0.5} 
+#		dbutton_symbol.anchor.menu_dlg_btn center
+#		dbutton_symbol.fill.menu_dlg_btn $button_label_c
+#		dbutton_symbol.disabledfill.menu_dlg_btn $disabled_c
+#		
+#		line.fill.menu_dlg_sepline $disabled_c
+#		line.width.menu_dlg_sepline 1
+#		
+#		dtext.fill.menu_dlg $text_c
+#		dtext.disabledfill.menu_dlg $disabled_c
+#		dcheckbox.fill.menu_dlg $text_c
+#		dcheckbox.disabledfill.menu_dlg $disabled_c
+#		dcheckbox_label.fill.menu_dlg $text_c
+#		dcheckbox_label.disabledfill.menu_dlg $disabled_c
+#		
+#		dbutton.shape.menu_dlg outline
+#		dbutton.arc_offset.menu_dlg 25
+#		dbutton.width.menu_dlg 3
+#	}]
 	
 	# History Viewer styles
 #	set smooth $::settings(live_graph_smoothing_technique)
@@ -466,8 +482,9 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	
 #	dui aspect set { dbutton.width 3 }
 	# DYE-specific styles
-	dui aspect set -style dsx_settings [subst {dbutton.shape round dbutton.fill $button_bg_c dbutton.disabledfill $unselected_c
-		dbutton.bwidth 384 dbutton.bheight 192 dbutton.width 0
+	dui aspect set -style dsx_settings [subst {
+		dbutton.shape round dbutton.fill $button_bg_c dbutton.disabledfill $disabled_c
+		dbutton.bwidth 384 dbutton.bheight 192 dbutton.width 0 
 		dbutton_symbol.pos {0.2 0.5} dbutton_symbol.font_size 37 
 		dbutton_label.pos {0.65 0.5} dbutton_label.font_size 17 
 		dbutton_label1.pos {0.65 0.8} dbutton_label1.font_size 16}]
@@ -479,14 +496,14 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 		canvas_anchor nw anchor nw dbutton.arc_offset 12 dbutton_label.pos {0.7 0.5} dbutton_label.font_size 14 
 		dbutton_symbol.font_size 24 dbutton_symbol.pos {0.3 0.5} }
 	
-	set bold_font [dui aspect get dtext font_family -theme default -style bold]
+	#set bold_font [dui aspect get dtext font_family -theme default -style bold]
 	dui aspect set -style dsx_done [list dbutton.shape outline dbutton.bwidth 220 dbutton.bheight 140 dbutton.width 5 \
-		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family $bold_font]
+		dbutton_label.pos {0.5 0.5} dbutton_label.font_size 20 dbutton_label.font_family "$boldfont"]
 	
 	dui aspect set -style dye_main_nav_button [subst { dbutton.shape {} dbutton.fill {} dbutton.disabledfill {}
 		dbutton_symbol.font_size 28 dbutton_symbol.fill $text_c dbutton_symbol.disabledfill $disabled_c}]
 
-	dui aspect set -type dtext -style section_header [list font_family $bold_font font_size 20 fill $foreground_c]
+	dui aspect set -type dtext -style section_header [list font_family "$boldfont" font_size 20 fill $foreground_c]
 	
 	dui aspect set -type dclicker -style dye_double [subst {shape {} fill $background_c 
 		disabledfill $background_c width 0 orient horizontal use_biginc 1 
@@ -535,132 +552,165 @@ proc ::plugins::DYE::DSx2_setup_dui_theme { } {
 	}]
 	
 	### DYE V3 STYLES ####
-	set btn_spacing 100
-	set half_button_width [expr {int(($::dui::pages::DYE_v3::page_coords(panel_width)-$btn_spacing)/2)}]
-	
-	dui aspect set -theme DSx2 [subst { 
-		dbutton.bheight.dyev3_topnav 90 
-		dbutton.shape.dyev3_topnav rect 
-		dbutton.fill.dyev3_topnav grey
-		dbutton_label.font_size.dyev3_topnav -1 
-		dbutton_label.pos.dyev3_topnav {0.5 0.5} 
-		dbutton_label.anchor.dyev3_topnav center 
-		dbutton_label.justify.dyev3_topnav center 
-	
-		dbutton.bwidth.dyev3_nav_button 100 
-		dbutton.bheight.dyev3_nav_button 120
-		dbutton.fill.dyev3_nav_button {} 
-		dbutton.disabledfill.dyev3_nav_button {}
-		dbutton_symbol.pos.dyev3_nav_button {0.5 0.5} 
-		dbutton_symbol.fill.dyev3_nav_button #ccc
-		
-		text.font_size.dyev3_top_panel_text -1
-		text.yscrollbar.dyev3_top_panel_text no
-		text.bg.dyev3_top_panel_text $background_c
-		text.borderwidth.dyev3_top_panel_text 0
-		text.highlightthickness.dyev3_top_panel_text 0
-		text.relief.dyev3_top_panel_text flat
-		
-		text.font_size.dyev3_bottom_panel_text -1
-	
-		dtext.font_family.dyev3_right_panel_title "$font" 
-		dtext.font_size.dyev3_right_panel_title +2
-		dtext.fill.dyev3_right_panel_title $text_c
-		dtext.anchor.dyev3_right_panel_title center
-		dtext.justify.dyev3_right_panel_title center
-		
-		graph.background.dyev3_text_graph $background_c 
-		graph.plotbackground.dyev3_text_graph $background_c 
-		graph.borderwidth.dyev3_text_graph 1 
-		graph.plotrelief.dyev3_text_graph flat
-		
-		dtext.font_size.dyev3_chart_stage_title +2 
-		dtext.anchor.dyev3_chart_stage_title center 
-		dtext.justify.dyev3_chart_stage_title center 
-		dtext.fill.dyev3_chart_stage_title $text_c
-		
-		dtext.anchor.dyev3_chart_stage_colheader center 
-		dtext.justify.dyev3_chart_stage_colheader center
-		
-		dtext.anchor.dyev3_chart_stage_value center
-		dtext.justify.dyev3_chart_stage_value center
-		
-		dtext.anchor.dyev3_chart_stage_comp center
-		dtext.justify.dyev3_chart_stage_comp center
-		dtext.font_size.dyev3_chart_stage_comp -4
-		dtext.fill.dyev3_chart_stage_comp grey
-	
-		line.fill.dyev3_chart_stage_line_sep grey
-
-		dbutton.shape.dyev3_action_half outline
-		dbutton.fill.dyev3_action_half {}
-		dbutton.disabledfill.dyev3_action_half {}
-		dbutton.width.dyev3_action_half [dui platform rescale_x 7]
-		dbutton.outline.dyev3_action_half white
-		dbutton.disabledoutline.dyev3_action_half $disabled_c
-		dbutton.bwidth.dyev3_action_half $half_button_width
-		dbutton.bheight.dyev3_action_half 125
-		dbutton_symbol.pos.dyev3_action_half {0.2 0.5} 
-		dbutton_label.pos.dyev3_action_half {0.6 0.5}
-		dbutton_label.width.dyev3_action_half [expr {$half_button_width-75}]
-		
-		#text_tag.foregroud.which_shot $background_c
-		text_tag.font.dyev3_which_shot "[dui font get $font 13]"
-		text_tag.justify.dyev3_which_shot center
-		
-		text_tag.justify.dyev3_profile_title center
-		
-		text_tag.foreground.dyev3_section $text_c
-		text_tag.font.dyev3_section "[dui font get $font 12]" 
-		text_tag.spacing1.dyev3_section [dui platform rescale_y 15]
-		
-		text_tag.foreground.dyev3_field $text_c 
-		text_tag.lmargin1.dyev3_field [dui platform rescale_x 35] 
-		text_tag.lmargin2.dyev3_field [dui platform rescale_x 45]
-		
-		text_tag.foreground.dyev3_value #4e85f4
-		
-		text_tag.foreground.dyev3_compare grey
-		
-		text_tag.font.dyev3_field_highlighted "[dui font get $font 10]"
-		text_tag.background.dyev3_field_highlighted darkgrey
-		text_tag.font.dyev3_field_nonhighlighted "[dui font get $font 10]"
-		text_tag.background.dyev3_field_nonhighlighted {}	
-	}]	
+#	set btn_spacing 100
+#	set half_button_width [expr {int(($::dui::pages::DYE_v3::page_coords(panel_width)-$btn_spacing)/2)}]
+#	
+#	dui aspect set -theme DSx2 [subst { 
+#		dbutton.bheight.dyev3_topnav 90 
+#		dbutton.shape.dyev3_topnav rect 
+#		dbutton.fill.dyev3_topnav grey
+#		dbutton_label.font_size.dyev3_topnav -1 
+#		dbutton_label.pos.dyev3_topnav {0.5 0.5} 
+#		dbutton_label.anchor.dyev3_topnav center 
+#		dbutton_label.justify.dyev3_topnav center 
+#	
+#		dbutton.bwidth.dyev3_nav_button 100 
+#		dbutton.bheight.dyev3_nav_button 120
+#		dbutton.fill.dyev3_nav_button {} 
+#		dbutton.disabledfill.dyev3_nav_button {}
+#		dbutton_symbol.pos.dyev3_nav_button {0.5 0.5} 
+#		dbutton_symbol.fill.dyev3_nav_button #ccc
+#		
+#		text.font_size.dyev3_top_panel_text -1
+#		text.yscrollbar.dyev3_top_panel_text no
+#		text.bg.dyev3_top_panel_text $background_c
+#		text.borderwidth.dyev3_top_panel_text 0
+#		text.highlightthickness.dyev3_top_panel_text 0
+#		text.relief.dyev3_top_panel_text flat
+#		
+#		text.font_size.dyev3_bottom_panel_text -1
+#	
+#		dtext.font_family.dyev3_right_panel_title "$font" 
+#		dtext.font_size.dyev3_right_panel_title +2
+#		dtext.fill.dyev3_right_panel_title $text_c
+#		dtext.anchor.dyev3_right_panel_title center
+#		dtext.justify.dyev3_right_panel_title center
+#		
+#		graph.background.dyev3_text_graph $background_c 
+#		graph.plotbackground.dyev3_text_graph $background_c 
+#		graph.borderwidth.dyev3_text_graph 1 
+#		graph.plotrelief.dyev3_text_graph flat
+#		
+#		dtext.font_size.dyev3_chart_stage_title +2 
+#		dtext.anchor.dyev3_chart_stage_title center 
+#		dtext.justify.dyev3_chart_stage_title center 
+#		dtext.fill.dyev3_chart_stage_title $text_c
+#		
+#		dtext.anchor.dyev3_chart_stage_colheader center 
+#		dtext.justify.dyev3_chart_stage_colheader center
+#		
+#		dtext.anchor.dyev3_chart_stage_value center
+#		dtext.justify.dyev3_chart_stage_value center
+#		
+#		dtext.anchor.dyev3_chart_stage_comp center
+#		dtext.justify.dyev3_chart_stage_comp center
+#		dtext.font_size.dyev3_chart_stage_comp -4
+#		dtext.fill.dyev3_chart_stage_comp grey
+#	
+#		line.fill.dyev3_chart_stage_line_sep grey
+#
+#		dbutton.shape.dyev3_action_half outline
+#		dbutton.fill.dyev3_action_half {}
+#		dbutton.disabledfill.dyev3_action_half {}
+#		dbutton.width.dyev3_action_half [dui platform rescale_x 7]
+#		dbutton.outline.dyev3_action_half white
+#		dbutton.disabledoutline.dyev3_action_half $disabled_c
+#		dbutton.bwidth.dyev3_action_half $half_button_width
+#		dbutton.bheight.dyev3_action_half 125
+#		dbutton_symbol.pos.dyev3_action_half {0.2 0.5} 
+#		dbutton_label.pos.dyev3_action_half {0.6 0.5}
+#		dbutton_label.width.dyev3_action_half [expr {$half_button_width-75}]
+#		
+#		#text_tag.foregroud.which_shot $background_c
+#		text_tag.font.dyev3_which_shot "[dui font get $font 13]"
+#		text_tag.justify.dyev3_which_shot center
+#		
+#		text_tag.justify.dyev3_profile_title center
+#		
+#		text_tag.foreground.dyev3_section $text_c
+#		text_tag.font.dyev3_section "[dui font get $font 12]" 
+#		text_tag.spacing1.dyev3_section [dui platform rescale_y 15]
+#		
+#		text_tag.foreground.dyev3_field $text_c 
+#		text_tag.lmargin1.dyev3_field [dui platform rescale_x 35] 
+#		text_tag.lmargin2.dyev3_field [dui platform rescale_x 45]
+#		
+#		text_tag.foreground.dyev3_value #4e85f4
+#		
+#		text_tag.foreground.dyev3_compare grey
+#		
+#		text_tag.font.dyev3_field_highlighted "[dui font get $font 10]"
+#		text_tag.background.dyev3_field_highlighted darkgrey
+#		text_tag.font.dyev3_field_nonhighlighted "[dui font get $font 10]"
+#		text_tag.background.dyev3_field_nonhighlighted {}	
+#	}]	
 	
 	
 	# New DSx2-specific styles
-	# dbutton.width.dsx2 0
+	#				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] \
+	#				-label_font_family [skin_font_name font] -label_font_size 11 -label_width 410 -label_pos {0.6 0.5} \
+	#				-label1variable [::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $i]] \
+	#				-label1_pos {50 0.5} -label1_anchor center -label1_justify center \
+	#				-label1_font_family [dui::aspect::get symbol font_family] \
+	#				-label1_font_size [fixed_size 22] -initial_state hidden
+		
+	dui aspect set -theme DSx2 -style dye_fav [subst {
+		dbutton.shape round 
+		dbutton.radius $::skin_button_radius
+		dbutton.fill $::skin_foreground_colour
+		dbutton.disabledfill $::skin_disabled_colour
+		dbutton.bheight 100
+		
+		dbutton_label.pos \{0.6 0.5\}
+		dbutton_label.font_family "[skin_font_name font]"
+		dbutton_label.font_size 11
+		
+		dbutton_label1.pos \{50 0.5\}
+		dbutton_label1.font_family "[dui::aspect::get symbol font_family]"
+		dbutton_label1.font_size [fixed_size 22]
+		dbutton_label1.anchor center
+		dbutton_label1.justify center
+		
+		dbutton.pressfill \{ $::skin_button_press_colour 150 \}
+		dbutton_label.pressfill \{ $::skin_foreground_colour 150 \}
+		dbutton_label1.pressfill \{ $::skin_selected_colour 150 $::skin_selected_colour \}
+	}]
+	
 	dui aspect set -theme DSx2 [subst {
 		dbutton.shape.dsx2 round
 		dbutton.bheight.dsx2 100
 		dbutton.fill.dsx2 $button_bg_c
-		dbutton.pressfill.dsx2 \{ $button_label_c 150 \}
-		dbutton.disabledfill.dsx2 $unselected_c		
+		
+		dbutton.disabledfill.dsx2 $disabled_c
+		dbutton.radius.dsx2 $button_radius
 		
 		dbutton_label.pos.dsx2 {0.5 0.5}
 		dbutton_label.font_size.dsx2 [expr {$default_font_size+1}]
 		dbutton_label.anchor.dsx2 center	
 		dbutton_label.justify.dsx2 center
 		dbutton_label.fill.dsx2 $button_label_c
-		dbutton_label.pressfill.dsx2 \{ $button_bg_c 150 \}
-		dbutton_label.disabledfill.dsx2 $disabled_c
 		
 		dbutton_label1.pos.dsx2 {0.5 0.8}
 		dbutton_label1.font_size.dsx2 [expr {$default_font_size-1}]
 		dbutton_label1.anchor.dsx2 center
 		dbutton_label1.justify.dsx2 center
 		dbutton_label1.fill.dsx2 $button_label_c
-		dbutton_label1.pressfill.dsx2 \{ $selected_c 150 $selected_c \}
 		dbutton_label1.activefill.dsx2 $fill_and_insert_c
-		dbutton_label1.disabledfill.dsx2 $disabled_c
 		
 		dbutton_symbol.pos.dsx2 {0.2 0.5}
 		dbutton_symbol.font_size.dx2 28
 		dbutton_symbol.anchor.dsx2 center
 		dbutton_symbol.justify.dsx2 center
 		dbutton_symbol.fill.dsx2 $button_label_c
-		dbutton_symbol.disabledfill.dsx2 $disabled_c
+		
+		dbutton.pressfill.dsx2 \{ red 150 \}
+		
+		dbutton.pressfill.pressfill \{ $button_label_c 150 \}
+		dbutton_label.pressfill.pressfill \{ $button_bg_c 150 \}
+		dbutton_label.disabledfill.pressfill $button_label_disabled_c
+		dbutton_label1.pressfill.pressfill \{ $selected_c 150 $selected_c \}
+		dbutton_label1.disabledfill.pressfill $button_label_disabled_c
+		dbutton_symbol.disabledfill.pressfill $button_label_disabled_c
 		
 		dbutton.shape.dsx2_pm round_outline
 		dbutton.bheight.dsx2_pm 100
@@ -733,7 +783,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		}
 		
 		dui add dbutton [concat $page dsx2_dye_hv] 50 1370 -bwidth 850 -bheight 190 -anchor nw \
-			-shape rect -fill [dui::aspect::get page bg_color] \
+			-shape {} -fill [dui::aspect::get page bg_color] \
 			-tags launch_dye_last -labelvariable {$::plugins::DYE::settings(last_shot_desc)} \
 			-label_pos {0.0 0.27} -label_anchor nw \
 			-label_justify left -label_font_size -4 -label_fill $::skin_text_colour -label_width 850 \
@@ -757,7 +807,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		
 		# -labelvariable {[::plugins::DYE::shots::define_next_desc]}
 		dui add dbutton [concat $page dsx2_dye_hv] 1950 1370 -bwidth 850 -bheight 190 -anchor ne \
-			-shape rect -fill [dui::aspect::get page bg_color] \
+			-shape {} -fill [dui::aspect::get page bg_color] \
 			-tags launch_dye_next -labelvariable {$::plugins::DYE::settings(next_shot_desc)} \
 			-label_pos {1.0 0.27} -label_anchor ne \
 			-label_justify right -label_font_size -4 -label_fill $::skin_text_colour -label_width 850 \
@@ -1804,7 +1854,8 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_favs {
 
 		dui add dtext $page [expr $x+600] $y -width 1000 -style error -tags disable_dye_favs_msg \
 			-text [translate "When you leave this page, DSx2 favorites will be used instead of DYE favorites. You can re-enable DYE favorites from the DYE settings page."] -initial_state hidden
-
+		
+		
 		# Favorites bar on the right
 		set y -20
 		set x
@@ -1815,20 +1866,27 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_favs {
 				set target_pages [list $page dsx2_dye_edit_fav]
 			}
 			
+			# Because the icon is variable, we can't use -symbol, so we use -labelvariable for it,
+			# and then neeed to define its aspects as they differ from the roundo style defs.
+#			dui add dbutton $target_pages [expr {$::skin(button_x_fav)-75}] [incr y 120] -bwidth [expr 360+150] \
+#				-style roundo -tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
+#				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] \
+#				-label_font_family [skin_font_name font] -label_font_size 11 -label_width 410 -label_pos {0.6 0.5} \
+#				-label1variable [::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $i]] \
+#				-label1_pos {50 0.5} -label1_anchor center -label1_justify center \
+#				-label1_font_family [dui::aspect::get symbol font_family] \
+#				-label1_font_size [fixed_size 22] -initial_state hidden
 			dui add dbutton $target_pages [expr {$::skin(button_x_fav)-75}] [incr y 120] -bwidth [expr 360+150] \
-				-style dsx2 -tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
-				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] \
-				-label_font_size 11 -label_width 495 -label_pos {0.6 0.5} \
+				-style dye_fav -tags [list dye_fav_$i dye_favs] -command [list %NS::load_favorite $i] \
+				-labelvariable [subst {\[::plugins::DYE::favorites::fav_title $i\]}] -label_width 410 \
 				-label1variable [::dui::symbol::get [::plugins::DYE::favorites::fav_icon_symbol $i]] \
-				-label1_pos {50 0.5} -label1_anchor center -label1_justify center \
-				-label1_font_family [dui::aspect::get symbol font_family] -label1_font_size 18 \
 				-initial_state hidden
 			
 			dui add shape rect $target_pages [expr {$::skin(button_x_fav)+25}] [expr {$y+2}] \
 				[expr {$::skin(button_x_fav)+29}] [expr {$y+99}] -width 0 \
-				-fill $::skin_background_colour -tags [list dye_fav_l$i dye_fav_$i* dye_favs] \
-				-initial_state hidden
-
+				-tags [list dye_fav_l$i dye_fav_$i* dye_favs] -initial_state hidden\
+				-fill [dui aspect get page bg_color] -disabledfill [dui aspect get page bg_color]
+				
 			dui add dbutton $page [expr $::skin(button_x_fav)-175] $y -bwidth 100 -bheight 100 -shape "" \
 				-fill $::skin_background_colour -tags [list dye_fav_edit_$i dye_fav_edits] \
 				-command [list ::dui::page::load dsx2_dye_edit_fav $i] \
