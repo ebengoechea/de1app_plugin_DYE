@@ -723,7 +723,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		blt::vector create src_elapsed src_temperature_goal src_temperature_goal10th \
 			src_temperature src_temperature10th src_pressure_goal src_pressure \
 			src_flow_goal src_flow_goal_2x src_flow src_flow_2x \
-			src_weight src_weight_2x src_resistance src_steps
+			src_weight src_weight_2x src_weight_chartable src_resistance src_steps
 		
 		# Add last/source & next shot description buttons to the home page
 		if { [string is true $settings(dsx2_show_shot_desc_on_home)] } {
@@ -1603,11 +1603,15 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		
 		src_weight set $src_shot(graph_espresso_flow_weight)
 		$::home_espresso_graph element configure home_weight -xdata src_elapsed -ydata src_weight
-
+		
 		src_weight_2x set [::struct::list mapfor x $src_shot(graph_espresso_flow_weight) \
 				{round_to_two_digits [expr {2.0 * $x}]}]
 		$::home_espresso_graph element configure home_weight_2x -xdata src_elapsed -ydata src_weight_2x
-		
+
+		src_weight_chartable set [::struct::list mapfor x $src_shot(graph_espresso_weight) \
+				{round_to_two_digits [expr {0.1 * $x}]}] 
+		$::home_espresso_graph element configure home_weight_chartable -xdata src_elapsed -ydata src_weight_chartable
+
 		if {[info exists src_shot(graph_espresso_resistance)]} {
 			src_resistance set $src_shot(graph_espresso_resistance)
 		} else {
@@ -1630,6 +1634,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 			$::home_espresso_graph element configure compare_flow_2x -hide 1
 			$::home_espresso_graph element configure compare_weight -hide 1
 			$::home_espresso_graph element configure compare_weight_2x -hide 1
+			$::home_espresso_graph element configure compare_weight_chartable -hide 1
 			$::home_espresso_graph element configure compare_resistance -hide 1
 			$::home_espresso_graph element configure compare_steps -hide 1
 		}
@@ -1704,6 +1709,12 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_home {
 		$::home_espresso_graph element configure compare_weight_2x -linewidth [rescale_x_skin 4] \
 			-xdata compare_espresso_elapsed -ydata compare_espresso_flow_weight_2x \
 			-hide [expr {$::skin(weight) == 0 || $::skin(show_y2_axis) == 0}]
+
+		compare_espresso_weight_chartable set [::struct::list mapfor x \
+				$comp_shot(graph_espresso_weight) {round_to_two_digits [expr {0.1 * $x}]}] 
+		$::home_espresso_graph element configure compare_weight_chartable -linewidth [rescale_x_skin 4] \
+			-xdata compare_espresso_elapsed -ydata compare_espresso_weight_chartable \
+			-hide [expr {$::skin(flow) == 0 || $::skin(show_y2_axis) == 1}] 
 
 		compare_espresso_resistance set $comp_shot(graph_espresso_resistance)
 		$::home_espresso_graph element configure compare_resistance -linewidth [rescale_x_skin 4] \
@@ -3371,6 +3382,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		::plugins::DYE::pages::dsx2_dye_home::src_pressure variable pressure
 		::plugins::DYE::pages::dsx2_dye_home::src_flow variable flow
 		::plugins::DYE::pages::dsx2_dye_home::src_weight variable weight
+		::plugins::DYE::pages::dsx2_dye_home::src_weight_chartable variable weight_chartable
 		::plugins::DYE::pages::dsx2_dye_home::src_temperature variable temp
 		set src_n [::plugins::DYE::pages::dsx2_dye_home::src_elapsed length]
 
@@ -3455,6 +3467,7 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 			compare_espresso_pressure variable comp_pressure
 			compare_espresso_flow variable comp_flow
 			compare_espresso_flow_weight variable comp_weight
+			compare_espresso_weight_chartable variable comp_weight_chartable
 			compare_espresso_temperature_basket variable comp_temp
 			set comp_n [compare_espresso_pressure length]
 			
