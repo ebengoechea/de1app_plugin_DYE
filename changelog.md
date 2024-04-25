@@ -2,6 +2,12 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.47] - 2024-04-25
+
+### Changed
+ - Fully qualify calls to `define_last_desc` and `define_next_desc` in `check_settings`, as they were failing on first time DYE installs (but not on existing installs).
+ - Add total scale weight (divided by 10, `weight_chartable`) series to DSx2 charts. This also avoids X scale errors that happen when a new series is added on DSx2 main graph but it is not yet supported by DYE.
+ 
 ## [2.46] - 2024-03-10
 
 ### New
