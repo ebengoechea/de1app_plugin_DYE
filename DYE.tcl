@@ -402,10 +402,10 @@ proc ::plugins::DYE::check_settings {} {
 	
 	# Don't use ifexists for this, as it always evaluates the default value, inducing it to be changed
 	if { ![info exists settings(last_shot_desc)] } {
-		define_last_desc
+		shots::define_last_desc
 	}
 	if { ![info exists settings(next_shot_desc)] } {
-		define_next_desc
+		shots::define_next_desc
 	}
 	
 	# Propagation mechanism
