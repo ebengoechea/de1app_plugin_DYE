@@ -1735,6 +1735,8 @@ namespace eval ::plugins::DYE::shots {
 		foreach fn [concat $plugins::DYE::profile_shot_extra_vars [::profile_vars]] {
 			if { [info exists ::settings($fn)] } {
 				set shot_data($fn) $::settings($fn)
+			} else {
+				set shot_data($fn) {}
 			}
 		}
 		
