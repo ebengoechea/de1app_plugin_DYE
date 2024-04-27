@@ -5007,41 +5007,49 @@ namespace eval ::dui::pages::dye_manage_dlg {
 		set y0 [lindex $splits $i]
 		set y1 [lindex $splits [incr i]]
 
-		dui add dtext $page 0.45 [expr {int(($y1-$y0)/2)}] -tags title -style menu_dlg_title -text [translate "Choose a management action:"]
-		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog -style menu_dlg_close \
-			-command dui::page::close_dialog
+		dui add dtext $page 0.45 [expr {int(($y1-$y0)/2)}] -tags title -style menu_dlg_title \
+			-text [translate "Choose a management action:"]
+		dui add dbutton $page [expr {$page_width-120}] 0 $page_width 120 -tags close_dialog \
+			-style menu_dlg_close -command dui::page::close_dialog
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 				
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags delete_shot -style menu_dlg_btn -label [translate "Delete shot"] \
-			-symbol trash -command [list dui::page::close_dialog delete] -label1variable shot_path
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags delete_shot -style menu_dlg_btn \
+			-label [translate "Delete shot"] -symbol trash \
+			-command [list dui::page::close_dialog delete] -label1variable shot_path
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
-		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg -fill red -font_size +3 
+		dui add variable $page 0.5 $y1 -anchor center -justify center -width 0.8 -tags warning_msg \
+			-fill red -font_size +3 
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags export_shot -style menu_dlg_btn -label "[translate {Export shot}]..." \
-			-symbol file-export -command [list dui::page::close_dialog export] -label1variable shot_path
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags export_shot -style menu_dlg_btn \
+			-label "[translate {Export shot}]..." -symbol file-export \
+			-command [list dui::page::close_dialog export] -label1variable shot_path
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags view_profile -style menu_dlg_btn -label "[translate {View text profile}]..." \
-			-symbol signature -command [list dui::page::close_dialog profile] -label1variable {$::dui::pages::DYE::src_data(profile_title)}
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags view_profile -style menu_dlg_btn \
+			-label "[translate {View text profile}]..." -symbol signature \
+			-command [list dui::page::close_dialog profile] \
+			-label1variable {$::dui::pages::DYE::src_data(profile_title)}
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags select_profile -style menu_dlg_btn -label "[translate {Change profile}]..." \
-			-symbol arrow-right-arrow-left -command [list dui::page::close_dialog select_profile]
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags select_profile -style menu_dlg_btn \
+			-label "[translate {Change profile}]..." -symbol arrow-right-arrow-left \
+			-command [list dui::page::close_dialog select_profile]
 		dui add canvas_item line $page 0.01 $y1 0.99 $y1 -style menu_dlg_sepline
 		
 		set y0 $y1
 		set y1 [lindex $splits [incr i]]
-		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags dye_settings -style menu_dlg_btn -label [translate "DYE settings"] \
-			-symbol gears -command [list dui::page::close_dialog settings] 
+		dui add dbutton $page 0.01 $y0 0.99 $y1 -tags dye_settings -style menu_dlg_btn \
+			-label [translate "DYE settings"] -symbol gears \
+			-command [list dui::page::close_dialog settings] 
 	}
 
 	proc load { page_to_hide page_to_show {is_next 0} {shot_path {}} args } {
@@ -5070,6 +5078,10 @@ namespace eval ::dui::pages::dye_manage_dlg {
 		
 		if { !$data(is_next) } {
 			dui item disable dye_manage_dlg select_profile*
+		}
+		
+		if { $::dui::pages::DYE::src_data(profile_title) eq {} } {
+			dui item disable dye_manage_dlg view_profile*
 		}
 	}
 	
