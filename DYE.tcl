@@ -178,7 +178,7 @@ proc ::plugins::DYE::main {} {
 		# doesn't have shots::src_shot available. We put it here which is not as nice, but 
 		# avoids loading the source shot twice.
 		if { [is_DSx2] && \
-				$settings(next_src_clock) != [value_or_default $::settings(espresso_clock) 0] && \
+				$settings(next_src_clock) != [value_or_default ::settings(espresso_clock) 0] && \
 				[string is true $settings(dsx2_update_chart_on_copy)] && \
 				[string is true $settings(dsx2_show_shot_desc_on_home)] } {
 			# Called proc already defines the source shot desc
@@ -4685,8 +4685,10 @@ proc ::dui::pages::DYE::process_manage_dialog { {action {}} } {
 			dui page open_dialog dye_profile_viewer_dlg "array_name" ::dui::pages::DYE::src_data
 		}
 	} elseif { $action eq "select_profile" && $data(describe_which_shot) eq "next" } {
-		dui page open_dialog dye_profile_select_dlg -selected $::settings(profile_filename) -change_settings_on_exit 1 \
-			-bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) -grinder_model $::settings(grinder_model) \
+		dui page open_dialog dye_profile_select_dlg \
+			-selected [value_or_default ::settings(profile_filename)] -change_settings_on_exit 1 \
+			-bean_brand $::settings(bean_brand)  -bean_type $::settings(bean_type) \
+			-grinder_model $::settings(grinder_model) \
 			-return_callback [namespace current]::process_profile_select_dialog
 	} elseif { $action eq "settings" } {
 		dui page open_dialog DYE_settings
@@ -5815,7 +5817,8 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 			append  data(profile_title) " *"
 		}
 		
-		set data(enable_open_ps) [string is true [dui::args::get_option -enable_open_ps [expr {$src_type eq "next"}]]]
+		set data(enable_open_ps) [string is true \
+				[dui::args::get_option -enable_open_ps [expr {$src_type eq "next"}]]]
 				
 		set data(apply_profile_label) [translate {Use profile in next shot}]
 		array set ref_profile {}
@@ -5919,8 +5922,10 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		}
 		
 		dui page close_dialog
-		dui page open_dialog dye_profile_select_dlg -selected $profile(profile_filename) -change_settings_on_exit 1 \
-			-bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) -grinder_model $::settings(grinder_model) \
+		dui page open_dialog dye_profile_select_dlg \
+			-selected $profile(profile_filename) -change_settings_on_exit 1 \
+			-bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) \
+			-grinder_model $::settings(grinder_model) \
 			-return_callback [namespace current]::process_profile_select_dialog
 	}
 	
