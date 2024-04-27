@@ -258,8 +258,10 @@ proc ::plugins::DYE::open_profile_tools { args } {
 	if { [llength $args] > 0 && [lindex $args 0] eq "viewer" } {
 		dui page open_dialog dye_profile_viewer_dlg "next" ""
 	} else {
-		dui page open_dialog dye_profile_select_dlg -selected $::settings(profile_filename) -change_settings_on_exit 1 \
-			-bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) -grinder_model $::settings(grinder_model)
+		dui page open_dialog dye_profile_select_dlg \
+			-selected [value_or_default ::settings(profile_filename)] -change_settings_on_exit 1 \
+			-bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) \
+			-grinder_model $::settings(grinder_model)
 	}
 }
 proc ::plugins::DYE::msg { {flag ""} args } {
@@ -801,7 +803,7 @@ proc ::plugins::DYE::save_espresso_to_history_hook { args } {
 proc ::plugins::DYE::select_profile_enter_hook { select_profile_args args } {
 	if { $::plugins::DYE::favorites::_is_loading } { return }
 	set new_profile [lindex $select_profile_args 1]
-	if { $new_profile ne $::settings(profile_filename) } {
+	if { $new_profile ne [value_or_default ::settings(profile_filename)] } {
 		::plugins::DYE::favorites::clear_selected_if_needed profile_title
 		::plugins::DYE::shots::define_next_desc
 	}
@@ -5935,7 +5937,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		
 		dui page close_dialog
 		dui page open_dialog dye_profile_select_dlg \
-			-selected $profile(profile_filename) -change_settings_on_exit 1 \
+			-selected [value_or_default profile(profile_filename)] -change_settings_on_exit 1 \
 			-bean_brand $::settings(bean_brand) -bean_type $::settings(bean_type) \
 			-grinder_model $::settings(grinder_model) \
 			-return_callback [namespace current]::process_profile_select_dialog
