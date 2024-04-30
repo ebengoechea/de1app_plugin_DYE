@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.48] - 2024-04-30
+
+### Changed
+ - Fix bug that was raising a runtime error when opening DYE on first time app installs where a profile has never been defined (and so `$::settings(profile_title)` doesn't exist yet).
+ - Fix bug that was raising a runtime error when opening or filtering on DYE History Viewer on first time app installs with no shot history. Reported by John Buckmann.
+ - Fix bug when the skin was changed from another skin to DSx2 and then immediately after DYE plugin was enabled. This would run DYE `main` proc "as if under DSx2" but without DSx2 actually loaded, so would fail locating DSx2-only variables and raised a runtime error that it couldn't find `::skin_background_colour`.
+
+ 
 ## [2.47] - 2024-04-25
 
 ### Changed
