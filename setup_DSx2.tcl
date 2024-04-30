@@ -4,13 +4,18 @@ proc ::plugins::DYE::setup_ui_DSx2 {} {
 	variable settings
 	variable widgets
 	
-	DSx2_setup_dui_theme
-	
-	# DSx2 HOME PAGES UI INTEGRATION
-	# Only done on strict DSx2 skin (no fork) and default "Damian" DSx2 theme
-	if { ![is_DSx2 yes "Damian"] } {
+	if { [is_DSx2 yes]  } {
+		DSx2_setup_dui_theme
+		
+		# Only do Home Page UI integration on strict DSx2 skin (no fork) and default "Damian" DSx2 theme
+		if { $::skin(theme) ne "Damian" } {
+			return
+		}
+	} else {
 		return
 	}
+	
+	# DSx2 HOME PAGES UI INTEGRATION
 
 	# NEW PAGES
 	set pages_ns [namespace current]::pages

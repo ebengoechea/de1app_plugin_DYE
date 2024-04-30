@@ -279,9 +279,16 @@ proc ::plugins::DYE::is_DSx2 { {strict 0} {theme {}} } {
 		# Handle DSx2 forks, must be named "DSx2<something>"
 		set isDSx2 [expr {[string range $::settings(skin) 0 3] eq "DSx2"}]
 	}
-		
+	
+	# Verify that a couple of variable that only DSx2 creates exist. This avoids the situation
+	# where a user first changes the skin in the app settings (which changes $::settings(skin))
+	# and then enables DYE before exiting the app (which would run setup_ui_DSx2, and raise
+	# a runtime error for some unexisting DSx2-only variable).
+	set isDSx2 [expr {$isDSx2 && [info exists ::skin(theme)] && \
+			[info exists ::skin_background_colour]}] 
+	
 	if {$isDSx2 && $theme ne {} } {
-		set isDSx2 [expr {[string tolower [string trim [value_or_default ::skin(theme) ""]]] \
+		set isDSx2 [expr {[string tolower [string trim $::skin(theme)]] \
 				eq [string tolower [string trim $theme]]}] 
 	}
 		
