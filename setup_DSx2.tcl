@@ -3262,10 +3262,18 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 
 		# If not specific shots are requested and the source shot is already the currently
 		# loaded base shot, open the page as it was left on last page opening.
-		if { $base_clock == 0 && $comp_clock == 0 && $data(left_clock) == $settings(next_src_clock) } {
+		if { $base_clock == 0 && $comp_clock == 0 && $data(left_clock) > 0 && \
+					$data(left_clock) == $settings(next_src_clock) } {
 			# Ensure a description is selected if on base or comp selection mode
 			right_panel_mode $data(right_panel_mode)
 			::plugins::DYE::pages::dsx2_dye_home::load_home_graph_comp_from {} comp_shot
+		} elseif { $base_clock == 0 && $comp_clock == 0 && $settings(next_src_clock) == 0 } {
+			# Initialization for first time installs
+			set data(n_shots) 0
+			set data(filter_string) ""
+			
+			load_base_shot 0
+			load_comp_shot 0
 		} else {
 			set data(n_shots) 0
 			set data(filter_string) ""
@@ -3302,8 +3310,10 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		}
 
 		# Ensure (if it's shown) that the base clock is always visible
-		catch {
-			$widgets(shots) see shot_${base_clock}.first
+		if { $base_clock > 0 } {
+			catch {
+				$widgets(shots) see shot_${base_clock}.first
+			}
 		}
 		
 		return 1
@@ -3714,7 +3724,18 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable base_shot
 		variable ::plugins::DYE::settings
 		
-		if { $data(left_clock) != $clock || [array size base_shot] == 0 } {
+		if { $clock == 0 || $clock eq {} } {
+			# Initialize filtering variables to avoid runtime errors when filtering on new app
+			# installs with zero shots in the history
+			set data(left_clock) 0
+			array unset base_shot
+			set base_shot(clock) 0
+			set base_shot(bean_brand) {}
+			set base_shot(bean_type) {}
+			set base_shot(grinder_model) {}
+			set base_shot(grinder_setting) {}
+			set base_shot(profile_title) {}
+		} elseif { $data(left_clock) != $clock || [array size base_shot] == 0 } {
 			if { $clock == $settings(next_src_clock) } {
 				array set base_shot [array get ::plugins::DYE::shots::src_shot]
 				#msg "DSX2_DYE_HV LOAD_BASE_SHOT FROM SRC_SHOT, clock=$clock, dt=$base_shot(date_time)"
@@ -3740,7 +3761,18 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable comp_shot
 		variable ::plugins::DYE::settings
 		
-		if { $data(right_clock) != $clock || [array size comp_shot] == 0 } {
+		if { $clock == 0 || $clock eq {} } {
+			# Initialize filtering variables to avoid runtime errors when filtering on new app
+			# installs with zero shots in the history
+			set data(right_clock) 0
+			array unset comp_shot
+			set comp_shot(clock) 0
+			set comp_shot(bean_brand) {}
+			set comp_shot(bean_type) {}
+			set comp_shot(grinder_model) {}
+			set comp_shot(grinder_setting) {}
+			set comp_shot(profile_title) {}
+		} elseif { $data(right_clock) != $clock || [array size comp_shot] == 0 } {
 			if { $clock == $settings(next_src_clock) } {
 				array set comp_shot [array get ::plugins::DYE::shots::src_shot]
 				#msg "DSX2_DYE_HV LOAD_COMP_SHOT FROM SRC_SHOT, clock=$clock, dt=$comp_shot(date_time)"
@@ -3767,6 +3799,13 @@ namespace eval ::plugins::DYE::pages::dsx2_dye_hv {
 		variable shots
 		array set shots {}
 				
+		# These would be better initialized somewhere... but at least prevent runtime errors
+		# on first time installs without any shot to be selected
+#		ifexists base_shot(bean_brand) {}
+#		ifexists base_shot(bean_type) {}
+#		ifexists base_shot(profile_title) {}
+#		ifexists base_shot(grinder_model) {}
+		
 		# BUILD THE QUERY
 		set filter ""
 		if { $data(filter_matching) ne {} } {
