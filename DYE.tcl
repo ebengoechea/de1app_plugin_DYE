@@ -1845,7 +1845,12 @@ namespace eval ::plugins::DYE::shots {
 		
 		foreach sn {elapsed pressure weight flow flow_weight temperature_basket temperature_mix \
 				flow_weight_raw water_dispensed temperature_goal pressure_goal flow_goal state_change} {
-			set shot_data(graph_espresso_$sn) [espresso_$sn range 0 end]
+			# Fix proposed by John B to avoid a runtime error happening in Streamline
+			if {[espresso_$sn length] > 0} {
+				set shot_data(graph_espresso_$sn) [espresso_$sn range 0 end]
+			} else {
+				msg -WARNING [namespace current] get_last: "zero length espresso_$sn skipped"
+			}
 		}
 		
 		# These are zero'ed on get_last, so we define them
