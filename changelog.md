@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.49] - 2024-10-28
+
+### Changed
+ - Correct a problem that was triggering a runtime error on `get_last` from Streamline. Fix by John Buckman.
+ 
+### New
+- Support Streamline & Streamline Dark skins. New DUI themes adapt DYE colors to Streamline / Streamline Dark colors.
+
 ## [2.48] - 2024-04-30
 
 ### Changed

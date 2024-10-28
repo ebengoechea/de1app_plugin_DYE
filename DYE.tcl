@@ -27,7 +27,7 @@ try {
 namespace eval ::plugins::DYE {
 	variable author "Enrique Bengoechea"
 	variable contact "enri.bengoechea@gmail.com"
-	variable version 2.48
+	variable version 2.49
 	variable github_repo ebengoechea/de1app_plugin_DYE
 	variable name [translate "Describe Your Espresso"]
 	variable description [translate "Describe any shot from your history and plan the next one: beans, grinder, extraction parameters and people. Also includes beans-based workflow, shot history management, and profile tools."]
@@ -312,7 +312,7 @@ DE1app v$::plugins::DYE::min_de1app_version [translate {or higher}]\r\r[translat
 	regsub -all { } $::settings(skin) "_" skin
 	if { $skin ni {Insight Insight_Dark DSx MimojaCafe DSx2 Streamline Streamline_Dark} } {
 		#plugins disable DYE
-		msg -WARN [translate "The 'Describe Your Espresso' (DYE) plugin does not yet work with your skin. Please reach out to your skins author"]
+		msg -WARN [translate "The 'Describe Your Espresso' (DYE) plugin does not yet work with your skin. Please reach out to your skin author"]
 		#return
 	}
 	
