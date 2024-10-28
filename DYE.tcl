@@ -96,6 +96,8 @@ proc ::plugins::DYE::main {} {
 	}
 	if { $skin eq "Insight_Dark" } {
 		source "[plugin_directory]/DYE/setup_Insight.tcl"
+	} elseif { $skin eq "Streamline_Dark" } {
+		source "[plugin_directory]/DYE/setup_Streamline.tcl"
 	}
 	
 	if { [namespace which -command "::plugins::DYE::setup_ui_$skin"] ne "" } {
@@ -103,6 +105,8 @@ proc ::plugins::DYE::main {} {
 	} 
 	if { $skin eq "Insight_Dark" } {
 		::plugins::DYE::setup_ui_Insight
+	} elseif { $skin eq "Streamline_Dark" } {
+		::plugins::DYE::setup_ui_Streamline
 	}
 	
 	# Buttons in the "default" skin (profile setting pages)
@@ -306,7 +310,7 @@ DE1app v$::plugins::DYE::min_de1app_version [translate {or higher}]\r\r[translat
 	}	
 	
 	regsub -all { } $::settings(skin) "_" skin
-	if { $skin ni {Insight Insight_Dark DSx MimojaCafe DSx2} } {
+	if { $skin ni {Insight Insight_Dark DSx MimojaCafe DSx2 Streamline Streamline_Dark} } {
 		#plugins disable DYE
 		msg -WARN [translate "The 'Describe Your Espresso' (DYE) plugin does not yet work with your skin. Please reach out to your skins author"]
 		#return
@@ -8885,7 +8889,7 @@ proc ::dui::pages::DYE_settings::setup {} {
 	
 	# RIGHT SIDE, BOTTOM
 	set y 925
-	dui add dtext $page $x $y -text [translate "Insight / MimojaCafe / DSx2 skin options"] -style section_header
+	dui add dtext $page $x $y -text [translate "DYE button default action"] -style section_header
 	
 	dui add dtext $page $x [incr y 100] -tags default_launch_action_label -width 725 \
 		-text [translate "Default action when DYE icon or button is tapped"]
