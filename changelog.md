@@ -2,6 +2,14 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.50] - 2024-11-10
+
+### Changed
+ - Add `setup_Streamline.tcl` to the list of files or else it's not included in the distribution.
+ 
+### New
+- DYE Overview & Redesign document added to the repo.
+
 ## [2.49] - 2024-10-28
 
 ### Changed
