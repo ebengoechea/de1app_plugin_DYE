@@ -5,6 +5,7 @@ setup_Insight_Dark.tcl
 setup_DSx.tcl
 setup_DSx2.tcl
 setup_MimojaCafe.tcl
+setup_Streamline.tcl
 README.md
 changelog.md
 1280x800/bean_DSx.png
