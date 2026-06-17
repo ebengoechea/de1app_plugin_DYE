@@ -3682,13 +3682,17 @@ proc ::dui::pages::DYE::select_beans_callback { clock bean_desc item_type } {
 		
 	if { $bean_desc ne "" } {
 		set db ::plugins::SDB::get_db
-		db eval {SELECT bean_brand,bean_type,roast_date,roast_level,bean_notes FROM V_shot \
+		db eval {SELECT bean_brand,bean_type,roast_date,roast_level,bean_notes,grinder_dose_weight,drink_weight,grinder_model,grinder_setting FROM V_shot \
 				WHERE clock=(SELECT MAX(clock) FROM V_shot WHERE bean_desc=$bean_desc)} {
 			set data(bean_brand) $bean_brand
 			set data(bean_type) $bean_type
 			set data(roast_date) $roast_date
 			set data(roast_level) $roast_level
 			set data(bean_notes) $bean_notes
+			set data(grinder_dose_weight) $grinder_dose_weight
+			set data(drink_weight) $drink_weight
+			set data(grinder_model) $grinder_model
+			set data(grinder_setting) $grinder_setting
 		}
 	}
 }
