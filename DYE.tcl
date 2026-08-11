@@ -1842,7 +1842,7 @@ namespace eval ::plugins::DYE::shots {
 		set shot_data(date_time) [clock format $::settings(espresso_clock) -format {%a, %d %b %Y   %I:%M%p}]
 		set shot_data(local_time) [clock format $::settings(espresso_clock)]
 		set shot_data(extraction_time) [round_to_one_digits [expr {[espresso_elapsed range end end]+0.05}]]
-		set shot_data(path) "[homedir]/history/"
+		set shot_data(path) "[data_directory]/history/"
 		set shot_data(filename) "[clock format $::settings(espresso_clock) -format "%Y%m%dT%H%M%S"].shot" 
 #		set shot_data(file_modification_date) [file mtime $path]
 		set shot_data(repository_links) $::settings(repository_links)
@@ -2361,7 +2361,7 @@ namespace eval ::plugins::DYE::profiles {
 	# TBD: Should this be ::profile::saved_profiles_list instead (original, until 25/2/24)?
 	proc saved_list { {file_stats 1} } {
 		set file_stats [string is true $file_stats]
-		set files [lsort -dictionary [glob -nocomplain -directory "[homedir]/profiles/" *.tcl]]
+		set files [lsort -dictionary [glob -nocomplain -directory "[data_directory]/profiles/" *.tcl]]
 		
 		set filename {}
 		set fullpath {}
@@ -4474,7 +4474,7 @@ proc  ::dui::pages::DYE::process_export_shot_confirm { {choice {}} } {
 		set ext "shot"
 	}
 	
-	set target_file [tk_getSaveFile -title [translate {Choose the export path}] -initialdir "[homedir]/history/export/" \
+	set target_file [tk_getSaveFile -title [translate {Choose the export path}] -initialdir "[data_directory]/history/export/" \
 		-initialfile "[file rootname [file tail $data(path)]].$ext" -defaultextension ".$ext"]
 	
 	dui say [translate "Exporting shot"]
@@ -5847,7 +5847,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		set data(apply_profile_label) [translate {Use profile in next shot}]
 		array set ref_profile {}
 
-		if { ![file exists "[homedir]/profiles/$profile(profile_filename).tcl"] } {
+		if { ![file exists "[data_directory]/profiles/$profile(profile_filename).tcl"] } {
 			set data(compare_to) "none"
 			set data(show_diff_only) 0
 		}		
@@ -5871,7 +5871,7 @@ namespace eval ::dui::pages::dye_profile_viewer_dlg {
 		}
 		dui item enable_or_disable $data(enable_open_ps) $page_to_show change_profile*
 		
-		if { ![file exists "[homedir]/profiles/$profile(profile_filename).tcl"] } {
+		if { ![file exists "[data_directory]/profiles/$profile(profile_filename).tcl"] } {
 			dui item disable $page_to_show {compare_to_2* show_diff_only*}
 		}
 		
@@ -8594,10 +8594,10 @@ proc ::dui::pages::DYE_fsh::apply_to_left_side {} {
 			set ::DSx_filtered_past_shot_files {} 
 			for { set i 0 } { $i < [llength $data(matched_shots)] } { incr i 2 } {
 				set fn [lindex $data(matched_shots) $i]
-				if { [file exists "[homedir]/history/${fn}.shot"] } {
+				if { [file exists "[data_directory]/history/${fn}.shot"] } {
 					lappend ::DSx_filtered_past_shot_files $fn
 					lappend ::DSx_filtered_past_shot_files "${fn}.shot"
-				} elseif { [file exists "[homedir]/history_archive/${fn}.shot"] } {
+				} elseif { [file exists "[data_directory]/history_archive/${fn}.shot"] } {
 					lappend ::DSx_filtered_past_shot_files $fn
 					lappend ::DSx_filtered_past_shot_files "${fn}.shot"
 				}
@@ -8634,10 +8634,10 @@ proc ::dui::pages::DYE_fsh::apply_to_right_side {} {
 			set ::DSx_filtered_past_shot_files2 {} 
 			for { set i 0 } { $i < [llength $data(matched_shots)] } { incr i 2 } {
 				set fn [lindex $data(matched_shots) $i]
-				if { [file exists "[homedir]/history/${fn}.shot"] } {
+				if { [file exists "[data_directory]/history/${fn}.shot"] } {
 					lappend ::DSx_filtered_past_shot_files2 $fn
 					lappend ::DSx_filtered_past_shot_files2 "${fn}.shot"
-				} elseif { [file exists "[homedir]/history_archive/${fn}.shot"] } {
+				} elseif { [file exists "[data_directory]/history_archive/${fn}.shot"] } {
 					lappend ::DSx_filtered_past_shot_files2 $fn
 					lappend ::DSx_filtered_past_shot_files2 "${fn}.shot"
 				}
